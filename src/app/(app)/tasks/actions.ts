@@ -13,7 +13,7 @@ export type FormState = { error?: string } | undefined;
 function taskFields(form: FormData) {
   const status = str(form, "status");
   const priority = str(form, "priority");
-  const rel = str(form, "rel"); // "customer:12" | "lead:5" | null
+  const rel = str(form, "rel"); // "customer:12" | "lead:5" | "project:3" | null
   const [relType, relId] = rel ? rel.split(":") : [null, null];
   return {
     name: str(form, "name") ?? "",
@@ -22,8 +22,9 @@ function taskFields(form: FormData) {
     priority: (TASK_PRIORITIES.some((p) => p.value === priority) ? priority : "medium") as Enums<"task_priority">,
     start_date: str(form, "start_date"),
     due_date: str(form, "due_date"),
-    rel_type: (relType === "customer" || relType === "lead" ? relType : null) as "customer" | "lead" | null,
+    rel_type: (relType === "customer" || relType === "lead" || relType === "project" ? relType : null) as "customer" | "lead" | "project" | null,
     rel_id: relType && relId ? Number(relId) : null,
+    milestone_id: relType === "project" ? (Number(str(form, "milestone_id")) || null) : null,
   };
 }
 
@@ -48,7 +49,7 @@ export async function createTask(_: FormState, form: FormData): Promise<FormStat
     await logActivity(supabase, `added task "${fields.name}"`, { type: fields.rel_type, id: fields.rel_id });
   revalidatePath("/tasks");
   const back = relPath(fields);
-  redirect(back ? `${back}${fields.rel_type === "customer" ? "?tab=tasks" : ""}` : "/tasks");
+  redirect(back ? `${back}${fields.rel_type !== "lead" ? "?tab=tasks" : ""}` : "/tasks");
 }
 
 export async function updateTask(id: number, _: FormState, form: FormData): Promise<FormState> {
@@ -72,7 +73,7 @@ export async function updateTask(id: number, _: FormState, form: FormData): Prom
 export async function setTaskStatus(id: number, status: Enums<"task_status">) {
   const { supabase } = await assertAccess("tasks", "edit");
   const { data: t } = await supabase.from("tasks").update({ status }).eq("id", id).select("name, rel_type, rel_id").single();
-  if (t && status === "complete" && (t.rel_type === "customer" || t.rel_type === "lead") && t.rel_id)
+  if (t && status === "complete" && (t.rel_type === "customer" || t.rel_type === "lead" || t.rel_type === "project") && t.rel_id)
     await logActivity(supabase, `completed task "${t.name}"`, { type: t.rel_type, id: t.rel_id });
   revalidatePath("/tasks");
   revalidatePath("/dashboard");

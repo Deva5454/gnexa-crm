@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Building2, ListChecks, Magnet, Search, UserRound } from "lucide-react";
+import { BookOpen, Building2, FileSignature, FolderKanban, LifeBuoy, ListChecks, Magnet, Search, UserRound } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Search" };
 export default async function SearchPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const raw = (await searchParams).q ?? "";
   const q = searchTerm(raw);
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
 
   if (!q) {
     return (
@@ -30,12 +30,23 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     supabase.from("leads").select("id, name, company").or(`name.ilike.${like},company.ilike.${like},email.ilike.${like},phone.ilike.${like}`).limit(10),
     supabase.from("tasks").select("id, name").ilike("name", like).limit(10),
   ]);
+  const none = Promise.resolve({ data: null });
+  const [{ data: projects }, { data: tickets }, { data: contracts }, { data: articles }] = await Promise.all([
+    can("projects", "view") ? supabase.from("projects").select("id, name, customer:customers(company)").ilike("name", like).limit(10) : none,
+    can("support", "view") ? supabase.from("tickets").select("id, subject, status").ilike("subject", like).limit(10) : none,
+    can("contracts", "view") ? supabase.from("contracts").select("id, subject, customer:customers(company)").ilike("subject", like).limit(10) : none,
+    can("knowledge_base", "view") ? supabase.from("kb_articles").select("id, title, slug").or(`title.ilike.${like},body.ilike.${like}`).limit(10) : none,
+  ]);
 
   const groups = [
     { title: "Customers", icon: Building2, items: (customers ?? []).map((c) => ({ key: `c${c.id}`, href: `/customers/${c.id}`, title: c.company, sub: c.city })) },
     { title: "Contacts", icon: UserRound, items: (contacts ?? []).map((c) => ({ key: `p${c.id}`, href: `/customers/${c.customer_id}?tab=contacts`, title: [c.first_name, c.last_name].filter(Boolean).join(" "), sub: [c.email, c.customer?.company].filter(Boolean).join(" · ") })) },
     { title: "Leads", icon: Magnet, items: (leads ?? []).map((l) => ({ key: `l${l.id}`, href: `/leads/${l.id}`, title: l.name, sub: l.company })) },
-    { title: "Tasks", icon: ListChecks, items: (tasks ?? []).map((t) => ({ key: `t${t.id}`, href: `/tasks/${t.id}`, title: t.name, sub: null })) },
+    { title: "Tasks", icon: ListChecks, items: (tasks ?? []).map((t) => ({ key: `t${t.id}`, href: `/tasks/${t.id}`, title: t.name, sub: null as string | null | undefined })) },
+    { title: "Projects", icon: FolderKanban, items: (projects ?? []).map((p) => ({ key: `pr${p.id}`, href: `/projects/${p.id}`, title: p.name, sub: p.customer?.company })) },
+    { title: "Tickets", icon: LifeBuoy, items: (tickets ?? []).map((t) => ({ key: `tk${t.id}`, href: `/support/${t.id}`, title: t.subject, sub: t.status.replace("_", " ") })) },
+    { title: "Contracts", icon: FileSignature, items: (contracts ?? []).map((c) => ({ key: `ct${c.id}`, href: `/contracts/${c.id}`, title: c.subject, sub: c.customer?.company })) },
+    { title: "Help articles", icon: BookOpen, items: (articles ?? []).map((a) => ({ key: `kb${a.id}`, href: `/knowledge-base/${a.slug}`, title: a.title, sub: null })) },
   ].filter((g) => g.items.length);
 
   return (

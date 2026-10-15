@@ -1,7 +1,7 @@
 import type { Json } from "@/lib/database.types";
 
-export type Module = "customers" | "leads" | "tasks" | "sales" | "expenses";
-export const MODULES: Module[] = ["customers", "leads", "tasks", "sales", "expenses"];
+export type Module = "customers" | "leads" | "tasks" | "sales" | "expenses" | "projects" | "contracts" | "support" | "knowledge_base";
+export const MODULES: Module[] = ["customers", "leads", "tasks", "sales", "expenses", "projects", "contracts", "support", "knowledge_base"];
 /** view < edit (create & change) < full (also delete) */
 export type Level = "view" | "edit" | "full";
 
@@ -11,7 +11,7 @@ export type Access = Record<Module, Level | "none">;
 
 /** Resolve a staff member's access from the admin flag and their role's `permissions` JSON. */
 export function resolveAccess(isAdmin: boolean, rolePermissions: Json | null | undefined): Access {
-  if (isAdmin) return { customers: "full", leads: "full", tasks: "full", sales: "full", expenses: "full" };
+  if (isAdmin) return Object.fromEntries(MODULES.map((m) => [m, "full"])) as Access;
   const perms = (rolePermissions && typeof rolePermissions === "object" && !Array.isArray(rolePermissions) ? rolePermissions : {}) as Record<string, Json>;
   const pick = (m: Module): Level | "none" => {
     const v = perms[m];

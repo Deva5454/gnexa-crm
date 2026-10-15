@@ -65,7 +65,7 @@ export async function updateStatus(form: FormData) {
   revalidatePath("/leads");
 }
 
-const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses", "payment_modes", "expense_categories", "taxes"] as const;
+const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses", "payment_modes", "expense_categories", "taxes", "contract_types", "ticket_departments", "kb_groups"] as const;
 type SimpleTable = (typeof SIMPLE)[number];
 
 export async function addNamed(form: FormData) {

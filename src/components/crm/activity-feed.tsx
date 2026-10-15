@@ -2,7 +2,7 @@ import { Activity } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 
-export async function ActivityFeed({ relType, relId, limit = 15 }: { relType?: "customer" | "lead"; relId?: number; limit?: number }) {
+export async function ActivityFeed({ relType, relId, limit = 15 }: { relType?: "customer" | "lead" | "project" | "ticket" | "contract"; relId?: number; limit?: number }) {
   const { supabase } = await requireStaff();
   let q = supabase
     .from("activity_log")

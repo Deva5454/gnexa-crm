@@ -35,9 +35,23 @@ A calm, modern CRM: customers, leads and tasks in one workspace. Feature set mod
 
 New role permissions: **Sales** (Manager full, Executive edit, Support view) and **Expenses** (Manager full, Executive edit, Support none).
 
+## Phase 3 — Projects, contracts & support
+
+| Module | What's included |
+| --- | --- |
+| Projects | Customer, status, fixed-price or hourly billing, team, deadline; progress from tasks; tabs for tasks (grouped by milestone), milestones, timesheets, files and discussion |
+| Timesheets | Log hours per task (billable or not); **Invoice hours** turns unbilled time into a draft invoice (one line per task); fixed-price projects invoice the agreed amount |
+| Files | Upload to private Supabase Storage (bucket `project-files`, 10 MB per file); downloads use short-lived signed links |
+| Contracts | Type, value, term, terms text; draft → sent → signed (signer & date recorded); active / expiring (30 days) / expired; one-click **Renew**; PDF with signature blocks |
+| Support | Numbered tickets with department, priority, assignee, project; conversation thread with customer messages, staff replies and private internal notes; status follows the conversation; suggested help articles |
+| Knowledge base | Categories and articles with search, view counts and “Was this helpful?” votes |
+| Elsewhere | Dashboard delivery strip, customer **Projects & support** tab, project tasks on the Tasks page, global search across all of the above, Setup → Contracts & support |
+
+New role permissions: **Projects**, **Contracts**, **Support**, **Knowledge base** — Sales Manager full; Sales Executive edits
+projects/contracts/tickets and reads the knowledge base; Support runs tickets and the knowledge base and views the rest.
+
 ## Roadmap
 
-- **Phase 3 — Projects & support:** projects (milestones, timesheets, files, discussions), contracts with e-sign, support tickets, knowledge base
 - **Phase 4 — Portal & utilities:** customer portal, calendar, announcements, goals, reports, fine-grained role permissions, email templates
 
 ## Local development
@@ -63,6 +77,10 @@ SQL migrations live in `supabase/migrations/` and have already been applied to t
 6. `0006_demo_finance.sql` — finance demo data; `reset_demo_data()` now restores it too
 
 Migrations 5 and 6 are run together in the Supabase SQL Editor (one transaction).
+7. `0007_projects_support.sql` — projects, milestones, timesheets, files (+ storage bucket), contracts, tickets, knowledge base, RLS
+8. `0008_demo_work.sql` — Phase 3 demo data; `reset_demo_data()` restores it too
+
+Migrations 7 and 8 are likewise run together in the SQL Editor.
 
 ### Demo roles
 

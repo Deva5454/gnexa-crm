@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { Building2, FileSignature, ListChecks, Magnet, Menu, Plus, Receipt, ReceiptText, Search } from "lucide-react";
+import { Building2, FileSignature, FolderKanban, LifeBuoy, ListChecks, Magnet, Menu, Plus, Receipt, ReceiptText, Search } from "lucide-react";
 import { RoleSwitcher } from "./role-switcher";
 
-export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean; sales: boolean; expenses: boolean };
+export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean; sales: boolean; expenses: boolean; projects: boolean; support: boolean };
 
 export function Topbar({
   name,
@@ -38,6 +38,8 @@ export function Topbar({
     { href: "/sales/invoices/new", label: "Invoice", icon: ReceiptText, ok: canCreate.sales },
     { href: "/sales/proposals/new", label: "Proposal", icon: FileSignature, ok: canCreate.sales },
     { href: "/expenses/new", label: "Expense", icon: Receipt, ok: canCreate.expenses },
+    { href: "/projects/new", label: "Project", icon: FolderKanban, ok: canCreate.projects },
+    { href: "/support/new", label: "Ticket", icon: LifeBuoy, ok: canCreate.support },
   ].filter((i) => i.ok);
 
   return (

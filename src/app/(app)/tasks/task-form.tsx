@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
@@ -20,7 +20,10 @@ export function TaskForm({
   staff,
   customers,
   leads,
+  projects,
+  milestones,
   defaultRel,
+  defaultMilestone,
   defaultAssignee,
   cancelHref,
 }: {
@@ -30,13 +33,18 @@ export function TaskForm({
   staff: Pick<Tables<"profiles">, "id" | "full_name">[];
   customers: RelOption[];
   leads: RelOption[];
+  projects: RelOption[];
+  milestones: { id: number; name: string; project: string }[];
   defaultRel?: string;
+  defaultMilestone?: number;
   defaultAssignee?: string;
   cancelHref: string;
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const t = task;
-  const rel = t?.rel_type && t.rel_id ? `${t.rel_type}:${t.rel_id}` : (defaultRel ?? "");
+  const initialRel = t?.rel_type && t.rel_id ? `${t.rel_type}:${t.rel_id}` : (defaultRel ?? "");
+  const [rel, setRel] = useState(initialRel);
+  const projectMilestones = milestones.filter((m) => m.project === rel);
   const assigned = new Set(assigneeIds ?? (defaultAssignee ? [defaultAssignee] : []));
   const today = new Date().toISOString().slice(0, 10);
 
@@ -70,7 +78,7 @@ export function TaskForm({
             <input id="due_date" name="due_date" type="date" defaultValue={t?.due_date ?? ""} className="field" />
           </Field>
           <Field label="Related to" htmlFor="rel" className="sm:col-span-2">
-            <select id="rel" name="rel" defaultValue={rel} className="field">
+            <select id="rel" name="rel" value={rel} onChange={(e) => setRel(e.target.value)} className="field">
               <option value="">— Nothing —</option>
               {customers.length > 0 && (
                 <optgroup label="Customers">
@@ -82,8 +90,21 @@ export function TaskForm({
                   {leads.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </optgroup>
               )}
+              {projects.length > 0 && (
+                <optgroup label="Projects">
+                  {projects.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+                </optgroup>
+              )}
             </select>
           </Field>
+          {projectMilestones.length > 0 && (
+            <Field label="Milestone" htmlFor="milestone_id" className="sm:col-span-2">
+              <select id="milestone_id" name="milestone_id" defaultValue={t?.milestone_id ?? defaultMilestone ?? ""} className="field">
+                <option value="">— No milestone —</option>
+                {projectMilestones.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
             <textarea id="description" name="description" rows={5} defaultValue={t?.description ?? ""} className="field" />
           </Field>

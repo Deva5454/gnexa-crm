@@ -1,4 +1,7 @@
 import {
+  BarChart3,
+  BookOpen,
+  Globe,
   Building2,
   CreditCard,
   FileSignature,
@@ -43,11 +46,19 @@ export const NAV: { section: string; items: NavItem[] }[] = [
     ],
   },
   {
+    section: "Delivery",
+    items: [
+      { href: "/projects", label: "Projects", icon: FolderKanban, module: "projects" },
+      { href: "/contracts", label: "Contracts", icon: ScrollText, module: "contracts" },
+      { href: "/support", label: "Support", icon: LifeBuoy, module: "support" },
+      { href: "/knowledge-base", label: "Knowledge base", icon: BookOpen, module: "knowledge_base" },
+    ],
+  },
+  {
     section: "Coming next",
     items: [
-      { href: "#", label: "Projects", icon: FolderKanban, soon: true },
-      { href: "#", label: "Contracts", icon: ScrollText, soon: true },
-      { href: "#", label: "Support", icon: LifeBuoy, soon: true },
+      { href: "#", label: "Client portal", icon: Globe, soon: true },
+      { href: "#", label: "Reports", icon: BarChart3, soon: true },
     ],
   },
   {

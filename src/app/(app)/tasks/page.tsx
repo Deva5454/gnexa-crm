@@ -56,16 +56,20 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   // Resolve related record names in two batched queries
   const custIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "customer").map((t) => t.rel_id!))];
   const leadIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "lead").map((t) => t.rel_id!))];
-  const [{ data: custs }, { data: lds }] = await Promise.all([
+  const projIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "project").map((t) => t.rel_id!))];
+  const [{ data: custs }, { data: lds }, { data: projs }] = await Promise.all([
     custIds.length ? supabase.from("customers").select("id, company").in("id", custIds) : Promise.resolve({ data: [] as { id: number; company: string }[] }),
     leadIds.length ? supabase.from("leads").select("id, name").in("id", leadIds) : Promise.resolve({ data: [] as { id: number; name: string }[] }),
+    projIds.length ? supabase.from("projects").select("id, name").in("id", projIds) : Promise.resolve({ data: [] as { id: number; name: string }[] }),
   ]);
   const relName = (t: { rel_type: string | null; rel_id: number | null }) =>
     t.rel_type === "customer"
       ? custs?.find((c) => c.id === t.rel_id)?.company
       : t.rel_type === "lead"
         ? lds?.find((l) => l.id === t.rel_id)?.name
-        : undefined;
+        : t.rel_type === "project"
+          ? projs?.find((p) => p.id === t.rel_id)?.name
+          : undefined;
 
   const href = (patch: Partial<SP>) => {
     const next = new URLSearchParams();

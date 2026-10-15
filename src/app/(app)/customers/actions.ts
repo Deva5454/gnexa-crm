@@ -77,6 +77,11 @@ export async function deleteCustomer(form: FormData) {
   const id = Number(str(form, "id"));
   const { count } = await supabase.from("sales_docs").select("id", { count: "exact", head: true }).eq("customer_id", id);
   if (count) throw new Error("This customer has invoices or other sales documents. Mark them inactive instead of deleting.");
+  const [{ count: projects }, { count: contracts }] = await Promise.all([
+    supabase.from("projects").select("id", { count: "exact", head: true }).eq("customer_id", id),
+    supabase.from("contracts").select("id", { count: "exact", head: true }).eq("customer_id", id),
+  ]);
+  if (projects || contracts) throw new Error("This customer has projects or contracts. Mark them inactive instead of deleting.");
   await supabase.from("tasks").delete().eq("rel_type", "customer").eq("rel_id", id);
   await supabase.from("notes").delete().eq("rel_type", "customer").eq("rel_id", id);
   const { error } = await supabase.from("customers").delete().eq("id", id);

@@ -15,6 +15,10 @@ const MODULES: { key: Module; label: string }[] = [
   { key: "tasks", label: "Tasks" },
   { key: "sales", label: "Sales (proposals, estimates, invoices, payments)" },
   { key: "expenses", label: "Expenses" },
+  { key: "projects", label: "Projects & timesheets" },
+  { key: "contracts", label: "Contracts" },
+  { key: "support", label: "Support tickets" },
+  { key: "knowledge_base", label: "Knowledge base" },
 ];
 const LEVELS: { key: Level; label: string }[] = [
   { key: "view", label: "View" },
