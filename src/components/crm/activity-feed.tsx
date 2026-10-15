@@ -28,7 +28,7 @@ export async function ActivityFeed({ relType, relId, limit = 15 }: { relType?: "
             <p className="text-slate-700">
               <b className="font-semibold text-slate-900">{a.actor?.full_name ?? "System"}</b> {a.description}
             </p>
-            <p className="text-xs text-slate-400">{timeAgo(a.created_at)}</p>
+            <p className="text-xs text-slate-400" suppressHydrationWarning>{timeAgo(a.created_at)}</p>
           </div>
         </li>
       ))}

@@ -28,7 +28,9 @@ export default async function CustomerPage({
 }) {
   const id = Number((await params).id);
   const tab = (await searchParams).tab ?? "profile";
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
+  const canEdit = can("customers", "edit");
+  const canDelete = can("customers", "full");
 
   const [{ data: c }, { data: contacts }, notesCount, tasksCount, { data: lead }] = await Promise.all([
     supabase.from("customers").select("*, group:customer_groups(name)").eq("id", id).maybeSingle(),
@@ -65,20 +67,26 @@ export default async function CustomerPage({
         }
         actions={
           <>
+            {canEdit && (
             <form action={toggleCustomerActive}>
               <input type="hidden" name="id" value={c.id} />
               <input type="hidden" name="active" value={c.is_active ? "0" : "1"} />
               <Button variant="secondary" size="sm">Mark {c.is_active ? "inactive" : "active"}</Button>
             </form>
-            <LinkButton href={`${base}/edit`} variant="secondary" size="sm">
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </LinkButton>
+            )}
+            {canEdit && (
+              <LinkButton href={`${base}/edit`} variant="secondary" size="sm">
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </LinkButton>
+            )}
+            {canDelete && (
             <ConfirmForm action={deleteCustomer} message={`Delete ${c.company}? Contacts, notes and linked tasks are deleted too.`}>
               <input type="hidden" name="id" value={c.id} />
               <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50">
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </Button>
             </ConfirmForm>
+            )}
           </>
         }
       />
@@ -118,7 +126,7 @@ export default async function CustomerPage({
 
       {tab === "contacts" && (
         <Card>
-          <CardHeader title="Contacts" description="People at this company" action={<ContactForm customerId={id} />} />
+          <CardHeader title="Contacts" description="People at this company" action={canEdit ? <ContactForm customerId={id} /> : undefined} />
           {!contacts?.length ? (
             <p className="px-5 py-8 text-center text-sm text-slate-400">No contacts yet.</p>
           ) : (
@@ -142,18 +150,20 @@ export default async function CustomerPage({
                       </div>
                     </div>
                     <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 text-xs">
-                      {!p.is_primary && (
+                      {canEdit && !p.is_primary && (
                         <form action={makePrimaryContact}>
                           <input type="hidden" name="id" value={p.id} />
                           <input type="hidden" name="customer_id" value={id} />
                           <button className="font-medium text-slate-500 hover:text-brand-700">Make primary</button>
                         </form>
                       )}
-                      <ConfirmForm action={deleteContact} message={`Remove ${name}?`} className="ml-auto">
-                        <input type="hidden" name="id" value={p.id} />
-                        <input type="hidden" name="customer_id" value={id} />
-                        <button className="font-medium text-slate-400 hover:text-rose-600">Remove</button>
-                      </ConfirmForm>
+                      {canDelete && (
+                        <ConfirmForm action={deleteContact} message={`Remove ${name}?`} className="ml-auto">
+                          <input type="hidden" name="id" value={p.id} />
+                          <input type="hidden" name="customer_id" value={id} />
+                          <button className="font-medium text-slate-400 hover:text-rose-600">Remove</button>
+                        </ConfirmForm>
+                      )}
                     </div>
                   </li>
                 );

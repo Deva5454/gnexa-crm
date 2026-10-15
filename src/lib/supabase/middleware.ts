@@ -2,8 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/database.types";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/auth"];
-
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -26,13 +24,12 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Demo mode: visitors without a session are signed in automatically (as the admin persona)
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
-
-  if (!user && !isPublic) {
+  if (!user && path !== "/demo") {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = path === "/" ? "" : `?next=${encodeURIComponent(path)}`;
+    url.pathname = "/demo";
+    url.search = path === "/" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
     return NextResponse.redirect(url);
   }
 

@@ -1,22 +1,50 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { allows, resolveAccess, type Level, type Module } from "@/lib/permissions";
 
-/** Current signed-in, active staff member. Redirects otherwise. Cached per request. */
+/** Current signed-in, active staff member with their role's access. Cached per request. */
 export const requireStaff = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/demo");
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  if (!profile || !profile.is_active) redirect("/pending");
-  return { supabase, user, profile };
+  const { data } = await supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).single();
+  // Demo mode: a deactivated or unknown account falls back to the admin persona
+  if (!data || !data.is_active) redirect("/demo?as=admin");
+  const { role, ...profile } = data;
+  const access = resolveAccess(profile.is_admin, role?.permissions);
+  const roleName = profile.is_admin ? "Administrator" : (role?.name ?? "Staff");
+  const can = (module: Module, level: Level) => allows(access, module, level);
+  return { supabase, user, profile, access, roleName, can };
 });
 
 export async function requireAdmin() {
   const ctx = await requireStaff();
   if (!ctx.profile.is_admin) redirect("/dashboard");
   return ctx;
+}
+
+/** Page guard: bounce to `fallback` when the current role lacks the level. */
+export async function requireAccess(module: Module, level: Level, fallback: string) {
+  const ctx = await requireStaff();
+  if (!ctx.can(module, level)) redirect(fallback);
+  return ctx;
+}
+
+/** Server-action guard: throws a readable error the error boundary shows. */
+export async function assertAccess(module: Module, level: Level) {
+  const ctx = await requireStaff();
+  if (!ctx.can(module, level)) {
+    const verb = level === "full" ? "delete" : level === "edit" ? "change" : "view";
+    throw new Error(`The ${ctx.roleName} role can't ${verb} ${module}.`);
+  }
+  return ctx;
+}
+
+export function denied(roleName: string, module: Module, level: Level) {
+  const verb = level === "full" ? "delete" : level === "edit" ? "create or change" : "view";
+  return { error: `The ${roleName} role can't ${verb} ${module}.` };
 }

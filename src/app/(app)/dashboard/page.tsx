@@ -16,7 +16,7 @@ function greeting() {
 }
 
 export default async function DashboardPage() {
-  const { supabase, profile } = await requireStaff();
+  const { supabase, profile, can, roleName } = await requireStaff();
   const today = new Date().toISOString().slice(0, 10);
   const since = new Date(Date.now() - 13 * 86400_000);
   since.setHours(0, 0, 0, 0);
@@ -89,7 +89,10 @@ export default async function DashboardPage() {
         <div className="absolute -bottom-24 right-40 h-56 w-56 rounded-full bg-accent-500/30 blur-3xl" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-sm text-slate-400">{new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-sm text-slate-400">
+              {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} ·{" "}
+              <span className="font-medium text-accent-400">Viewing as {roleName}</span>
+            </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
               {greeting()}, {profile.full_name.split(" ")[0] || "there"} 👋
             </h1>
@@ -98,8 +101,12 @@ export default async function DashboardPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/leads/new" className="rounded-lg bg-white/10 px-3 py-2 text-sm font-medium backdrop-blur hover:bg-white/20">+ Lead</Link>
-            <Link href="/tasks/new" className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-ink-900 hover:bg-slate-100">+ Task</Link>
+            {can("leads", "edit") && (
+              <Link href="/leads/new" className="rounded-lg bg-white/10 px-3 py-2 text-sm font-medium backdrop-blur hover:bg-white/20">+ Lead</Link>
+            )}
+            {can("tasks", "edit") && (
+              <Link href="/tasks/new" className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-ink-900 hover:bg-slate-100">+ Task</Link>
+            )}
           </div>
         </div>
       </div>

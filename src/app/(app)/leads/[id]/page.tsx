@@ -20,7 +20,9 @@ export const metadata: Metadata = { title: "Lead" };
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
+  const canEdit = can("leads", "edit");
+  const canConvert = canEdit && can("customers", "edit");
   const [{ data: l }, { data: settings }] = await Promise.all([
     supabase
       .from("leads")
@@ -66,7 +68,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         }
         actions={
           <>
-            {!l.converted_customer_id && (
+            {canConvert && !l.converted_customer_id && (
               <form action={convertLead}>
                 <input type="hidden" name="id" value={l.id} />
                 <SubmitButton variant="accent" size="sm" pendingText="Converting…">
@@ -74,13 +76,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 </SubmitButton>
               </form>
             )}
-            {flagForm("is_lost", l.is_lost, "lost", XCircle)}
-            {flagForm("is_junk", l.is_junk, "junk", Ban)}
-            <LinkButton href={`/leads/${id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</LinkButton>
-            <ConfirmForm action={deleteLead} message={`Delete lead ${l.name}?`}>
-              <input type="hidden" name="id" value={l.id} />
-              <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" /></Button>
-            </ConfirmForm>
+            {canEdit && flagForm("is_lost", l.is_lost, "lost", XCircle)}
+            {canEdit && flagForm("is_junk", l.is_junk, "junk", Ban)}
+            {canEdit && (
+              <LinkButton href={`/leads/${id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</LinkButton>
+            )}
+            {can("leads", "full") && (
+              <ConfirmForm action={deleteLead} message={`Delete lead ${l.name}?`}>
+                <input type="hidden" name="id" value={l.id} />
+                <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50" aria-label="Delete lead"><Trash2 className="h-3.5 w-3.5" /></Button>
+              </ConfirmForm>
+            )}
           </>
         }
       />

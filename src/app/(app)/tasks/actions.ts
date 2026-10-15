@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
-import { requireStaff } from "@/lib/auth";
+import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import type { Enums } from "@/lib/database.types";
 import { str } from "@/lib/utils";
@@ -32,7 +32,8 @@ function relPath(t: { rel_type: string | null; rel_id: number | null }) {
 }
 
 export async function createTask(_: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("tasks", "edit")) return denied(roleName, "tasks", "edit");
   const fields = taskFields(form);
   if (!fields.name) return { error: "Task name is required." };
   if (fields.start_date && fields.due_date && fields.due_date < fields.start_date)
@@ -51,7 +52,8 @@ export async function createTask(_: FormState, form: FormData): Promise<FormStat
 }
 
 export async function updateTask(id: number, _: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("tasks", "edit")) return denied(roleName, "tasks", "edit");
   const fields = taskFields(form);
   if (!fields.name) return { error: "Task name is required." };
   if (fields.start_date && fields.due_date && fields.due_date < fields.start_date)
@@ -68,7 +70,7 @@ export async function updateTask(id: number, _: FormState, form: FormData): Prom
 }
 
 export async function setTaskStatus(id: number, status: Enums<"task_status">) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("tasks", "edit");
   const { data: t } = await supabase.from("tasks").update({ status }).eq("id", id).select("name, rel_type, rel_id").single();
   if (t && status === "complete" && (t.rel_type === "customer" || t.rel_type === "lead") && t.rel_id)
     await logActivity(supabase, `completed task "${t.name}"`, { type: t.rel_type, id: t.rel_id });
@@ -79,7 +81,7 @@ export async function setTaskStatus(id: number, status: Enums<"task_status">) {
 }
 
 export async function deleteTask(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("tasks", "full");
   const id = Number(str(form, "id"));
   await supabase.from("tasks").delete().eq("id", id);
   revalidatePath("/tasks");

@@ -23,7 +23,17 @@ export type KanbanStatus = { id: number; name: string; color: string };
 
 type Move = { id: number; statusId: number; position: number };
 
-export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanStatus[]; leads: KanbanLead[]; currency: string }) {
+export function LeadsKanban({
+  statuses,
+  leads,
+  currency,
+  canEdit,
+}: {
+  statuses: KanbanStatus[];
+  leads: KanbanLead[];
+  currency: string;
+  canEdit: boolean;
+}) {
   const [, startTransition] = useTransition();
   const [dragging, setDragging] = useState<number | null>(null);
   const [overCol, setOverCol] = useState<number | null>(null);
@@ -41,7 +51,7 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
     const id = dragging;
     setDragging(null);
     setOverCol(null);
-    if (id == null) return;
+    if (id == null || !canEdit) return;
     const col = columns.find((c) => c.id === statusId)!.items.filter((l) => l.id !== id);
     const idx = beforeId == null ? col.length : col.findIndex((l) => l.id === beforeId);
     const prev = col[idx - 1]?.position;
@@ -58,6 +68,11 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
   return (
     <>
       {error && <div className="mb-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</div>}
+      {!canEdit && (
+        <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+          View-only: your role can&apos;t move leads between stages.
+        </div>
+      )}
       <div className="-mx-4 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
         {columns.map((col) => {
           const total = col.items.reduce((s, l) => s + (l.value ?? 0), 0);
@@ -65,6 +80,7 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
             <section
               key={col.id}
               onDragOver={(e) => {
+                if (!canEdit || dragging == null) return;
                 e.preventDefault();
                 setOverCol(col.id);
               }}
@@ -87,7 +103,7 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
                 {col.items.map((l) => (
                   <article
                     key={l.id}
-                    draggable
+                    draggable={canEdit}
                     onDragStart={(e) => {
                       e.dataTransfer.effectAllowed = "move";
                       setDragging(l.id);
@@ -98,7 +114,8 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
                       drop(col.id, l.id);
                     }}
                     className={cn(
-                      "cursor-grab rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md active:cursor-grabbing",
+                      "rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md",
+                      canEdit && "cursor-grab active:cursor-grabbing",
                       dragging === l.id && "opacity-40",
                     )}
                   >
@@ -116,7 +133,7 @@ export function LeadsKanban({ statuses, leads, currency }: { statuses: KanbanSta
                     </div>
                     <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 text-[11px] text-slate-400">
                       <span>{l.source ?? "No source"}</span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1" suppressHydrationWarning>
                         <Clock className="h-3 w-3" />
                         {timeAgo(l.last_contact_at ?? l.created_at)}
                       </span>

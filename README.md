@@ -11,7 +11,7 @@ A calm, modern CRM: customers, leads and tasks in one workspace. Feature set mod
 
 | Module | What's included |
 | --- | --- |
-| Auth & staff | Email/password sign-up & sign-in, email confirmation, first user becomes admin, later sign-ups wait for admin approval, profile & password change |
+| Demo mode & roles | No login screen — visitors are signed in automatically as the Administrator. A **role switcher** in the top bar swaps between four personas (Administrator, Sales Manager, Sales Executive, Support); each role's permissions are enforced on the server and the UI hides what it can't do. Admins can **reset the demo data** from Setup. |
 | Dashboard | Pipeline value, active customers, win rate, overdue tasks, pipeline-by-stage chart, 14-day new-lead trend, leads by source, my open tasks, team activity |
 | Customers | List with search / status / group filters and pagination, profile, multiple contacts with primary contact, notes, linked tasks, activity log, active/inactive, delete |
 | Leads | Drag-and-drop kanban board + list view, filters (mine, source, lost, junk), deal value, owner, notes, linked tasks, mark lost/junk, **one-click convert to customer** (creates customer + primary contact, moves notes & tasks) |
@@ -42,6 +42,20 @@ SQL migrations live in `supabase/migrations/` and have already been applied to t
 1. `0001_core_sales.sql` — tables, enums, triggers, RLS policies, `convert_lead()` RPC, seed data
 2. `0002_harden_functions.sql` — moves helper functions into a non-exposed `private` schema
 3. `0003_fk_indexes.sql` — covering indexes for foreign keys
+4. `0004_demo_mode.sql` — demo persona accounts, sample data, `reset_demo_data()` — **run this once in the Supabase
+   SQL Editor** (it writes to the `auth` schema). Safe to re-run.
+
+### Demo roles
+
+| Persona | Role | Customers | Leads | Tasks | Setup |
+| --- | --- | --- | --- | --- | --- |
+| Aarav Mehta | Administrator | full | full | full | ✓ |
+| Priya Nair | Sales Manager | full | full | full | — |
+| Rohan Kulkarni | Sales Executive | create & edit | create & edit | create & edit | — |
+| Sneha Iyer | Support | view | view | create & edit | — |
+
+"full" includes delete. Role permissions come from the `roles.permissions` column, so editing a role changes what its
+persona can do.
 
 **Security model:** every table has RLS. Signed-out visitors can't read anything; signed-in but un-approved users
 see only their own profile; active staff have full access to customers, leads and tasks; only admins can change
@@ -56,6 +70,6 @@ configuration or other people's access. A database trigger stops anyone from mak
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://vnypwxkruxczjbaesfye.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = the publishable key from `.env.example`
 4. Deploy.
-5. In Supabase → **Authentication → URL Configuration**, set **Site URL** to `https://gnexa-crm.vercel.app` and add
-   `https://gnexa-crm.vercel.app/auth/callback` to **Redirect URLs** (otherwise confirmation emails link to localhost).
-6. Open the site and **sign up first** — the first account becomes the administrator.
+5. Run `supabase/migrations/0004_demo_mode.sql` in the Supabase SQL Editor (creates the demo personas and data).
+6. Optional: Supabase → **Authentication → Sign In / Providers** → turn off **Allow new users to sign up** — the demo
+   doesn't use sign-ups.

@@ -21,7 +21,8 @@ type SP = { q?: string; status?: string; scope?: string; due?: string; page?: st
 export default async function TasksPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const { supabase, profile } = await requireStaff();
+  const { supabase, profile, can } = await requireStaff();
+  const canEdit = can("tasks", "edit");
   const today = new Date().toISOString().slice(0, 10);
   const mine = sp.scope !== "all";
 
@@ -80,7 +81,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <PageHeader
         title="Tasks"
         description={mine ? "Everything assigned to you." : "Everything across the team."}
-        actions={<LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>}
+        actions={canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -107,7 +108,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         </div>
 
         {!tasks?.length ? (
-          <EmptyState icon={ListChecks} title="Nothing here" description={sp.status ? "No tasks with this status." : "You're all caught up."} action={<LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>} />
+          <EmptyState icon={ListChecks} title="Nothing here" description={sp.status ? "No tasks with this status." : "You're all caught up."} action={canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>} />
         ) : (
           <>
             <div className="overflow-x-auto">

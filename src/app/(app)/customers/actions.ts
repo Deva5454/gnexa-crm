@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
-import { requireStaff } from "@/lib/auth";
+import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string } | undefined;
@@ -25,7 +25,8 @@ function customerFields(form: FormData) {
 }
 
 export async function createCustomer(_: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("customers", "edit")) return denied(roleName, "customers", "edit");
   const fields = customerFields(form);
   if (!fields.company) return { error: "Company name is required." };
 
@@ -50,7 +51,8 @@ export async function createCustomer(_: FormState, form: FormData): Promise<Form
 }
 
 export async function updateCustomer(id: number, _: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("customers", "edit")) return denied(roleName, "customers", "edit");
   const fields = customerFields(form);
   if (!fields.company) return { error: "Company name is required." };
   const { error } = await supabase.from("customers").update(fields).eq("id", id);
@@ -61,7 +63,7 @@ export async function updateCustomer(id: number, _: FormState, form: FormData): 
 }
 
 export async function toggleCustomerActive(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("customers", "edit");
   const id = Number(str(form, "id"));
   const active = str(form, "active") === "1";
   await supabase.from("customers").update({ is_active: active }).eq("id", id);
@@ -71,7 +73,7 @@ export async function toggleCustomerActive(form: FormData) {
 }
 
 export async function deleteCustomer(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("customers", "full");
   const id = Number(str(form, "id"));
   await supabase.from("tasks").delete().eq("rel_type", "customer").eq("rel_id", id);
   await supabase.from("notes").delete().eq("rel_type", "customer").eq("rel_id", id);
@@ -81,7 +83,8 @@ export async function deleteCustomer(form: FormData) {
 }
 
 export async function addContact(_: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("customers", "edit")) return denied(roleName, "customers", "edit");
   const customerId = Number(str(form, "customer_id"));
   const first = str(form, "first_name");
   if (!first) return { error: "First name is required." };
@@ -103,7 +106,7 @@ export async function addContact(_: FormState, form: FormData): Promise<FormStat
 }
 
 export async function makePrimaryContact(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("customers", "edit");
   const id = Number(str(form, "id"));
   const customerId = Number(str(form, "customer_id"));
   await supabase.from("contacts").update({ is_primary: false }).eq("customer_id", customerId);
@@ -112,7 +115,7 @@ export async function makePrimaryContact(form: FormData) {
 }
 
 export async function deleteContact(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("customers", "full");
   const id = Number(str(form, "id"));
   const customerId = Number(str(form, "customer_id"));
   await supabase.from("contacts").delete().eq("id", id);

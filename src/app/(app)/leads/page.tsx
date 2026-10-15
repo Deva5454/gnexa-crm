@@ -19,7 +19,8 @@ type SP = { view?: string; q?: string; mine?: string; source?: string; show?: st
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const view = sp.view === "list" ? "list" : "board";
-  const { supabase, profile } = await requireStaff();
+  const { supabase, profile, can } = await requireStaff();
+  const canEdit = can("leads", "edit");
 
   let query = supabase
     .from("leads")
@@ -71,9 +72,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <List className="h-3.5 w-3.5" /> List
               </Link>
             </div>
-            <LinkButton href="/leads/new">
-              <Plus className="h-4 w-4" /> New lead
-            </LinkButton>
+            {canEdit && (
+              <LinkButton href="/leads/new">
+                <Plus className="h-4 w-4" /> New lead
+              </LinkButton>
+            )}
           </>
         }
       />
@@ -96,6 +99,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
       {view === "board" ? (
         <LeadsKanban
+          canEdit={canEdit}
           currency={currency}
           statuses={statuses ?? []}
           leads={rows.map((l) => ({
@@ -114,7 +118,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       ) : (
         <Card>
           {!rows.length ? (
-            <EmptyState icon={Magnet} title="No leads here" description="Capture a new prospect to get your pipeline moving." action={<LinkButton href="/leads/new"><Plus className="h-4 w-4" /> New lead</LinkButton>} />
+            <EmptyState icon={Magnet} title="No leads here" description="Capture a new prospect to get your pipeline moving." action={canEdit && <LinkButton href="/leads/new"><Plus className="h-4 w-4" /> New lead</LinkButton>} />
           ) : (
             <div className="overflow-x-auto">
               <table className="table-base">

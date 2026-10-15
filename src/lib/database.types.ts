@@ -148,6 +148,7 @@ export type Database = {
     Views: { [_ in never]: never };
     Functions: {
       convert_lead: { Args: { p_lead_id: number }; Returns: number };
+      reset_demo_data: { Args: Record<PropertyKey, never>; Returns: undefined };
     };
     Enums: {
       task_priority: "low" | "medium" | "high" | "urgent";

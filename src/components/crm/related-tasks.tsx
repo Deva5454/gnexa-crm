@@ -8,7 +8,7 @@ import { taskPriority, taskStatus } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
 
 export async function RelatedTasks({ relType, relId }: { relType: "customer" | "lead"; relId: number }) {
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
   const { data: tasks } = await supabase
     .from("tasks")
     .select("id, name, status, priority, due_date")
@@ -23,9 +23,11 @@ export async function RelatedTasks({ relType, relId }: { relType: "customer" | "
       <CardHeader
         title="Tasks"
         action={
-          <LinkButton href={`/tasks/new?rel_type=${relType}&rel_id=${relId}`} size="sm" variant="secondary">
-            <Plus className="h-3.5 w-3.5" /> Add task
-          </LinkButton>
+          can("tasks", "edit") && (
+            <LinkButton href={`/tasks/new?rel_type=${relType}&rel_id=${relId}`} size="sm" variant="secondary">
+              <Plus className="h-3.5 w-3.5" /> Add task
+            </LinkButton>
+          )
         }
       />
       {!tasks?.length ? (

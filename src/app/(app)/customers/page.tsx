@@ -19,7 +19,8 @@ type SP = { q?: string; group?: string; status?: string; page?: string };
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
+  const canEdit = can("customers", "edit");
 
   let query = supabase
     .from("customers")
@@ -63,9 +64,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         title="Customers"
         description="Companies you sell to, with their people and history."
         actions={
-          <LinkButton href="/customers/new">
-            <Plus className="h-4 w-4" /> New customer
-          </LinkButton>
+          canEdit && (
+            <LinkButton href="/customers/new">
+              <Plus className="h-4 w-4" /> New customer
+            </LinkButton>
+          )
         }
       />
 
@@ -119,7 +122,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
             icon={Building2}
             title={term || sp.group || sp.status ? "No customers match" : "No customers yet"}
             description={term ? "Try a different search." : "Add your first customer or convert a lead."}
-            action={!term && <LinkButton href="/customers/new"><Plus className="h-4 w-4" /> New customer</LinkButton>}
+            action={!term && canEdit && <LinkButton href="/customers/new"><Plus className="h-4 w-4" /> New customer</LinkButton>}
           />
         ) : (
           <>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
-import { requireStaff } from "@/lib/auth";
+import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string } | undefined;
@@ -28,7 +28,8 @@ function leadFields(form: FormData) {
 }
 
 export async function createLead(_: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("leads", "edit")) return denied(roleName, "leads", "edit");
   const fields = leadFields(form);
   if (!fields.name) return { error: "Lead name is required." };
   const { data, error } = await supabase
@@ -43,7 +44,8 @@ export async function createLead(_: FormState, form: FormData): Promise<FormStat
 }
 
 export async function updateLead(id: number, _: FormState, form: FormData): Promise<FormState> {
-  const { supabase } = await requireStaff();
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("leads", "edit")) return denied(roleName, "leads", "edit");
   const fields = leadFields(form);
   if (!fields.name) return { error: "Lead name is required." };
   const { error } = await supabase.from("leads").update(fields).eq("id", id);
@@ -54,8 +56,9 @@ export async function updateLead(id: number, _: FormState, form: FormData): Prom
 }
 
 /** Kanban drop: new status and a fractional position between neighbours. */
-export async function moveLead(id: number, statusId: number, position: number) {
-  const { supabase } = await requireStaff();
+export async function moveLead(id: number, statusId: number, position: number): Promise<{ error?: string }> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("leads", "edit")) return denied(roleName, "leads", "edit");
   const { data: before } = await supabase.from("leads").select("name, status_id").eq("id", id).single();
   const { error } = await supabase.from("leads").update({ status_id: statusId, position }).eq("id", id);
   if (error) return { error: error.message };
@@ -69,7 +72,7 @@ export async function moveLead(id: number, statusId: number, position: number) {
 }
 
 export async function setLeadFlag(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("leads", "edit");
   const id = Number(str(form, "id"));
   const flag = str(form, "flag");
   const value = str(form, "value") === "1";
@@ -82,7 +85,8 @@ export async function setLeadFlag(form: FormData) {
 }
 
 export async function convertLead(form: FormData) {
-  const { supabase } = await requireStaff();
+  await assertAccess("customers", "edit");
+  const { supabase } = await assertAccess("leads", "edit");
   const id = Number(str(form, "id"));
   const { data: customerId, error } = await supabase.rpc("convert_lead", { p_lead_id: id });
   if (error) throw new Error(error.message);
@@ -93,7 +97,7 @@ export async function convertLead(form: FormData) {
 }
 
 export async function deleteLead(form: FormData) {
-  const { supabase } = await requireStaff();
+  const { supabase } = await assertAccess("leads", "full");
   const id = Number(str(form, "id"));
   await supabase.from("tasks").delete().eq("rel_type", "lead").eq("rel_id", id);
   await supabase.from("notes").delete().eq("rel_type", "lead").eq("rel_id", id);

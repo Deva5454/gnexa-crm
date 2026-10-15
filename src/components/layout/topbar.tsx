@@ -1,36 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Building2, ChevronDown, ListChecks, LogOut, Magnet, Menu, Plus, Search, UserRound } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
-import { createClient } from "@/lib/supabase/client";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { Building2, ListChecks, Magnet, Menu, Plus, Search } from "lucide-react";
+import { RoleSwitcher } from "./role-switcher";
 
-function useClickAway(onAway: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
+export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean };
+
+export function Topbar({
+  name,
+  roleName,
+  personaKey,
+  canCreate,
+  onMenu,
+}: {
+  name: string;
+  roleName: string;
+  personaKey?: string;
+  canCreate: CreateRights;
+  onMenu: () => void;
+}) {
+  const [createOpen, setCreateOpen] = useState(false);
+  const createRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onAway();
+      if (createRef.current && !createRef.current.contains(e.target as Node)) setCreateOpen(false);
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
-  }, [onAway]);
-  return ref;
-}
+  }, []);
 
-export function Topbar({ name, email, onMenu }: { name: string; email: string; onMenu: () => void }) {
-  const router = useRouter();
-  const [createOpen, setCreateOpen] = useState(false);
-  const [userOpen, setUserOpen] = useState(false);
-  const createRef = useClickAway(() => setCreateOpen(false));
-  const userRef = useClickAway(() => setUserOpen(false));
-
-  const signOut = async () => {
-    await createClient().auth.signOut();
-    router.replace("/login");
-    router.refresh();
-  };
+  const createItems = [
+    { href: "/customers/new", label: "Customer", icon: Building2, ok: canCreate.customers },
+    { href: "/leads/new", label: "Lead", icon: Magnet, ok: canCreate.leads },
+    { href: "/tasks/new", label: "Task", icon: ListChecks, ok: canCreate.tasks },
+  ].filter((i) => i.ok);
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur sm:px-6">
@@ -49,68 +54,38 @@ export function Topbar({ name, email, onMenu }: { name: string; email: string; o
       </form>
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="relative" ref={createRef}>
-          <button
-            onClick={() => setCreateOpen((o) => !o)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-aurora px-3 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Create</span>
-          </button>
-          {createOpen && (
-            <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-pop">
-              {[
-                { href: "/customers/new", label: "Customer", icon: Building2 },
-                { href: "/leads/new", label: "Lead", icon: Magnet },
-                { href: "/tasks/new", label: "Task", icon: ListChecks },
-              ].map((i) => (
-                <Link
-                  key={i.href}
-                  href={i.href}
-                  onClick={() => setCreateOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
-                >
-                  <i.icon className="h-4 w-4" />
-                  New {i.label.toLowerCase()}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="relative" ref={userRef}>
-          <button
-            onClick={() => setUserOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-slate-100"
-          >
-            <Avatar name={name} />
-            <span className="hidden max-w-[140px] truncate text-sm font-medium text-slate-700 md:inline">{name}</span>
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          </button>
-          {userOpen && (
-            <div className="absolute right-0 mt-2 w-60 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-pop">
-              <div className="border-b border-slate-100 px-4 py-3">
-                <div className="truncate text-sm font-semibold text-slate-900">{name}</div>
-                <div className="truncate text-xs text-slate-500">{email}</div>
+        <span className="hidden rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-600 xl:inline">
+          Demo
+        </span>
+        {createItems.length > 0 && (
+          <div className="relative" ref={createRef}>
+            <button
+              onClick={() => setCreateOpen((o) => !o)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-aurora px-3 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Create</span>
+            </button>
+            {createOpen && (
+              <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-pop">
+                {createItems.map((i) => (
+                  <Link
+                    key={i.href}
+                    href={i.href}
+                    onClick={() => setCreateOpen(false)}
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
+                  >
+                    <i.icon className="h-4 w-4" />
+                    New {i.label.toLowerCase()}
+                  </Link>
+                ))}
               </div>
-              <div className="p-1">
-                <Link
-                  href="/profile"
-                  onClick={() => setUserOpen(false)}
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                >
-                  <UserRound className="h-4 w-4" /> My profile
-                </Link>
-                <button
-                  onClick={signOut}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50"
-                >
-                  <LogOut className="h-4 w-4" /> Sign out
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+        <Suspense>
+          <RoleSwitcher name={name} roleName={roleName} personaKey={personaKey} />
+        </Suspense>
       </div>
     </header>
   );

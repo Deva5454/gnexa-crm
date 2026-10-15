@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Task" };
 
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const { supabase } = await requireStaff();
+  const { supabase, can } = await requireStaff();
   const [{ data: task }, { data: assignees }, opts] = await Promise.all([
     supabase.from("tasks").select("*, creator:profiles!tasks_created_by_fkey(full_name)").eq("id", id).maybeSingle(),
     supabase.from("task_assignees").select("staff_id").eq("task_id", id),
@@ -40,10 +40,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         title={task.name}
         description={`Created by ${task.creator?.full_name ?? "someone"} · ${formatDateTime(task.created_at)}${task.completed_at ? ` · Completed ${formatDateTime(task.completed_at)}` : ""}`}
         actions={
-          <ConfirmForm action={deleteTask} message="Delete this task?">
-            <input type="hidden" name="id" value={task.id} />
-            <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
-          </ConfirmForm>
+          can("tasks", "full") && (
+            <ConfirmForm action={deleteTask} message="Delete this task?">
+              <input type="hidden" name="id" value={task.id} />
+              <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50"><Trash2 className="h-3.5 w-3.5" /> Delete</Button>
+            </ConfirmForm>
+          )
         }
       />
       <TaskForm

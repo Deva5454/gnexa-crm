@@ -72,3 +72,11 @@ export async function deleteNamed(form: FormData) {
   await supabase.from(table).delete().eq("id", id);
   revalidatePath("/settings", "layout");
 }
+
+export async function resetDemoData(): Promise<SettingsState> {
+  const { supabase } = await requireAdmin();
+  const { error } = await supabase.rpc("reset_demo_data");
+  if (error) return { error: error.message };
+  revalidatePath("/", "layout");
+  return { ok: "Demo data restored — customers, leads, tasks and notes are back to their starting state." };
+}

@@ -18,13 +18,3 @@ export async function updateProfile(_: ProfileState, form: FormData): Promise<Pr
   revalidatePath("/", "layout");
   return { ok: "Profile updated." };
 }
-
-export async function changePassword(_: ProfileState, form: FormData): Promise<ProfileState> {
-  const { supabase } = await requireStaff();
-  const pw = str(form, "password");
-  if (!pw || pw.length < 8) return { error: "Password must be at least 8 characters." };
-  if (pw !== str(form, "confirm")) return { error: "Passwords don't match." };
-  const { error } = await supabase.auth.updateUser({ password: pw });
-  if (error) return { error: error.message };
-  return { ok: "Password changed." };
-}

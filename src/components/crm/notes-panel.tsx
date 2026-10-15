@@ -32,7 +32,7 @@ export async function NotesPanel({ relType, relId, path }: { relType: "customer"
                 <Avatar name={n.author?.full_name} />
                 <div className="min-w-0 flex-1 rounded-xl bg-slate-50 px-4 py-3">
                   <div className="mb-1 flex items-center justify-between gap-2 text-xs text-slate-500">
-                    <span>
+                    <span suppressHydrationWarning>
                       <b className="text-slate-700">{n.author?.full_name ?? "Former staff"}</b> · {timeAgo(n.created_at)}
                     </span>
                     {(n.created_by === profile.id || profile.is_admin) && (
