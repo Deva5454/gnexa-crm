@@ -11,7 +11,12 @@ export const requireStaff = cache(async () => {
   } = await supabase.auth.getUser();
   if (!user) redirect("/demo");
 
-  const { data } = await supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).single();
+  const { data } = await supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).maybeSingle();
+  if (!data) {
+    // Client-portal accounts have no staff profile
+    const { data: portal } = await supabase.from("portal_users").select("user_id").eq("user_id", user.id).maybeSingle();
+    if (portal) redirect("/portal");
+  }
   // Demo mode: a deactivated or unknown account falls back to the admin persona
   if (!data || !data.is_active) redirect("/demo?as=admin");
   const { role, ...profile } = data;
@@ -48,3 +53,20 @@ export function denied(roleName: string, module: Module, level: Level) {
   const verb = level === "full" ? "delete" : level === "edit" ? "create or change" : "view";
   return { error: `The ${roleName} role can't ${verb} ${module}.` };
 }
+
+/** Current client-portal user with their customer and contact. Staff are sent to the CRM. */
+export const requirePortal = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/demo?as=client-tata");
+  const { data: pu } = await supabase
+    .from("portal_users")
+    .select("customer_id, contact_id, customer:customers(id, company), contact:contacts(first_name, last_name, email)")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!pu?.customer) redirect("/dashboard");
+  const contactName = pu.contact ? [pu.contact.first_name, pu.contact.last_name].filter(Boolean).join(" ") : (user.email ?? "Client");
+  return { supabase, user, customerId: pu.customer_id, company: pu.customer.company, contactName, email: pu.contact?.email ?? user.email ?? "" };
+});

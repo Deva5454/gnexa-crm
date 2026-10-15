@@ -1,7 +1,9 @@
 import {
   BarChart3,
   BookOpen,
-  Globe,
+  CalendarDays,
+  Megaphone,
+  Target,
   Building2,
   CreditCard,
   FileSignature,
@@ -55,10 +57,12 @@ export const NAV: { section: string; items: NavItem[] }[] = [
     ],
   },
   {
-    section: "Coming next",
+    section: "Insights",
     items: [
-      { href: "#", label: "Client portal", icon: Globe, soon: true },
-      { href: "#", label: "Reports", icon: BarChart3, soon: true },
+      { href: "/reports", label: "Reports", icon: BarChart3, module: "reports" },
+      { href: "/goals", label: "Goals", icon: Target, module: "reports" },
+      { href: "/calendar", label: "Calendar", icon: CalendarDays },
+      { href: "/announcements", label: "Announcements", icon: Megaphone },
     ],
   },
   {

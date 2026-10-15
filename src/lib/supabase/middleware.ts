@@ -29,7 +29,8 @@ export async function updateSession(request: NextRequest) {
   if (!user && path !== "/demo") {
     const url = request.nextUrl.clone();
     url.pathname = "/demo";
-    url.search = path === "/" ? "" : `?next=${encodeURIComponent(path + request.nextUrl.search)}`;
+    const persona = path.startsWith("/portal") ? "as=client-tata&" : "";
+    url.search = path === "/" ? "" : `?${persona}next=${encodeURIComponent(path + request.nextUrl.search)}`;
     return NextResponse.redirect(url);
   }
 

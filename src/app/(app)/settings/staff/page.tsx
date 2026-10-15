@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { updateStaff } from "../actions";
 import { NamedList } from "../named-list";
+import { RoleMatrix } from "./role-matrix";
 
 export const metadata: Metadata = { title: "Staff" };
 
@@ -14,7 +15,7 @@ export default async function StaffPage() {
   const { supabase, profile: me } = await requireAdmin();
   const [{ data: staff }, { data: roles }] = await Promise.all([
     supabase.from("profiles").select("*").order("is_active").order("full_name"),
-    supabase.from("roles").select("id, name").order("name"),
+    supabase.from("roles").select("id, name, permissions").order("name"),
   ]);
   const pending = staff?.filter((s) => !s.is_active).length ?? 0;
 
@@ -61,7 +62,8 @@ export default async function StaffPage() {
           })}
         </ul>
       </Card>
-      <NamedList table="roles" title="Roles" description="Label staff by function. (Fine-grained permissions arrive in a later phase.)" items={roles ?? []} />
+      <RoleMatrix roles={roles ?? []} />
+      <NamedList table="roles" title="Roles" description="Add or remove roles. New roles start with create & edit access." items={roles ?? []} />
     </>
   );
 }

@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const persona = personaByKey(searchParams.get("as")) ?? personaByKey("admin")!;
   const nextParam = searchParams.get("next");
-  const next = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") && !nextParam.startsWith("/demo") ? nextParam : "/dashboard";
+  const safe = nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//") && !nextParam.startsWith("/demo") ? nextParam : null;
+  // Clients only ever land in the portal; staff never do
+  const next = persona.client ? (safe?.startsWith("/portal") ? safe : "/portal") : safe && !safe.startsWith("/portal") ? safe : "/dashboard";
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email: persona.email, password: DEMO_PASSWORD });

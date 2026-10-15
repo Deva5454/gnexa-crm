@@ -101,3 +101,16 @@ export async function addTax(form: FormData) {
   await supabase.from("taxes").insert({ name: str(form, "name") ?? `GST ${rate}%`, rate });
   revalidatePath("/settings/finance");
 }
+
+export async function saveRolePermissions(form: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = Number(str(form, "role_id"));
+  const { MODULES } = await import("@/lib/permissions");
+  const permissions: Record<string, string> = {};
+  for (const m of MODULES) {
+    const v = str(form, m);
+    permissions[m] = v === "none" || v === "view" || v === "edit" || v === "full" ? v : "view";
+  }
+  await supabase.from("roles").update({ permissions }).eq("id", id);
+  revalidatePath("/settings/staff");
+}

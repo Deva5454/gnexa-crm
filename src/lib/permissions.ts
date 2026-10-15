@@ -1,7 +1,7 @@
 import type { Json } from "@/lib/database.types";
 
-export type Module = "customers" | "leads" | "tasks" | "sales" | "expenses" | "projects" | "contracts" | "support" | "knowledge_base";
-export const MODULES: Module[] = ["customers", "leads", "tasks", "sales", "expenses", "projects", "contracts", "support", "knowledge_base"];
+export type Module = "customers" | "leads" | "tasks" | "sales" | "expenses" | "projects" | "contracts" | "support" | "knowledge_base" | "reports";
+export const MODULES: Module[] = ["customers", "leads", "tasks", "sales", "expenses", "projects", "contracts", "support", "knowledge_base", "reports"];
 /** view < edit (create & change) < full (also delete) */
 export type Level = "view" | "edit" | "full";
 

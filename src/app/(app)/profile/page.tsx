@@ -19,6 +19,7 @@ const MODULES: { key: Module; label: string }[] = [
   { key: "contracts", label: "Contracts" },
   { key: "support", label: "Support tickets" },
   { key: "knowledge_base", label: "Knowledge base" },
+  { key: "reports", label: "Reports & goals" },
 ];
 const LEVELS: { key: Level; label: string }[] = [
   { key: "view", label: "View" },

@@ -50,9 +50,20 @@ New role permissions: **Sales** (Manager full, Executive edit, Support view) and
 New role permissions: **Projects**, **Contracts**, **Support**, **Knowledge base** — Sales Manager full; Sales Executive edits
 projects/contracts/tickets and reads the knowledge base; Support runs tickets and the knowledge base and views the rest.
 
-## Roadmap
+## Phase 4 — Client portal & insights
 
-- **Phase 4 — Portal & utilities:** customer portal, calendar, announcements, goals, reports, fine-grained role permissions, email templates
+| Module | What's included |
+| --- | --- |
+| Client portal (`/portal`) | Customers see only their own invoices (balance, payments, PDF, how to pay), estimates & proposals (accept / decline), contracts (read and **sign online**), projects (progress, milestones), support tickets (open, reply) and the help center. Staff and clients are kept on their own side automatically. |
+| Portal security | Enforced in the database: every portal policy is pinned to the signed-in client's customer; drafts and internal ticket notes are never visible; all client actions run through functions that re-check ownership. |
+| Reports | Sales (invoiced vs collected, receivables aging, top customers, payment modes), leads (by month, conversion by source, pipeline by stage), expenses, time, support — each with its data table and CSV export |
+| Goals | Targets for amount invoiced, payments collected, leads converted, new customers or tickets closed — company-wide or per person, with live progress and an on-track marker |
+| Calendar | Month view of your events plus task, invoice, project, milestone and contract dates |
+| Announcements | For the team dashboard and/or the client portal |
+| Role permissions | Setup → Staff & roles: choose none / view / edit / full for every role and module |
+
+Demo client logins: **Rajesh Khanna (Tata)** and **Sunil Fernandes (Orchid)** in the role switcher, or **View as client** on a
+customer. Real client invitations by email need the Supabase service-role key on the server (not part of the demo).
 
 ## Local development
 
@@ -81,6 +92,10 @@ Migrations 5 and 6 are run together in the Supabase SQL Editor (one transaction)
 8. `0008_demo_work.sql` — Phase 3 demo data; `reset_demo_data()` restores it too
 
 Migrations 7 and 8 are likewise run together in the SQL Editor.
+9. `0009_portal_reports.sql` — client portal (accounts, row-level security, portal functions), calendar, announcements, goals
+10. `0010_demo_portal.sql` — demo client logins and Phase 4 demo data; `reset_demo_data()` restores and re-links everything
+
+Migrations 9 and 10 are run together in the SQL Editor (they write to the `auth` schema).
 
 ### Demo roles
 

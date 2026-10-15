@@ -4,6 +4,8 @@ import { AlarmClock, ArrowUpRight, Building2, Magnet, Target, TrendingUp } from 
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { FinanceStrip } from "@/components/sales/finance-strip";
 import { WorkStrip } from "@/components/crm/work-strip";
+import { AnnouncementBanner } from "@/components/crm/announcement-banner";
+import { DashboardGoals } from "@/components/crm/dashboard-goals";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { taskPriority } from "@/lib/constants";
@@ -23,7 +25,7 @@ export default async function DashboardPage() {
   const since = new Date(Date.now() - 13 * 86400_000);
   since.setHours(0, 0, 0, 0);
 
-  const [{ data: leads }, { data: statuses }, { data: sources }, customers, { data: myTasks }, overdue, { data: settings }] = await Promise.all([
+  const [{ data: leads }, { data: statuses }, { data: sources }, customers, { data: myTasks }, overdue, { data: settings }, { data: news }] = await Promise.all([
     supabase.from("leads").select("id, status_id, source_id, value, is_lost, is_junk, converted_customer_id, created_at").limit(5000),
     supabase.from("lead_statuses").select("id, name, color").order("sort_order"),
     supabase.from("lead_sources").select("id, name"),
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
       .neq("status", "complete")
       .lt("due_date", today),
     supabase.from("company_settings").select("currency").maybeSingle(),
+    supabase.from("announcements").select("id, title, body").eq("show_to_staff", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const currency = settings?.currency ?? "INR";
@@ -86,6 +89,7 @@ export default async function DashboardPage() {
 
   return (
     <>
+      {news && <AnnouncementBanner id={news.id} title={news.title} body={news.body} />}
       <div className="relative mb-8 overflow-hidden rounded-3xl bg-ink-900 px-6 py-7 text-white sm:px-8">
         <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-500/40 blur-3xl" />
         <div className="absolute -bottom-24 right-40 h-56 w-56 rounded-full bg-accent-500/30 blur-3xl" />
@@ -135,6 +139,7 @@ export default async function DashboardPage() {
 
       <FinanceStrip />
       <WorkStrip />
+      <DashboardGoals />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">

@@ -7,6 +7,7 @@ import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
 import { RelatedDocs } from "@/components/sales/related-docs";
 import { CustomerWork } from "@/components/crm/customer-work";
+import { PortalAccess } from "@/components/crm/portal-access";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -121,10 +122,13 @@ export default async function CustomerPage({
               </dl>
             </CardBody>
           </Card>
-          <Card>
-            <CardHeader title="Recent activity" />
-            <ActivityFeed relType="customer" relId={id} limit={8} />
-          </Card>
+          <div className="space-y-6">
+            <PortalAccess customerId={id} />
+            <Card>
+              <CardHeader title="Recent activity" />
+              <ActivityFeed relType="customer" relId={id} limit={8} />
+            </Card>
+          </div>
         </div>
       )}
 

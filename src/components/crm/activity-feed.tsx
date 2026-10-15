@@ -26,7 +26,13 @@ export async function ActivityFeed({ relType, relId, limit = 15 }: { relType?: "
           <span className="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-white bg-brand-500 ring-2 ring-brand-100" />
           <div className="min-w-0 text-sm">
             <p className="text-slate-700">
-              <b className="font-semibold text-slate-900">{a.actor?.full_name ?? "System"}</b> {a.description}
+              {a.actor ? (
+                <>
+                  <b className="font-semibold text-slate-900">{a.actor.full_name}</b> {a.description}
+                </>
+              ) : (
+                a.description.charAt(0).toUpperCase() + a.description.slice(1)
+              )}
             </p>
             <p className="text-xs text-slate-400" suppressHydrationWarning>{timeAgo(a.created_at)}</p>
           </div>

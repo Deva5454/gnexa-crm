@@ -30,9 +30,14 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
     return () => document.removeEventListener("mousedown", h);
   }, []);
 
-  // Stay on the same page after switching, unless it's an admin-only area
+  // Stay on the same page after switching, unless it's an admin-only area or the other side (CRM ↔ portal)
   const qs = params.toString();
-  const here = pathname.startsWith("/settings") ? "/dashboard" : `${pathname}${qs ? `?${qs}` : ""}`;
+  const inPortal = pathname.startsWith("/portal");
+  const hrefFor = (p: (typeof DEMO_PERSONAS)[number]) => {
+    const here = `${pathname}${qs ? `?${qs}` : ""}`;
+    const next = p.client ? (inPortal ? here : "/portal") : inPortal || pathname.startsWith("/settings") ? "/dashboard" : here;
+    return `/demo?as=${p.key}&next=${encodeURIComponent(next)}`;
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -54,19 +59,21 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-pop" role="menu">
+        <div className="absolute right-0 z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-pop" role="menu">
           <div className="bg-ink-900 px-4 py-3 text-white">
             <div className="text-xs font-semibold uppercase tracking-wider text-accent-400">Demo mode</div>
             <div className="mt-0.5 text-sm text-slate-300">Switch role to see what each team member can do.</div>
           </div>
           <ul className="p-1.5">
-            {DEMO_PERSONAS.map((p) => {
+            {DEMO_PERSONAS.map((p, i) => {
               const active = p.key === personaKey;
+              const header = i === 0 ? "Team" : p.client && !DEMO_PERSONAS[i - 1]!.client ? "Client portal" : null;
               return (
                 <li key={p.key}>
+                  {header && <div className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{header}</div>}
                   <a
                     role="menuitem"
-                    href={`/demo?as=${p.key}&next=${encodeURIComponent(here)}`}
+                    href={hrefFor(p)}
                     onClick={() => setSwitching(p.key)}
                     aria-current={active || undefined}
                     className={cn(
@@ -78,9 +85,9 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-2">
                         <span className="truncate text-sm font-semibold text-slate-900">{p.name}</span>
-                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", ROLE_TINT[p.key])}>{p.role}</span>
+                        <span className={cn("truncate rounded-full px-2 py-0.5 text-[10px] font-semibold", ROLE_TINT[p.key] ?? "bg-slate-100 text-slate-600")}>{p.client ? "Client" : p.role}</span>
                       </span>
-                      <span className="block truncate text-xs text-slate-500">{p.blurb}</span>
+                      <span className="block truncate text-xs text-slate-500">{p.client ? p.role.replace("Client · ", "") : p.blurb}</span>
                     </span>
                     {switching === p.key ? (
                       <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
@@ -92,7 +99,7 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
               );
             })}
           </ul>
-          <div className="border-t border-slate-100 p-1.5">
+          {!inPortal && <div className="border-t border-slate-100 p-1.5">
             <Link
               href="/profile"
               onClick={() => setOpen(false)}
@@ -100,7 +107,7 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
             >
               <UserRound className="h-4 w-4" /> My profile & permissions
             </Link>
-          </div>
+          </div>}
         </div>
       )}
     </div>

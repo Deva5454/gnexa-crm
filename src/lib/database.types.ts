@@ -306,6 +306,30 @@ export type Database = {
         Update: { id?: never; group_id?: number | null; title?: string; slug?: string; body?: string; is_published?: boolean; views?: number; helpful?: number; not_helpful?: number; created_by?: string | null; created_at?: string; updated_at?: string };
         Relationships: [{ foreignKeyName: "kb_articles_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "kb_groups"; referencedColumns: ["id"] }, { foreignKeyName: "kb_articles_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
+      portal_users: {
+        Row: { user_id: string; customer_id: number; contact_id: number | null; created_at: string };
+        Insert: { user_id: string; customer_id: number; contact_id?: number | null; created_at?: string };
+        Update: { user_id?: string; customer_id?: number; contact_id?: number | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "portal_users_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "portal_users_contact_id_fkey"; columns: ["contact_id"]; isOneToOne: false; referencedRelation: "contacts"; referencedColumns: ["id"] }];
+      };
+      calendar_events: {
+        Row: { id: number; title: string; description: string | null; starts_at: string; ends_at: string | null; all_day: boolean; color: string; created_by: string | null; created_at: string };
+        Insert: { id?: never; title: string; description?: string | null; starts_at: string; ends_at?: string | null; all_day?: boolean; color?: string; created_by?: string | null; created_at?: string };
+        Update: { id?: never; title?: string; description?: string | null; starts_at?: string; ends_at?: string | null; all_day?: boolean; color?: string; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "calendar_events_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      announcements: {
+        Row: { id: number; title: string; body: string; show_to_staff: boolean; show_to_clients: boolean; created_by: string | null; created_at: string };
+        Insert: { id?: never; title: string; body: string; show_to_staff?: boolean; show_to_clients?: boolean; created_by?: string | null; created_at?: string };
+        Update: { id?: never; title?: string; body?: string; show_to_staff?: boolean; show_to_clients?: boolean; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "announcements_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      goals: {
+        Row: { id: number; title: string; metric: string; target: number; start_date: string; end_date: string; staff_id: string | null; created_by: string | null; created_at: string };
+        Insert: { id?: never; title: string; metric: string; target: number; start_date: string; end_date: string; staff_id?: string | null; created_by?: string | null; created_at?: string };
+        Update: { id?: never; title?: string; metric?: string; target?: number; start_date?: string; end_date?: string; staff_id?: string | null; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "goals_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "goals_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
       task_assignees: {
         Row: { staff_id: string; task_id: number };
         Insert: { staff_id: string; task_id: number };
@@ -347,6 +371,10 @@ export type Database = {
       convert_lead: { Args: { p_lead_id: number }; Returns: number };
       reset_demo_data: { Args: Record<PropertyKey, never>; Returns: undefined };
       kb_track: { Args: { p_article: number; p_event: string }; Returns: undefined };
+      portal_respond: { Args: { p_doc: number; p_accept: boolean }; Returns: undefined };
+      portal_sign_contract: { Args: { p_contract: number; p_name: string }; Returns: undefined };
+      portal_open_ticket: { Args: { p_subject: string; p_body: string; p_department: number | null; p_priority: string }; Returns: number };
+      portal_reply: { Args: { p_ticket: number; p_body: string }; Returns: undefined };
     };
     Enums: {
       doc_kind: "proposal" | "estimate" | "invoice" | "credit_note";
