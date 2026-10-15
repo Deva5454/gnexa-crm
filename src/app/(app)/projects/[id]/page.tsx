@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Gantt } from "@/components/crm/gantt";
+import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
@@ -39,7 +41,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     supabase.from("milestones").select("*").eq("project_id", id).order("position"),
     supabase
       .from("tasks")
-      .select("id, name, status, priority, due_date, milestone_id, task_assignees(staff_id, staff:profiles(full_name))")
+      .select("id, name, status, priority, start_date, due_date, milestone_id, task_assignees(staff_id, staff:profiles(full_name))")
       .eq("rel_type", "project")
       .eq("rel_id", id)
       .order("due_date", { ascending: true, nullsFirst: false }),
@@ -71,6 +73,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     { key: "overview", label: "Overview", href: base },
     { key: "tasks", label: "Tasks", href: `${base}?tab=tasks`, count: allTasks.length },
     { key: "milestones", label: "Milestones", href: `${base}?tab=milestones`, count: milestones?.length ?? 0 },
+    { key: "gantt", label: "Gantt", href: `${base}?tab=gantt` },
     { key: "timesheets", label: "Timesheets", href: `${base}?tab=timesheets`, count: entries.length },
     { key: "files", label: "Files", href: `${base}?tab=files`, count: files?.length ?? 0 },
     { key: "discussion", label: "Discussion", href: `${base}?tab=discussion`, count: comments?.length ?? 0 },
@@ -189,6 +192,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 {!members?.length && <li className="text-sm text-slate-400">No one assigned yet.</li>}
               </ul>
             </Card>
+            <CustomFieldsCard entity="project" relId={id} path={base} />
             <RemindersPanel relType="project" relId={id} path={base} />
             <Card>
               <CardHeader title="Activity" />
@@ -303,6 +307,17 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             </div>
           </Card>
         </div>
+      )}
+
+      {tab === "gantt" && (
+        <Card>
+          <CardHeader title="Timeline" description="Tasks from start to due date, grouped by milestone. Click a bar to open the task." />
+          {allTasks.length || (milestones?.length ?? 0) ? (
+            <Gantt start={p.start_date} end={p.deadline} tasks={allTasks} milestones={milestones ?? []} />
+          ) : (
+            <p className="px-5 py-6 text-sm text-slate-400">Add tasks with start and due dates to see the timeline.</p>
+          )}
+        </Card>
       )}
 
       {tab === "files" && (

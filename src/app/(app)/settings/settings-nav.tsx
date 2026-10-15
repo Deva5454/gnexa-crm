@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building, Magnet, UsersRound, Boxes, Landmark, LifeBuoy, Tags } from "lucide-react";
+import { Building, Magnet, UsersRound, Boxes, Landmark, LifeBuoy, Tags, ListPlus, MailOpen, Coins, FormInput, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -13,6 +13,11 @@ const items = [
   { href: "/settings/finance", label: "Finance", icon: Landmark },
   { href: "/settings/delivery", label: "Contracts & support", icon: LifeBuoy },
   { href: "/settings/tags", label: "Tags", icon: Tags },
+  { href: "/settings/custom-fields", label: "Custom fields", icon: ListPlus },
+  { href: "/settings/email-templates", label: "E-mail templates", icon: MailOpen },
+  { href: "/settings/currencies", label: "Currencies", icon: Coins },
+  { href: "/settings/web-forms", label: "Web forms", icon: FormInput },
+  { href: "/settings/gdpr", label: "Privacy (GDPR)", icon: ShieldCheck },
 ];
 
 export function SettingsNav() {

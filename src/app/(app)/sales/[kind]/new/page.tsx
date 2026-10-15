@@ -37,13 +37,14 @@ export default async function NewDocPage({
         leads={opts.leads}
         catalogue={opts.catalogue}
         taxRates={opts.taxRates}
+        currencies={opts.currencies}
         draft={{
           party,
           subject: "",
           content: "",
           date: today,
           due_date: k.dueLabel ? addDays(today, kind === "invoice" ? 15 : 30) : "",
-          currency: opts.currency,
+          currency: opts.customers.find((c) => c.value === party)?.currency || opts.currency,
           discount_percent: 0,
           adjustment: 0,
           notes: kind === "invoice" ? "Thank you for your business." : "",

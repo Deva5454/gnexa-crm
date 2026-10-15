@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { renderTemplate } from "@/lib/email-templates";
+import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
+import { pdfFields } from "@/lib/custom-fields";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -23,7 +26,7 @@ import { ApplyCreditForm, PaymentForm } from "./panels";
 
 export const metadata: Metadata = { title: "Document" };
 
-const k0 = (kind: DocKind) => KINDS[kind].label.toLowerCase();
+
 
 function StatusButton({ id, status, label, icon: Icon, variant = "secondary" }: { id: number; status: string; label: string; icon: typeof Send; variant?: "secondary" | "primary" | "accent" }) {
   return (
@@ -45,10 +48,11 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
 
-  const [{ data: doc }, { data: lines }, company] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).eq("kind", kind).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
+    pdfFields(supabase, id),
   ]);
   if (!doc) notFound();
 
@@ -111,15 +115,20 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
     })(),
   ]);
   const label = docNumber(kind, doc.number);
-  const first = (recipients[0]?.name ?? "").split(" ")[0] || "there";
-  const balanceText = formatMoney(bal?.balance ?? Number(doc.total), cur);
-  const emailBody =
-    kind === "invoice"
-      ? `Hi ${first},\n\nPlease find attached invoice ${label} for ${formatMoney(Number(doc.total), cur)}${doc.due_date ? `, due on ${formatDate(doc.due_date)}` : ""}.\n\nYou can view and pay it online from your client portal.\n\nRegards,\n${company?.company_name ?? ""}`
-      : kind === "credit_note"
-        ? `Hi ${first},\n\nPlease find attached credit note ${label} for ${formatMoney(Number(doc.total), cur)}.\n\nRegards,\n${company?.company_name ?? ""}`
-        : `Hi ${first},\n\nPlease find attached our ${k0(kind)} ${label}${doc.subject ? ` for “${doc.subject}”` : ""}. You can review and accept it online from your client portal.\n\nLet me know if you have any questions.\n\nRegards,\n${company?.company_name ?? ""}`;
-  const reminderBody = `Hi ${first},\n\nThis is a friendly reminder that invoice ${label} was due on ${formatDate(doc.due_date)} and ${balanceText} is still outstanding.\n\nIf you have already paid, please ignore this message.\n\nRegards,\n${company?.company_name ?? ""}`;
+  const tplVars = {
+    contact_name: (recipients[0]?.name ?? "").split(" ")[0] || "there",
+    customer: party.name,
+    company_name: company?.company_name ?? "",
+    doc_number: label,
+    total: formatMoney(Number(doc.total), cur),
+    due_date: doc.due_date ? formatDate(doc.due_date) : "on receipt",
+    balance: formatMoney(bal?.balance ?? Number(doc.total), cur),
+    subject: doc.subject ?? "",
+  };
+  const [sendTpl, reminderTpl] = await Promise.all([
+    renderTemplate(supabase, `${kind}_send`, tplVars),
+    status.key === "overdue" ? renderTemplate(supabase, "overdue_reminder", tplVars) : Promise.resolve(null),
+  ]);
 
   const hasMoney = (payments?.length ?? 0) > 0 || (credits?.length ?? 0) > 0;
   const converted = (derived ?? []).length > 0;
@@ -211,7 +220,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} />
 
         <aside className="space-y-6">
           {canEdit && doc.status !== "cancelled" && (
@@ -222,8 +231,8 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                   action={sendDocEmail}
                   hidden={{ doc_id: id, kind: "document" }}
                   recipients={recipients}
-                  subject={`${k.label} ${label} from ${company?.company_name ?? "us"}`}
-                  body={emailBody}
+                  subject={sendTpl?.subject ?? `${k.label} ${label}`}
+                  body={sendTpl?.body ?? ""}
                   attachment={`${label}.pdf`}
                   label={`E-mail ${k.label.toLowerCase()}`}
                   tone={doc.status === "draft" ? "primary" : "secondary"}
@@ -233,8 +242,8 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                     action={sendDocEmail}
                     hidden={{ doc_id: id, kind: "overdue_reminder" }}
                     recipients={recipients}
-                    subject={`Reminder: invoice ${label} is overdue`}
-                    body={reminderBody}
+                    subject={reminderTpl?.subject ?? `Reminder: invoice ${label} is overdue`}
+                    body={reminderTpl?.body ?? ""}
                     attachment={`${label}.pdf`}
                     label="Send overdue reminder"
                     buttonLabel="Send reminder"
@@ -354,6 +363,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
               </ul>
             </Card>
           )}
+          <CustomFieldsCard entity="sales_doc" relId={id} path={docHref(kind, id)} />
           <EmailHistory relType="sales_doc" relId={id} />
           <RemindersPanel relType="sales_doc" relId={id} path={docHref(kind, id)} />
         </aside>

@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/portal/projects", label: "Projects" },
   { href: "/portal/tickets", label: "Support" },
   { href: "/portal/help", label: "Help center" },
+  { href: "/portal/privacy", label: "Privacy" },
 ];
 
 export function PortalNav() {

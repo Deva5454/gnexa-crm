@@ -3,7 +3,7 @@ import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
 import { TagChip } from "@/components/crm/tag-editor";
 import { TagFilter } from "@/components/crm/tag-filter";
 import Link from "next/link";
-import { Building2, Plus } from "lucide-react";
+import { Building2, Plus, Upload } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -74,9 +74,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         description="Companies you sell to, with their people and history."
         actions={
           canEdit && (
-            <LinkButton href="/customers/new">
-              <Plus className="h-4 w-4" /> New customer
-            </LinkButton>
+            <>
+              <LinkButton href="/customers/import" variant="secondary">
+                <Upload className="h-4 w-4" /> Import
+              </LinkButton>
+              <LinkButton href="/customers/new">
+                <Plus className="h-4 w-4" /> New customer
+              </LinkButton>
+            </>
           )
         }
       />

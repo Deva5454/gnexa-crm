@@ -12,7 +12,7 @@ import { formatMoney } from "@/lib/utils";
 import type { FormState } from "../actions";
 
 export type CatalogueItem = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_rate: number };
-export type PartyOption = { value: string; label: string };
+export type PartyOption = { value: string; label: string; currency?: string | null };
 type Row = Line & { key: number };
 
 export type DocDraft = {
@@ -43,6 +43,7 @@ export function DocEditor({
   leads,
   catalogue,
   taxRates,
+  currencies = ["INR"],
   isNew,
   cancelHref,
 }: {
@@ -53,6 +54,7 @@ export function DocEditor({
   leads: PartyOption[];
   catalogue: CatalogueItem[];
   taxRates: number[];
+  currencies?: string[];
   isNew: boolean;
   cancelHref: string;
 }) {
@@ -62,7 +64,7 @@ export function DocEditor({
   const [adjustment, setAdjustment] = useState(draft.adjustment);
   const [pick, setPick] = useState("");
   const k = KINDS[kind];
-  const cur = draft.currency || "INR";
+  const [cur, setCur] = useState(draft.currency || "INR");
 
   const totals = useMemo(() => computeTotals(rows, discount, adjustment), [rows, discount, adjustment]);
   const rates = useMemo(() => [...new Set([0, ...taxRates, ...rows.map((r) => r.tax_rate)])].sort((a, b) => a - b), [taxRates, rows]);
@@ -101,7 +103,17 @@ export function DocEditor({
         <CardHeader title={`${k.label} details`} />
         <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label={kind === "proposal" ? "Customer or lead *" : "Customer *"} htmlFor="party" className="sm:col-span-2">
-            <select id="party" name="party" required defaultValue={draft.party} className="field">
+            <select
+              id="party"
+              name="party"
+              required
+              defaultValue={draft.party}
+              onChange={(e) => {
+                const c = customers.find((x) => x.value === e.target.value);
+                if (isNew && c?.currency) setCur(c.currency);
+              }}
+              className="field"
+            >
               <option value="">— Select —</option>
               <optgroup label="Customers">
                 {customers.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -111,6 +123,11 @@ export function DocEditor({
                   {leads.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </optgroup>
               )}
+            </select>
+          </Field>
+          <Field label="Currency" htmlFor="currency_pick">
+            <select id="currency_pick" value={cur} onChange={(e) => setCur(e.target.value)} className="field">
+              {[...new Set([cur, ...currencies])].map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
           <Field label="Date" htmlFor="date">

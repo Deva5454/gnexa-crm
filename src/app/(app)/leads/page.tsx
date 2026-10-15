@@ -3,7 +3,7 @@ import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
 import { TagChip } from "@/components/crm/tag-editor";
 import { TagFilter } from "@/components/crm/tag-filter";
 import Link from "next/link";
-import { Columns3, List, Magnet, Plus } from "lucide-react";
+import { Columns3, List, Magnet, Plus, Upload } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, ColorBadge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
@@ -81,6 +81,11 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <List className="h-3.5 w-3.5" /> List
               </Link>
             </div>
+            {canEdit && (
+              <LinkButton href="/leads/import" variant="secondary">
+                <Upload className="h-4 w-4" /> Import
+              </LinkButton>
+            )}
             {canEdit && (
               <LinkButton href="/leads/new">
                 <Plus className="h-4 w-4" /> New lead

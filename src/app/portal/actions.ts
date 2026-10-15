@@ -71,3 +71,20 @@ export async function payInvoice(_: PortalState, form: FormData): Promise<Portal
   revalidatePath("/portal");
   return { ok: `Payment successful. Reference ${data}.` };
 }
+
+export async function setConsent(_: PortalState, form: FormData): Promise<PortalState> {
+  const { supabase } = await requirePortal();
+  const { error } = await supabase.rpc("portal_set_consent", { p_consent: form.get("consent") === "on" });
+  if (error) return { error: error.message };
+  revalidatePath("/portal/privacy");
+  return { ok: "Preference saved." };
+}
+
+export async function requestPrivacy(_: PortalState, form: FormData): Promise<PortalState> {
+  const { supabase } = await requirePortal();
+  const kind = str(form, "kind") === "erasure" ? "erasure" : "export";
+  const { error } = await supabase.rpc("portal_gdpr_request", { p_kind: kind, p_note: str(form, "note") });
+  if (error) return { error: error.message };
+  revalidatePath("/portal/privacy");
+  return { ok: kind === "erasure" ? "Request received. We'll confirm by e-mail once your details are removed." : "Request received." };
+}

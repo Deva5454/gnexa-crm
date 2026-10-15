@@ -29,9 +29,9 @@ export type Database = {
         Relationships: [];
       };
       contacts: {
-        Row: { created_at: string; customer_id: number; email: string | null; first_name: string; id: number; is_primary: boolean; last_name: string | null; phone: string | null; title: string | null };
-        Insert: { created_at?: string; customer_id: number; email?: string | null; first_name: string; id?: never; is_primary?: boolean; last_name?: string | null; phone?: string | null; title?: string | null };
-        Update: { created_at?: string; customer_id?: number; email?: string | null; first_name?: string; id?: never; is_primary?: boolean; last_name?: string | null; phone?: string | null; title?: string | null };
+        Row: { created_at: string; customer_id: number; email: string | null; first_name: string; id: number; is_primary: boolean; last_name: string | null; phone: string | null; title: string | null; marketing_consent: boolean; consent_updated_at: string | null };
+        Insert: { created_at?: string; customer_id: number; email?: string | null; first_name: string; id?: never; is_primary?: boolean; last_name?: string | null; phone?: string | null; title?: string | null; marketing_consent?: boolean; consent_updated_at?: string | null };
+        Update: { created_at?: string; customer_id?: number; email?: string | null; first_name?: string; id?: never; is_primary?: boolean; last_name?: string | null; phone?: string | null; title?: string | null; marketing_consent?: boolean; consent_updated_at?: string | null };
         Relationships: [
           { foreignKeyName: "contacts_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
         ];
@@ -452,6 +452,131 @@ export type Database = {
           { foreignKeyName: "email_log_sent_by_fkey"; columns: ["sent_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
         ];
       };
+      custom_fields: {
+        Row: { id: number; entity: string; label: string; type: string; options: string[]; required: boolean; show_on_pdf: boolean; position: number; is_active: boolean; created_at: string };
+        Insert: { id?: never; entity: string; label: string; type?: string; options?: string[]; required?: boolean; show_on_pdf?: boolean; position?: number; is_active?: boolean; created_at?: string };
+        Update: { id?: never; entity?: string; label?: string; type?: string; options?: string[]; required?: boolean; show_on_pdf?: boolean; position?: number; is_active?: boolean; created_at?: string };
+        Relationships: [];
+      };
+      custom_field_values: {
+        Row: { field_id: number; rel_id: number; value: string | null };
+        Insert: { field_id: number; rel_id: number; value?: string | null };
+        Update: { field_id?: number; rel_id?: number; value?: string | null };
+        Relationships: [
+          { foreignKeyName: "custom_field_values_field_id_fkey"; columns: ["field_id"]; isOneToOne: false; referencedRelation: "custom_fields"; referencedColumns: ["id"] },
+        ];
+      };
+      email_templates: {
+        Row: { key: string; name: string; description: string | null; subject: string; body: string; updated_at: string };
+        Insert: { key: string; name: string; description?: string | null; subject: string; body: string; updated_at?: string };
+        Update: { key?: string; name?: string; description?: string | null; subject?: string; body?: string; updated_at?: string };
+        Relationships: [];
+      };
+      currencies: {
+        Row: { id: number; code: string; name: string; symbol: string; rate: number; is_base: boolean };
+        Insert: { id?: never; code: string; name: string; symbol: string; rate?: number; is_base?: boolean };
+        Update: { id?: never; code?: string; name?: string; symbol?: string; rate?: number; is_base?: boolean };
+        Relationships: [];
+      };
+      media_files: {
+        Row: { id: number; folder: string; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; folder?: string; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; folder?: string; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "media_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      web_forms: {
+        Row: { id: number; key: string; name: string; kind: string; intro: string | null; fields: string[]; required: string[]; source_id: number | null; status_id: number | null; assigned_to: string | null; success_message: string; is_active: boolean; submissions: number; created_by: string | null; created_at: string };
+        Insert: { id?: never; key?: string; name: string; kind?: string; intro?: string | null; fields?: string[]; required?: string[]; source_id?: number | null; status_id?: number | null; assigned_to?: string | null; success_message?: string; is_active?: boolean; submissions?: number; created_by?: string | null; created_at?: string };
+        Update: { id?: never; key?: string; name?: string; kind?: string; intro?: string | null; fields?: string[]; required?: string[]; source_id?: number | null; status_id?: number | null; assigned_to?: string | null; success_message?: string; is_active?: boolean; submissions?: number; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "web_forms_source_id_fkey"; columns: ["source_id"]; isOneToOne: false; referencedRelation: "lead_sources"; referencedColumns: ["id"] },
+          { foreignKeyName: "web_forms_status_id_fkey"; columns: ["status_id"]; isOneToOne: false; referencedRelation: "lead_statuses"; referencedColumns: ["id"] },
+          { foreignKeyName: "web_forms_assigned_to_fkey"; columns: ["assigned_to"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "web_forms_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      estimate_requests: {
+        Row: { id: number; form_id: number | null; name: string; email: string | null; phone: string | null; company: string | null; message: string | null; budget: string | null; status: string; assigned_to: string | null; lead_id: number | null; estimate_id: number | null; created_at: string };
+        Insert: { id?: never; form_id?: number | null; name: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; created_at?: string };
+        Update: { id?: never; form_id?: number | null; name?: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "estimate_requests_form_id_fkey"; columns: ["form_id"]; isOneToOne: false; referencedRelation: "web_forms"; referencedColumns: ["id"] },
+          { foreignKeyName: "estimate_requests_assigned_to_fkey"; columns: ["assigned_to"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "estimate_requests_lead_id_fkey"; columns: ["lead_id"]; isOneToOne: false; referencedRelation: "leads"; referencedColumns: ["id"] },
+          { foreignKeyName: "estimate_requests_estimate_id_fkey"; columns: ["estimate_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] },
+        ];
+      };
+      posts: {
+        Row: { id: number; body: string; pinned: boolean; created_by: string | null; created_at: string };
+        Insert: { id?: never; body: string; pinned?: boolean; created_by?: string | null; created_at?: string };
+        Update: { id?: never; body?: string; pinned?: boolean; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "posts_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      post_likes: {
+        Row: { post_id: number; staff_id: string };
+        Insert: { post_id: number; staff_id?: string };
+        Update: { post_id?: number; staff_id?: string };
+        Relationships: [
+          { foreignKeyName: "post_likes_post_id_fkey"; columns: ["post_id"]; isOneToOne: false; referencedRelation: "posts"; referencedColumns: ["id"] },
+          { foreignKeyName: "post_likes_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      post_comments: {
+        Row: { id: number; post_id: number; body: string; created_by: string | null; created_at: string };
+        Insert: { id?: never; post_id: number; body: string; created_by?: string | null; created_at?: string };
+        Update: { id?: never; post_id?: number; body?: string; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "post_comments_post_id_fkey"; columns: ["post_id"]; isOneToOne: false; referencedRelation: "posts"; referencedColumns: ["id"] },
+          { foreignKeyName: "post_comments_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      surveys: {
+        Row: { id: number; key: string; title: string; description: string | null; thank_you: string; is_active: boolean; created_by: string | null; created_at: string };
+        Insert: { id?: never; key?: string; title: string; description?: string | null; thank_you?: string; is_active?: boolean; created_by?: string | null; created_at?: string };
+        Update: { id?: never; key?: string; title?: string; description?: string | null; thank_you?: string; is_active?: boolean; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "surveys_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      survey_questions: {
+        Row: { id: number; survey_id: number; label: string; type: string; options: string[]; required: boolean; position: number };
+        Insert: { id?: never; survey_id: number; label: string; type?: string; options?: string[]; required?: boolean; position?: number };
+        Update: { id?: never; survey_id?: number; label?: string; type?: string; options?: string[]; required?: boolean; position?: number };
+        Relationships: [
+          { foreignKeyName: "survey_questions_survey_id_fkey"; columns: ["survey_id"]; isOneToOne: false; referencedRelation: "surveys"; referencedColumns: ["id"] },
+        ];
+      };
+      survey_responses: {
+        Row: { id: number; survey_id: number; name: string | null; email: string | null; created_at: string };
+        Insert: { id?: never; survey_id: number; name?: string | null; email?: string | null; created_at?: string };
+        Update: { id?: never; survey_id?: number; name?: string | null; email?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "survey_responses_survey_id_fkey"; columns: ["survey_id"]; isOneToOne: false; referencedRelation: "surveys"; referencedColumns: ["id"] },
+        ];
+      };
+      survey_answers: {
+        Row: { response_id: number; question_id: number; value: string };
+        Insert: { response_id: number; question_id: number; value: string };
+        Update: { response_id?: number; question_id?: number; value?: string };
+        Relationships: [
+          { foreignKeyName: "survey_answers_response_id_fkey"; columns: ["response_id"]; isOneToOne: false; referencedRelation: "survey_responses"; referencedColumns: ["id"] },
+          { foreignKeyName: "survey_answers_question_id_fkey"; columns: ["question_id"]; isOneToOne: false; referencedRelation: "survey_questions"; referencedColumns: ["id"] },
+        ];
+      };
+      gdpr_requests: {
+        Row: { id: number; customer_id: number | null; contact_id: number | null; kind: string; note: string | null; status: string; created_at: string; resolved_at: string | null; resolved_by: string | null };
+        Insert: { id?: never; customer_id?: number | null; contact_id?: number | null; kind: string; note?: string | null; status?: string; created_at?: string; resolved_at?: string | null; resolved_by?: string | null };
+        Update: { id?: never; customer_id?: number | null; contact_id?: number | null; kind?: string; note?: string | null; status?: string; created_at?: string; resolved_at?: string | null; resolved_by?: string | null };
+        Relationships: [
+          { foreignKeyName: "gdpr_requests_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
+          { foreignKeyName: "gdpr_requests_contact_id_fkey"; columns: ["contact_id"]; isOneToOne: false; referencedRelation: "contacts"; referencedColumns: ["id"] },
+          { foreignKeyName: "gdpr_requests_resolved_by_fkey"; columns: ["resolved_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
       task_assignees: {
         Row: { staff_id: string; task_id: number };
         Insert: { staff_id: string; task_id: number };
@@ -502,6 +627,12 @@ export type Database = {
       flush_reminders: { Args: Record<PropertyKey, never>; Returns: number };
       run_recurring: { Args: Record<PropertyKey, never>; Returns: Json };
       portal_pay: { Args: { p_invoice: number; p_amount: number; p_method: string }; Returns: string };
+      web_form_info: { Args: { p_key: string }; Returns: Json };
+      submit_web_form: { Args: { p_key: string; p_data: Json }; Returns: string };
+      survey_info: { Args: { p_key: string }; Returns: Json };
+      submit_survey: { Args: { p_key: string; p_name: string | null; p_email: string | null; p_answers: Json }; Returns: string };
+      portal_set_consent: { Args: { p_consent: boolean }; Returns: undefined };
+      portal_gdpr_request: { Args: { p_kind: string; p_note: string | null }; Returns: undefined };
     };
     Enums: {
       doc_kind: "proposal" | "estimate" | "invoice" | "credit_note";

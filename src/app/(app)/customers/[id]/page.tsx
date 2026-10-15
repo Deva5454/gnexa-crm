@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { EmailHistory } from "@/components/crm/email-history";
 import { CustomerSubscriptions } from "@/components/sales/customer-subscriptions";
 import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Globe, Mail, MapPin, Pencil, Phone, Star, Trash2 } from "lucide-react";
+import { Globe, Mail, MapPin, Pencil, Phone, Star, Trash2, Download } from "lucide-react";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
@@ -129,6 +130,7 @@ export default async function CustomerPage({
           </Card>
           <div className="space-y-6">
             <PortalAccess customerId={id} />
+            <CustomFieldsCard entity="customer" relId={id} path={base} />
             <RemindersPanel relType="customer" relId={id} path={base} />
             <Card>
               <CardHeader title="Recent activity" />
@@ -140,7 +142,18 @@ export default async function CustomerPage({
 
       {tab === "contacts" && (
         <Card>
-          <CardHeader title="Contacts" description="People at this company" action={canEdit ? <ContactForm customerId={id} /> : undefined} />
+          <CardHeader
+            title="Contacts"
+            description="People at this company"
+            action={
+              <div className="flex items-center gap-2">
+                <a href={`${base}/export`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50" title="GDPR data export (JSON)">
+                  <Download className="h-3.5 w-3.5" /> Export data
+                </a>
+                {canEdit && <ContactForm customerId={id} />}
+              </div>
+            }
+          />
           {!contacts?.length ? (
             <p className="px-5 py-8 text-center text-sm text-slate-400">No contacts yet.</p>
           ) : (
@@ -157,6 +170,9 @@ export default async function CustomerPage({
                           {p.is_primary && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-label="Primary" />}
                         </div>
                         {p.title && <div className="text-xs text-slate-500">{p.title}</div>}
+                        <div className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${p.marketing_consent ? "text-emerald-600" : "text-slate-400"}`} title={p.consent_updated_at ? `Updated ${formatDate(p.consent_updated_at)}` : undefined}>
+                          {p.marketing_consent ? "✓ Marketing consent" : "No marketing consent"}
+                        </div>
                         <div className="mt-2 space-y-1 text-sm">
                           {p.email && <a href={`mailto:${p.email}`} className="flex items-center gap-2 truncate text-slate-600 hover:text-brand-700"><Mail className="h-3.5 w-3.5" />{p.email}</a>}
                           {p.phone && <a href={`tel:${p.phone}`} className="flex items-center gap-2 text-slate-600 hover:text-brand-700"><Phone className="h-3.5 w-3.5" />{p.phone}</a>}

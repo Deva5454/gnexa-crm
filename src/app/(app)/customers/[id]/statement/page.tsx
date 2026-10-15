@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { renderTemplate } from "@/lib/email-templates";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Printer } from "lucide-react";
@@ -35,7 +36,14 @@ export default async function StatementPage({ params, searchParams }: { params: 
   if (!c) notFound();
   const party = await loadParty(supabase, { customer_id: id, lead_id: null });
   const recipients = (contacts ?? []).map((x) => ({ email: x.email!, name: [x.first_name, x.last_name].filter(Boolean).join(" ") || null }));
-  const first = (recipients[0]?.name ?? "").split(" ")[0] || "there";
+  const tpl = await renderTemplate(supabase, "statement", {
+    contact_name: (recipients[0]?.name ?? "").split(" ")[0] || "there",
+    customer: c.company,
+    company_name: company?.company_name ?? "",
+    from: formatDate(from),
+    to: formatDate(to),
+    balance: formatMoney(s.closing, s.currency),
+  });
   const qs = `from=${from}&to=${to}`;
   const presets = [
     ["This financial year", def.from, def.to],
@@ -81,8 +89,8 @@ export default async function StatementPage({ params, searchParams }: { params: 
                   action={sendStatementEmail}
                   hidden={{ customer_id: id }}
                   recipients={recipients}
-                  subject={`Account statement ${formatDate(from)} – ${formatDate(to)}`}
-                  body={`Hi ${first},\n\nPlease find attached your account statement for ${formatDate(from)} to ${formatDate(to)}. The balance due is ${formatMoney(s.closing, s.currency)}.\n\nRegards,\n${company?.company_name ?? ""}`}
+                  subject={tpl?.subject ?? `Account statement ${formatDate(from)} – ${formatDate(to)}`}
+                  body={tpl?.body ?? ""}
                   attachment={`Statement ${c.company}.pdf`}
                   label="E-mail statement"
                   tone="primary"

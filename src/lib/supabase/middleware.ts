@@ -24,9 +24,11 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Demo mode: visitors without a session are signed in automatically (as the admin persona)
+  // Demo mode: visitors without a session are signed in automatically (as the admin persona).
+  // Public forms (/f/…) and surveys (/s/…) are for anyone and stay anonymous.
   const path = request.nextUrl.pathname;
-  if (!user && path !== "/demo") {
+  const isPublic = path.startsWith("/f/") || path.startsWith("/s/");
+  if (!user && path !== "/demo" && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/demo";
     const persona = path.startsWith("/portal") ? "as=client-tata&" : "";

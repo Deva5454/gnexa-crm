@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
@@ -148,6 +149,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               )}
             </CardBody>
           </Card>
+          <CustomFieldsCard entity="lead" relId={id} path={`/leads/${id}`} />
           <RemindersPanel relType="lead" relId={id} path={`/leads/${id}`} />
           <Card>
             <CardHeader title="Activity" />

@@ -14,11 +14,13 @@ export function CustomerForm({
   customer,
   groups,
   cancelHref,
+  currencies = ["INR"],
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
   customer?: Tables<"customers">;
   groups: Tables<"customer_groups">[];
   cancelHref: string;
+  currencies?: string[];
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const c = customer;
@@ -49,7 +51,10 @@ export function CustomerForm({
             </select>
           </Field>
           <Field label="Currency" htmlFor="currency" hint="Leave blank to use the company default">
-            <input id="currency" name="currency" maxLength={3} placeholder="INR" defaultValue={c?.currency ?? ""} className="field uppercase" />
+            <select id="currency" name="currency" defaultValue={c?.currency ?? ""} className="field">
+              <option value="">Company default</option>
+              {[...new Set([...(c?.currency ? [c.currency] : []), ...currencies])].map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
           </Field>
         </CardBody>
       </Card>

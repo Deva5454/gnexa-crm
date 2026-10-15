@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pdfFields } from "@/lib/custom-fields";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Landmark } from "lucide-react";
 import { DocPaper } from "@/components/sales/doc-paper";
@@ -14,11 +15,12 @@ import { PayNow } from "./pay-now";
 /** A client's view of one of their documents (RLS only returns their own, non-draft documents). */
 export async function PortalDocView({ id, kinds, back, backLabel }: { id: number; kinds: DocKind[]; back: string; backLabel: string }) {
   const { supabase } = await requirePortal();
-  const [{ data: doc }, { data: lines }, company, bals] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).in("kind", kinds).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
     balancesFor(supabase, [id]),
+    pdfFields(supabase, id),
   ]);
   if (!doc) notFound();
   const kind = doc.kind as DocKind;
@@ -35,7 +37,7 @@ export async function PortalDocView({ id, kinds, back, backLabel }: { id: number
         <PrintButton />
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_300px] print:block">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={st} balance={bal} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={st} balance={bal} extra={extra} />
         <aside className="space-y-6 print:hidden">
           {canRespond && (
             <Card>

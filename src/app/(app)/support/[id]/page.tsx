@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
@@ -118,6 +119,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               <TicketProperties ticket={t} departments={departments ?? []} staff={staff ?? []} projects={projects ?? []} disabled={!canEdit} />
             </CardBody>
           </Card>
+          <CustomFieldsCard entity="ticket" relId={id} path={`/support/${id}`} />
           <RemindersPanel relType="ticket" relId={id} path={`/support/${id}`} />
           {can("knowledge_base", "view") && (articles?.length ?? 0) > 0 && (
             <Card>

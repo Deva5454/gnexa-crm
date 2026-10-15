@@ -1,4 +1,5 @@
 import { LogoMark } from "@/components/layout/logo";
+import { Fragment } from "react";
 import type { Tables } from "@/lib/database.types";
 import { computeTotals, docNumber, KINDS, type DocKind, type StatusView } from "@/lib/sales";
 import type { Balance } from "@/lib/sales-data";
@@ -19,6 +20,7 @@ export function DocPaper({
   party,
   status,
   balance,
+  extra = [],
 }: {
   kind: DocKind;
   doc: Tables<"sales_docs">;
@@ -27,6 +29,8 @@ export function DocPaper({
   party: Party;
   status: StatusView;
   balance?: Balance;
+  /** Custom fields marked "show on PDF" */
+  extra?: { label: string; value: string }[];
 }) {
   const k = KINDS[kind];
   const cur = doc.currency || "INR";
@@ -82,6 +86,12 @@ export function DocPaper({
                 <dd className="text-right font-medium">{formatDate(doc.due_date)}</dd>
               </>
             )}
+            {extra.map((x) => (
+              <Fragment key={x.label}>
+                <dt className="text-slate-400">{x.label}</dt>
+                <dd className="text-right font-medium">{x.value}</dd>
+              </Fragment>
+            ))}
             {isInvoice && (
               <>
                 <dt className="text-slate-400">Balance due</dt>

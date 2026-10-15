@@ -8,11 +8,14 @@ export const metadata: Metadata = { title: "New customer" };
 
 export default async function NewCustomerPage() {
   const { supabase } = await requireAccess("customers", "edit", "/customers");
-  const { data: groups } = await supabase.from("customer_groups").select("*").order("name");
+  const [{ data: groups }, { data: currencies }] = await Promise.all([
+    supabase.from("customer_groups").select("*").order("name"),
+    supabase.from("currencies").select("code").order("is_base", { ascending: false }).order("code"),
+  ]);
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="New customer" description="Add a company you do business with." />
-      <CustomerForm action={createCustomer} groups={groups ?? []} cancelHref="/customers" />
+      <CustomerForm action={createCustomer} groups={groups ?? []} currencies={(currencies ?? []).map((c) => c.code)} cancelHref="/customers" />
     </div>
   );
 }

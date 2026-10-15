@@ -108,7 +108,49 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
     columns: [{ label: "Mode" }, { label: "Collected", money: true }],
     rows: [...byMode.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, r2(v)]),
   };
-  return [monthly, agingTable, top, modes];
+  return [monthly, agingTable, top, modes, ...(await salesExtras(supabase, yearAgo))];
+}
+
+/** Revenue by item, and how proposals/estimates convert. */
+async function salesExtras(supabase: DB, yearAgo: string): Promise<ReportTable[]> {
+  const [{ data: lines }, { data: quotes }] = await Promise.all([
+    supabase
+      .from("sales_doc_items")
+      .select("description, qty, rate, doc:sales_docs!inner(kind, status, date)")
+      .eq("doc.kind", "invoice")
+      .in("doc.status", ["sent", "accepted"])
+      .gte("doc.date", yearAgo),
+    supabase.from("sales_docs").select("kind, status, total").in("kind", ["proposal", "estimate"]).neq("status", "draft"),
+  ]);
+  const byItem = new Map<string, { qty: number; amount: number }>();
+  for (const l of lines ?? []) {
+    const cur = byItem.get(l.description) ?? { qty: 0, amount: 0 };
+    cur.qty += Number(l.qty);
+    cur.amount += Number(l.qty) * Number(l.rate);
+    byItem.set(l.description, cur);
+  }
+  const items: ReportTable = {
+    key: "sales-items",
+    title: "Revenue by item",
+    description: "Invoiced in the last 12 months, before tax",
+    columns: [{ label: "Item" }, { label: "Revenue", money: true }, { label: "Quantity", numeric: true }],
+    rows: [...byItem.entries()].sort((a, b) => b[1].amount - a[1].amount).slice(0, 10).map(([k, v]) => [k, r2(v.amount), r2(v.qty)]),
+  };
+  const conv = (["proposal", "estimate"] as const).map((k) => {
+    const qs = (quotes ?? []).filter((q) => q.kind === k);
+    const won = qs.filter((q) => q.status === "accepted");
+    const lost = qs.filter((q) => q.status === "declined");
+    return [k === "proposal" ? "Proposals" : "Estimates", qs.length, won.length, lost.length, qs.length - won.length - lost.length,
+      won.length + lost.length ? Math.round((won.length / (won.length + lost.length)) * 100) : 0, r2(won.reduce((s, q) => s + Number(q.total), 0))] as (string | number)[];
+  });
+  const quotesTable: ReportTable = {
+    key: "sales-quotes",
+    title: "Quote conversion",
+    description: "Proposals and estimates sent, all time",
+    columns: [{ label: "Type" }, { label: "Sent", numeric: true }, { label: "Accepted", numeric: true }, { label: "Declined", numeric: true }, { label: "Open", numeric: true }, { label: "Win rate %", numeric: true }, { label: "Won value", money: true }],
+    rows: conv,
+  };
+  return [items, quotesTable];
 }
 
 export async function leadReports(supabase: DB): Promise<ReportTable[]> {
@@ -149,19 +191,49 @@ export async function leadReports(supabase: DB): Promise<ReportTable[]> {
       return [s.name, ls.length, r2(ls.reduce((a, l) => a + Number(l.value ?? 0), 0))];
     }),
   };
-  return [monthly, bySource, byStage];
+  // Win rate by lead owner
+  const { data: owned } = await supabase.from("leads").select("assigned_to, is_lost, converted_customer_id, value, owner:profiles!leads_assigned_to_fkey(full_name)");
+  const byOwner = new Map<string, { leads: number; won: number; lost: number; wonValue: number }>();
+  for (const l of owned ?? []) {
+    const k = l.owner?.full_name ?? "Unassigned";
+    const cur = byOwner.get(k) ?? { leads: 0, won: 0, lost: 0, wonValue: 0 };
+    cur.leads++;
+    if (l.converted_customer_id) { cur.won++; cur.wonValue += Number(l.value ?? 0); }
+    if (l.is_lost) cur.lost++;
+    byOwner.set(k, cur);
+  }
+  const byStaff: ReportTable = {
+    key: "leads-staff",
+    title: "Conversion by owner",
+    description: "All leads, by who they're assigned to",
+    columns: [{ label: "Owner" }, { label: "Win rate %", numeric: true }, { label: "Leads", numeric: true }, { label: "Won", numeric: true }, { label: "Lost", numeric: true }, { label: "Won value", money: true }],
+    rows: [...byOwner.entries()].sort((a, b) => b[1].leads - a[1].leads).map(([k, v]) => [k, v.won + v.lost ? Math.round((v.won / (v.won + v.lost)) * 100) : 0, v.leads, v.won, v.lost, r2(v.wonValue)]),
+  };
+  return [monthly, bySource, byStage, byStaff];
 }
 
 export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
-  const [{ data: exps }, { data: cats }] = await Promise.all([
+  const [{ data: exps }, { data: cats }, { data: pays }] = await Promise.all([
     supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo),
     supabase.from("expense_categories").select("id, name"),
+    supabase.from("payments").select("amount, date").gte("date", `${months[0]!.key}-01`),
   ]);
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const all = exps ?? [];
   return [
+    {
+      key: "expenses-vs-income",
+      title: "Money in vs money out",
+      description: "Payments collected vs expenses (incl. GST), last 6 months",
+      columns: [{ label: "Month" }, { label: "Collected", money: true }, { label: "Spent", money: true }, { label: "Net", money: true }],
+      rows: months.map((m) => {
+        const inn = (pays ?? []).filter((p) => monthOf(p.date) === m.key).reduce((s, p) => s + Number(p.amount), 0);
+        const out = all.filter((e) => monthOf(e.date) === m.key).reduce((s, e) => s + gross(e), 0);
+        return [m.label, r2(inn), r2(out), r2(inn - out)];
+      }),
+    },
     {
       key: "expenses-monthly",
       title: "Spend per month",

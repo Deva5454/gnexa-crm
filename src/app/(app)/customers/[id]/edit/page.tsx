@@ -10,15 +10,16 @@ export const metadata: Metadata = { title: "Edit customer" };
 export default async function EditCustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   const { supabase } = await requireAccess("customers", "edit", `/customers/${id}`);
-  const [{ data: customer }, { data: groups }] = await Promise.all([
+  const [{ data: customer }, { data: groups }, { data: currencies }] = await Promise.all([
     supabase.from("customers").select("*").eq("id", id).maybeSingle(),
     supabase.from("customer_groups").select("*").order("name"),
+    supabase.from("currencies").select("code").order("is_base", { ascending: false }).order("code"),
   ]);
   if (!customer) notFound();
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title={`Edit ${customer.company}`} />
-      <CustomerForm action={updateCustomer.bind(null, id)} customer={customer} groups={groups ?? []} cancelHref={`/customers/${id}`} />
+      <CustomerForm action={updateCustomer.bind(null, id)} customer={customer} groups={groups ?? []} currencies={(currencies ?? []).map((c) => c.code)} cancelHref={`/customers/${id}`} />
     </div>
   );
 }

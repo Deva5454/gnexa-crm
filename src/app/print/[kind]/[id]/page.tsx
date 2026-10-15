@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pdfFields } from "@/lib/custom-fields";
 import { notFound } from "next/navigation";
 import { DocPaper } from "@/components/sales/doc-paper";
 import { loadParty } from "@/components/sales/party";
@@ -24,11 +25,12 @@ export default async function PrintPage({ params }: { params: Promise<{ kind: st
   if (!kind) notFound();
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
-  const [{ data: doc }, { data: lines }, company, bals] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).eq("kind", kind).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
     balancesFor(supabase, [id]),
+    pdfFields(supabase, id),
   ]);
   if (!doc) notFound();
   const party = await loadParty(supabase, doc);
@@ -39,7 +41,7 @@ export default async function PrintPage({ params }: { params: Promise<{ kind: st
     <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
       <PrintToolbar backHref={docHref(kind, id)} name={docNumber(kind, doc.number)} />
       <div className="px-4 print:px-0">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} />
       </div>
     </div>
   );

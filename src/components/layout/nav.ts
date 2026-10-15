@@ -23,6 +23,11 @@ import {
   SquareCheckBig,
   Repeat,
   Mails,
+  Newspaper,
+  Inbox,
+  ClipboardList,
+  Images,
+  FileStack,
 } from "lucide-react";
 import type { Module } from "@/lib/permissions";
 
@@ -37,11 +42,13 @@ export const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/leads", label: "Leads", icon: Magnet, module: "leads" },
       { href: "/tasks", label: "Tasks", icon: ListChecks, module: "tasks" },
       { href: "/todos", label: "To-do", icon: SquareCheckBig },
+      { href: "/newsfeed", label: "Newsfeed", icon: Newspaper },
     ],
   },
   {
     section: "Sales",
     items: [
+      { href: "/estimate-requests", label: "Estimate requests", icon: Inbox, module: "sales" },
       { href: "/sales/proposals", label: "Proposals", icon: FileSignature, module: "sales" },
       { href: "/sales/estimates", label: "Estimates", icon: FileText, module: "sales" },
       { href: "/sales/invoices", label: "Invoices", icon: ReceiptText, module: "sales" },
@@ -68,6 +75,14 @@ export const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/goals", label: "Goals", icon: Target, module: "reports" },
       { href: "/calendar", label: "Calendar", icon: CalendarDays },
       { href: "/announcements", label: "Announcements", icon: Megaphone },
+    ],
+  },
+  {
+    section: "Utilities",
+    items: [
+      { href: "/media", label: "Media library", icon: Images },
+      { href: "/surveys", label: "Surveys", icon: ClipboardList },
+      { href: "/bulk-pdf", label: "Bulk PDF export", icon: FileStack, module: "sales" },
       { href: "/emails", label: "E-mail log", icon: Mails, module: "sales" },
     ],
   },
