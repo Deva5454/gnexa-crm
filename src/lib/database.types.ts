@@ -184,9 +184,9 @@ export type Database = {
         ];
       };
       sales_doc_items: {
-        Row: { id: number; doc_id: number; position: number; item_id: number | null; description: string; long_description: string | null; qty: number; unit: string | null; rate: number; tax_rate: number };
-        Insert: { id?: never; doc_id: number; position?: number; item_id?: number | null; description: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
-        Update: { id?: never; doc_id?: number; position?: number; item_id?: number | null; description?: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
+        Row: { id: number; doc_id: number; expense_id: number | null; position: number; item_id: number | null; description: string; long_description: string | null; qty: number; unit: string | null; rate: number; tax_rate: number };
+        Insert: { id?: never; doc_id: number; expense_id?: number | null; position?: number; item_id?: number | null; description: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
+        Update: { id?: never; doc_id?: number; expense_id?: number | null; position?: number; item_id?: number | null; description?: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
         Relationships: [
           { foreignKeyName: "sales_doc_items_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_doc_items_item_id_fkey"; columns: ["item_id"]; isOneToOne: false; referencedRelation: "items"; referencedColumns: ["id"] },

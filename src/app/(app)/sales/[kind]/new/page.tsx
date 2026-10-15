@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireAccess } from "@/lib/auth";
-import { addDays, KINDS, kindFromSlug } from "@/lib/sales";
+import { addDays, expenseLine, KINDS, kindFromSlug } from "@/lib/sales";
 import { saveDoc } from "../../actions";
 import { DocEditor } from "../doc-editor";
 import { editorOptions } from "../editor-data";
@@ -14,7 +14,7 @@ export default async function NewDocPage({
   searchParams,
 }: {
   params: Promise<{ kind: string }>;
-  searchParams: Promise<{ customer?: string; lead?: string }>;
+  searchParams: Promise<{ customer?: string; lead?: string; expense?: string }>;
 }) {
   const kind = kindFromSlug((await params).kind);
   if (!kind) notFound();
@@ -38,6 +38,7 @@ export default async function NewDocPage({
         catalogue={opts.catalogue}
         taxRates={opts.taxRates}
         currencies={opts.currencies}
+        billableExpenses={kind === "invoice" ? opts.billableExpenses : []}
         draft={{
           party,
           subject: "",
@@ -49,7 +50,10 @@ export default async function NewDocPage({
           adjustment: 0,
           notes: kind === "invoice" ? "Thank you for your business." : "",
           terms: kind === "invoice" ? opts.defaultTerms : kind === "estimate" ? "Prices valid until the expiry date. Taxes as applicable." : "",
-          lines: [],
+          // "Add to an invoice" from an expense pre-fills that expense as the first line
+          lines: kind === "invoice" && sp.expense
+            ? opts.billableExpenses.filter((e) => e.id === Number(sp.expense) && `customer:${e.customer_id}` === party).map(expenseLine)
+            : [],
         }}
       />
     </div>

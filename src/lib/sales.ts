@@ -34,6 +34,8 @@ export type Line = {
   unit?: string | null;
   rate: number;
   tax_rate: number;
+  /** Set when the line bills a customer expense */
+  expense_id?: number | null;
 };
 
 const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -150,3 +152,9 @@ export function addInterval(iso: string, n: number, unit: string) {
 }
 
 export const INTERVAL_LABEL = (n: number, unit: string) => (n === 1 ? unit : `${n} ${unit}s`);
+
+/** An invoice line that bills a customer expense (amount before tax, with its GST rate). */
+export function expenseLine(e: { id: number; name: string; date: string; amount: number; tax_rate: number; category: string | null }): Line {
+  const d = new Date(`${e.date}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return { expense_id: e.id, item_id: null, description: e.name, long_description: [e.category, `expense of ${d}`].filter(Boolean).join(" · "), qty: 1, unit: "", rate: Number(e.amount), tax_rate: Number(e.tax_rate) };
+}

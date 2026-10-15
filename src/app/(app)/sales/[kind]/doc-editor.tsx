@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { GripVertical, PackagePlus, Plus, Trash2 } from "lucide-react";
+import { GripVertical, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { computeTotals, KINDS, type DocKind, type Line } from "@/lib/sales";
+import { computeTotals, expenseLine, KINDS, type DocKind, type Line } from "@/lib/sales";
+import type { BillableExpense } from "./editor-data";
 import { formatMoney } from "@/lib/utils";
 import type { FormState } from "../actions";
 
@@ -44,6 +45,7 @@ export function DocEditor({
   catalogue,
   taxRates,
   currencies = ["INR"],
+  billableExpenses = [],
   isNew,
   cancelHref,
 }: {
@@ -55,6 +57,7 @@ export function DocEditor({
   catalogue: CatalogueItem[];
   taxRates: number[];
   currencies?: string[];
+  billableExpenses?: BillableExpense[];
   isNew: boolean;
   cancelHref: string;
 }) {
@@ -65,6 +68,21 @@ export function DocEditor({
   const [pick, setPick] = useState("");
   const k = KINDS[kind];
   const [cur, setCur] = useState(draft.currency || "INR");
+  const [party, setParty] = useState(draft.party);
+
+  // Billable expenses for the chosen customer that aren't on another invoice yet
+  const customerId = party.startsWith("customer:") ? Number(party.split(":")[1]) : null;
+  const pendingExpenses = kind === "invoice" && customerId ? billableExpenses.filter((e) => e.customer_id === customerId) : [];
+  const onInvoice = new Set(rows.map((r) => r.expense_id).filter(Boolean));
+  const toggleExpense = (e: BillableExpense) =>
+    setRows((rs) => {
+      if (rs.some((r) => r.expense_id === e.id)) {
+        const left = rs.filter((r) => r.expense_id !== e.id);
+        return left.length ? left : [blank()];
+      }
+      const row: Row = { ...expenseLine(e), key: ++seq };
+      return rs.length === 1 && !rs[0]!.description && !rs[0]!.rate ? [row] : [...rs, row];
+    });
 
   const totals = useMemo(() => computeTotals(rows, discount, adjustment), [rows, discount, adjustment]);
   const rates = useMemo(() => [...new Set([0, ...taxRates, ...rows.map((r) => r.tax_rate)])].sort((a, b) => a - b), [taxRates, rows]);
@@ -111,6 +129,12 @@ export function DocEditor({
               onChange={(e) => {
                 const c = customers.find((x) => x.value === e.target.value);
                 if (isNew && c?.currency) setCur(c.currency);
+                setParty(e.target.value);
+                // Expense lines belong to one customer — drop them when the customer changes
+                setRows((rs) => {
+                  const left = rs.filter((r) => !r.expense_id);
+                  return left.length ? left : [blank()];
+                });
               }}
               className="field"
             >
@@ -150,6 +174,46 @@ export function DocEditor({
           )}
         </CardBody>
       </Card>
+
+      {pendingExpenses.length > 0 && (
+        <Card className="border-amber-200">
+          <CardHeader
+            title={<span className="flex items-center gap-2"><Receipt className="h-4 w-4 text-amber-500" /> Billable expenses for this customer</span>}
+            description={`${pendingExpenses.filter((e) => !onInvoice.has(e.id)).length} pending billing — tick to add them as lines. They're marked billed when you save.`}
+            action={
+              pendingExpenses.some((e) => !onInvoice.has(e.id)) && (
+                <button type="button" onClick={() => pendingExpenses.filter((e) => !onInvoice.has(e.id)).forEach(toggleExpense)} className="text-xs font-semibold text-brand-600 hover:text-brand-800">
+                  Add all
+                </button>
+              )
+            }
+          />
+          <ul className="divide-y divide-slate-100">
+            {pendingExpenses.map((e) => (
+              <li key={e.id}>
+                <label className="flex cursor-pointer items-center gap-3 px-5 py-2.5 text-sm hover:bg-slate-50">
+                  <input type="checkbox" checked={onInvoice.has(e.id)} onChange={() => toggleExpense(e)} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-slate-800">{e.name}</span>
+                    <span className="block text-xs text-slate-500">
+                      {[e.category, new Date(`${e.date}T00:00:00`).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })].filter(Boolean).join(" · ")}
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="block font-semibold text-slate-800">{formatMoney(e.amount * (1 + e.tax_rate / 100), cur)}</span>
+                    {e.tax_rate > 0 && <span className="block text-[11px] text-slate-400">incl. GST {e.tax_rate}%</span>}
+                  </span>
+                  {onInvoice.has(e.id) ? (
+                    <span className="w-20 text-right text-[11px] font-semibold text-emerald-600">{e.invoice_id ? "Billed here" : "On invoice"}</span>
+                  ) : (
+                    <span className="w-20 text-right text-[11px] font-semibold text-amber-600">Pending</span>
+                  )}
+                </label>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <CardHeader
@@ -205,6 +269,7 @@ export function DocEditor({
                     </span>
                   </td>
                   <td className="space-y-1.5 px-2 py-2">
+                    {r.expense_id && <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-700"><Receipt className="h-3 w-3" /> Expense</span>}
                     <input value={r.description} onChange={(e) => update(r.key, { description: e.target.value })} placeholder="Item name" className="field" aria-label="Item name" />
                     <textarea
                       value={r.long_description ?? ""}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { Field, FormError } from "@/components/ui/field";
@@ -28,6 +28,8 @@ export function ExpenseForm({
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const e = expense;
+  const [customer, setCustomer] = useState(String(e?.customer_id ?? ""));
+  const billed = !!e?.invoice_id;
   return (
     <form action={formAction} className="space-y-6">
       <FormError message={state?.error} />
@@ -63,15 +65,22 @@ export function ExpenseForm({
             <input id="reference" name="reference" defaultValue={e?.reference ?? ""} className="field" />
           </Field>
           <Field label="Customer" htmlFor="customer_id" hint="Link to a customer to track or re-bill it">
-            <select id="customer_id" name="customer_id" defaultValue={e?.customer_id ?? ""} className="field">
+            <select id="customer_id" name="customer_id" value={customer} onChange={(ev) => setCustomer(ev.target.value)} disabled={billed} className="field">
               <option value="">— Internal —</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
-          <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-600">
-            <input type="checkbox" name="is_billable" defaultChecked={e?.is_billable} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
-            Billable to the customer
-          </label>
+          <div className="self-end pb-1">
+            {billed && <input type="hidden" name="customer_id" value={customer} />}
+            {billed && <input type="hidden" name="is_billable" value="on" />}
+            <label className={`flex items-center gap-2 text-sm ${customer ? "text-slate-600" : "text-slate-400"}`}>
+              <input type="checkbox" name="is_billable" defaultChecked={e?.is_billable} disabled={!customer || billed} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+              Billable to the customer
+            </label>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {billed ? "Already billed — the customer can't change." : customer ? "Shows as “pending billing” on this customer's next invoice." : "Pick a customer to make it billable."}
+            </p>
+          </div>
           <Field label="Note" htmlFor="note" className="sm:col-span-2">
             <textarea id="note" name="note" rows={3} defaultValue={e?.note ?? ""} className="field" />
           </Field>

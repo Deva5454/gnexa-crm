@@ -33,7 +33,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   const term = sp.q ? searchTerm(sp.q) : "";
   if (term) q = q.or(`name.ilike.%${term}%,reference.ilike.%${term}%`);
   if (sp.category) q = q.eq("category_id", Number(sp.category));
-  if (sp.billable === "1") q = q.eq("is_billable", true);
+  if (sp.billable === "1" || sp.billable === "pending") q = q.eq("is_billable", true).is("invoice_id", null).not("customer_id", "is", null);
+  if (sp.billable === "billed") q = q.not("invoice_id", "is", null);
 
   const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
   const [{ data: rows, count }, { data: cats }, { data: recent }] = await Promise.all([
@@ -99,7 +100,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-1.5">
             <Link href={href({ category: undefined, billable: undefined })} className={pill(!sp.category && !sp.billable)}>All</Link>
-            <Link href={href({ billable: sp.billable ? undefined : "1" })} className={pill(!!sp.billable)}>Billable</Link>
+            <Link href={href({ billable: sp.billable === "pending" || sp.billable === "1" ? undefined : "pending" })} className={pill(sp.billable === "pending" || sp.billable === "1")}>Pending billing</Link>
+            <Link href={href({ billable: sp.billable === "billed" ? undefined : "billed" })} className={pill(sp.billable === "billed")}>Billed</Link>
             <span className="mx-1 h-5 w-px bg-slate-200" />
             {cats?.map((c) => (
               <Link key={c.id} href={href({ category: sp.category === String(c.id) ? undefined : String(c.id) })} className={pill(sp.category === String(c.id))}>{c.name}</Link>
@@ -141,11 +143,15 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                       </td>
                       <td>
                         {e.invoice ? (
-                          <Link href={docHref("invoice", e.invoice.id)}><Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">{docNumber("invoice", e.invoice.number)}</Badge></Link>
-                        ) : e.is_billable ? (
-                          <Badge className="bg-amber-50 text-amber-700 ring-amber-200">To bill</Badge>
+                          <Link href={docHref("invoice", e.invoice.id)} title="Billed — open the invoice">
+                            <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">Billed · {docNumber("invoice", e.invoice.number)}</Badge>
+                          </Link>
+                        ) : e.is_billable && e.customer ? (
+                          <Link href={`/sales/invoices/new?customer=${e.customer.id}&expense=${e.id}`} title="Add to a new invoice for this customer">
+                            <Badge className="bg-amber-50 text-amber-700 ring-amber-200">Pending billing</Badge>
+                          </Link>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-slate-400">Not billable</span>
                         )}
                       </td>
                     </tr>

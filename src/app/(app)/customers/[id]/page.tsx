@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { UnbilledExpenses } from "@/components/sales/unbilled-expenses";
 import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { EmailHistory } from "@/components/crm/email-history";
 import { CustomerSubscriptions } from "@/components/sales/customer-subscriptions";
@@ -207,6 +208,7 @@ export default async function CustomerPage({
       {tab === "tasks" && <RelatedTasks relType="customer" relId={id} />}
       {tab === "billing" && (
         <div className="space-y-6">
+          <UnbilledExpenses customerId={id} />
           <RelatedDocs customerId={id} />
           <div className="grid gap-6 lg:grid-cols-2">
             <CustomerSubscriptions customerId={id} />

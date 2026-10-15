@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FileText, Paperclip, Repeat, Trash2 } from "lucide-react";
+import { Download, FilePlus2, FileText, Paperclip, Repeat, Trash2 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -39,20 +39,14 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
         title={e.name}
         actions={
           <>
-            {invoice ? (
-              <Link href={docHref("invoice", invoice.id)} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
-                Billed on {docNumber("invoice", invoice.number)}
-              </Link>
-            ) : (
-              e.is_billable &&
-              e.customer_id &&
-              can("expenses", "edit") &&
-              can("sales", "edit") && (
+            {!invoice && e.is_billable && e.customer_id && can("expenses", "edit") && can("sales", "edit") && (
+              <>
+                <LinkButton href={`/sales/invoices/new?customer=${e.customer_id}&expense=${id}`} variant="accent" size="sm"><FilePlus2 className="h-3.5 w-3.5" /> Add to new invoice</LinkButton>
                 <form action={invoiceExpense}>
                   <input type="hidden" name="id" value={id} />
-                  <SubmitButton variant="accent" size="sm" pendingText="Creating…"><FileText className="h-3.5 w-3.5" /> Bill to customer</SubmitButton>
+                  <SubmitButton variant="secondary" size="sm" pendingText="Creating…"><FileText className="h-3.5 w-3.5" /> Bill on its own</SubmitButton>
                 </form>
-              )
+              </>
             )}
             {can("expenses", "full") && (
               <ConfirmForm action={deleteExpense} message={`Delete expense “${e.name}”?`}>
@@ -85,6 +79,22 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
           )}
         </div>
       )}
+      <div
+        className={`mb-6 flex flex-wrap items-center gap-2 rounded-2xl border px-5 py-3 text-sm ${
+          invoice ? "border-emerald-200 bg-emerald-50 text-emerald-900" : e.is_billable && e.customer_id ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600"
+        }`}
+      >
+        <b>Billing:</b>
+        {invoice ? (
+          <span>Billed to the customer on <Link href={docHref("invoice", invoice.id)} className="font-semibold underline">{docNumber("invoice", invoice.number)}</Link>. Remove the line from that invoice (or cancel it) to make this pending again.</span>
+        ) : e.is_billable && e.customer_id ? (
+          <span>Pending billing — it&apos;s offered automatically when you create an invoice for this customer.</span>
+        ) : e.customer_id ? (
+          <span>Not billable — linked to a customer for tracking only. Tick &ldquo;Billable to the customer&rdquo; below to re-bill it.</span>
+        ) : (
+          <span>Internal expense — not billable.</span>
+        )}
+      </div>
       <Card className="mb-6">
         <CardHeader title="Receipt" />
         <CardBody className="space-y-3">

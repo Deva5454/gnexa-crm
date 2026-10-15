@@ -10,6 +10,36 @@ import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
+/** Expenses on invoice lines must be billable, for this customer, and not billed on another invoice. */
+async function checkExpenses(lines: Line[], customerId: number | null, docId: number): Promise<{ ok: number[] } | { error: string }> {
+  const ids = [...new Set(lines.map((l) => l.expense_id).filter((x): x is number => !!x))];
+  if (!ids.length) return { ok: [] };
+  const { supabase } = await requireStaff();
+  const { data: exps } = await supabase.from("expenses").select("id, name, customer_id, is_billable, invoice_id").in("id", ids);
+  for (const id of ids) {
+    const e = exps?.find((x) => x.id === id);
+    if (!e) return { error: "An expense on this invoice no longer exists — remove that line." };
+    if (!e.is_billable || e.customer_id !== customerId) return { error: `“${e.name}” isn't a billable expense for this customer.` };
+    if (e.invoice_id && e.invoice_id !== docId) return { error: `“${e.name}” is already billed on another invoice.` };
+  }
+  return { ok: ids };
+}
+
+/** Make expenses.invoice_id match the invoice's lines: linked lines → billed, removed lines → pending again. */
+export async function syncBilledExpenses(docId: number) {
+  const { supabase } = await requireStaff();
+  const [{ data: items }, { data: doc }] = await Promise.all([
+    supabase.from("sales_doc_items").select("expense_id").eq("doc_id", docId).not("expense_id", "is", null),
+    supabase.from("sales_docs").select("status").eq("id", docId).single(),
+  ]);
+  const ids = doc?.status === "cancelled" ? [] : (items ?? []).map((i) => i.expense_id!);
+  let release = supabase.from("expenses").update({ invoice_id: null }).eq("invoice_id", docId);
+  if (ids.length) release = release.not("id", "in", `(${ids.join(",")})`);
+  await release;
+  if (ids.length) await supabase.from("expenses").update({ invoice_id: docId }).in("id", ids).is("invoice_id", null);
+  revalidatePath("/expenses");
+}
+
 function parseLines(raw: string | null): Line[] | string {
   let data: unknown;
   try {
@@ -35,6 +65,7 @@ function parseLines(raw: string | null): Line[] | string {
       unit: String(r.unit ?? "").trim() || null,
       rate,
       tax_rate: Number.isFinite(tax) && tax >= 0 && tax <= 100 ? tax : 0,
+      expense_id: r.expense_id ? Number(r.expense_id) : null,
     });
   }
   return lines;
@@ -121,10 +152,14 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
     await logActivity(supabase, `created ${KINDS[kind].label.toLowerCase()} ${docNumber(kind, data.number)}`, rel);
   }
 
+  // Only invoices bill expenses; any other document drops the link
+  const billed = kind === "invoice" ? await checkExpenses(lines, customer_id, docId!) : { ok: [] as number[] };
+  if ("error" in billed) return { error: billed.error };
   const { error: itemsError } = await supabase
     .from("sales_doc_items")
-    .insert(lines.map((l, i) => ({ ...l, doc_id: docId!, position: i })));
+    .insert(lines.map((l, i) => ({ ...l, expense_id: l.expense_id && billed.ok.includes(l.expense_id) ? l.expense_id : null, doc_id: docId!, position: i })));
   if (itemsError) return { error: itemsError.message };
+  if (kind === "invoice") await syncBilledExpenses(docId!);
 
   if (kind === "invoice" && every) await supabase.rpc("run_recurring");
   revalidatePath(`/sales/${KINDS[kind].slug}`);
@@ -144,6 +179,8 @@ export async function setDocStatus(form: FormData) {
     .eq("id", id)
     .select("kind, number, customer_id, lead_id")
     .single();
+  // Cancelling an invoice frees its expenses for billing again; reopening re-claims any still free
+  if (doc?.kind === "invoice" && (status === "cancelled" || status === "draft")) await syncBilledExpenses(id);
   if (doc) {
     const rel = doc.customer_id ? ({ type: "customer", id: doc.customer_id } as const) : ({ type: "lead", id: doc.lead_id! } as const);
     await logActivity(supabase, `${STATUS_VERB[status]} ${docNumber(doc.kind, doc.number)}`, rel);

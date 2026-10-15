@@ -59,6 +59,11 @@ export async function saveExpense(id: number | null, _: FormState, form: FormDat
   if (!f.name) return { error: "Give the expense a name." };
   if (f.amount < 0) return { error: "Amount must be zero or more." };
   if (f.is_billable && !f.customer_id) return { error: "Billable expenses need a customer." };
+  if (id) {
+    const { data: cur } = await supabase.from("expenses").select("invoice_id, customer_id").eq("id", id).single();
+    if (cur?.invoice_id && (cur.customer_id !== f.customer_id || !f.is_billable))
+      return { error: "This expense is already billed — remove it from the invoice first to change its customer or billing." };
+  }
   // Recurring: next copy = date + (copies made + 1) intervals
   const every = Math.round(num(form, "recurring_every") ?? 0);
   const unit = ["week", "month", "year"].includes(str(form, "recurring_unit") ?? "") ? str(form, "recurring_unit")! : "month";
@@ -117,7 +122,7 @@ export async function invoiceExpense(form: FormData) {
     .select("id, number")
     .single();
   if (error) throw new Error(error.message);
-  await supabase.from("sales_doc_items").insert({ ...line, doc_id: inv.id, position: 0 });
+  await supabase.from("sales_doc_items").insert({ ...line, doc_id: inv.id, position: 0, expense_id: id });
   await supabase.from("expenses").update({ invoice_id: inv.id }).eq("id", id);
   await logActivity(supabase, `billed expense “${e.name}” on ${docNumber("invoice", inv.number)}`, { type: "customer", id: e.customer_id });
   revalidatePath("/expenses");
