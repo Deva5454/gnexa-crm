@@ -4,10 +4,38 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
-import { computeTotals, docHref, docNumber } from "@/lib/sales";
+import { addInterval, computeTotals, docHref, docNumber } from "@/lib/sales";
 import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string } | undefined;
+
+const RECEIPTS = "expense-receipts";
+
+/** Called after the browser uploaded a receipt straight to storage. Replaces any previous receipt. */
+export async function recordReceipt(id: number, path: string, name: string): Promise<{ error?: string }> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("expenses", "edit")) return denied(roleName, "expenses", "edit");
+  if (!path.startsWith(`${id}/`)) return { error: "Invalid file path." };
+  const { data: old } = await supabase.from("expenses").select("receipt_path").eq("id", id).single();
+  const { error } = await supabase.from("expenses").update({ receipt_path: path, receipt_name: name.slice(0, 200) }).eq("id", id);
+  if (error) {
+    await supabase.storage.from(RECEIPTS).remove([path]);
+    return { error: error.message };
+  }
+  if (old?.receipt_path && old.receipt_path !== path) await supabase.storage.from(RECEIPTS).remove([old.receipt_path]);
+  revalidatePath(`/expenses/${id}`);
+  revalidatePath("/expenses");
+  return {};
+}
+
+export async function removeReceipt(form: FormData) {
+  const { supabase } = await assertAccess("expenses", "edit");
+  const id = Number(str(form, "id"));
+  const { data: e } = await supabase.from("expenses").select("receipt_path").eq("id", id).single();
+  if (e?.receipt_path) await supabase.storage.from(RECEIPTS).remove([e.receipt_path]);
+  await supabase.from("expenses").update({ receipt_path: null, receipt_name: null }).eq("id", id);
+  revalidatePath(`/expenses/${id}`);
+}
 
 function fields(form: FormData) {
   return {
@@ -31,14 +59,29 @@ export async function saveExpense(id: number | null, _: FormState, form: FormDat
   if (!f.name) return { error: "Give the expense a name." };
   if (f.amount < 0) return { error: "Amount must be zero or more." };
   if (f.is_billable && !f.customer_id) return { error: "Billable expenses need a customer." };
-  const { error } = id ? await supabase.from("expenses").update(f).eq("id", id) : await supabase.from("expenses").insert(f);
+  // Recurring: next copy = date + (copies made + 1) intervals
+  const every = Math.round(num(form, "recurring_every") ?? 0);
+  const unit = ["week", "month", "year"].includes(str(form, "recurring_unit") ?? "") ? str(form, "recurring_unit")! : "month";
+  const cycles = Math.round(num(form, "recurring_cycles") ?? 0) || null;
+  const done = id && every ? ((await supabase.from("expenses").select("recurring_done").eq("id", id).single()).data?.recurring_done ?? 0) : 0;
+  if (cycles != null && every && cycles < done) return { error: `${done} copies already exist — “stop after” can't be lower than that.` };
+  const recurring =
+    every > 0 && every <= 36
+      ? { recurring_every: every, recurring_unit: unit, recurring_cycles: cycles, next_recurring_date: cycles != null && done >= cycles ? null : addInterval(f.date, every * (done + 1), unit) }
+      : { recurring_every: null, recurring_cycles: null, next_recurring_date: null };
+  const { data: saved, error } = id
+    ? await supabase.from("expenses").update({ ...f, ...recurring }).eq("id", id).select("id").single()
+    : await supabase.from("expenses").insert({ ...f, ...recurring }).select("id").single();
   if (error) return { error: error.message };
+  if (every) await supabase.rpc("run_recurring");
   revalidatePath("/expenses");
-  redirect("/expenses");
+  redirect(`/expenses/${saved.id}`);
 }
 
 export async function deleteExpense(form: FormData) {
   const { supabase } = await assertAccess("expenses", "full");
+  const { data: e } = await supabase.from("expenses").select("receipt_path").eq("id", Number(str(form, "id"))).maybeSingle();
+  if (e?.receipt_path) await supabase.storage.from(RECEIPTS).remove([e.receipt_path]);
   await supabase.from("expenses").delete().eq("id", Number(str(form, "id")));
   revalidatePath("/expenses");
   redirect("/expenses");

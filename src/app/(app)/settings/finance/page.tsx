@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader } from "@/components/ui/card";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireAdmin } from "@/lib/auth";
-import { addTax, deleteNamed } from "../actions";
+import { addTax, deleteNamed, saveReminderSettings } from "../actions";
 import { NamedList } from "../named-list";
 
 export const metadata: Metadata = { title: "Finance settings" };
 
 export default async function FinanceSettingsPage() {
   const { supabase } = await requireAdmin();
-  const [{ data: taxes }, { data: modes }, { data: cats }] = await Promise.all([
+  const [{ data: taxes }, { data: modes }, { data: cats }, { data: cs }] = await Promise.all([
     supabase.from("taxes").select("id, name, rate").order("rate"),
     supabase.from("payment_modes").select("id, name").order("id"),
     supabase.from("expense_categories").select("id, name").order("name"),
+    supabase.from("company_settings").select("auto_overdue_reminders, overdue_reminder_days").maybeSingle(),
   ]);
   return (
     <>
@@ -38,6 +40,20 @@ export default async function FinanceSettingsPage() {
           <input name="rate" type="number" min="0" max="100" step="0.01" required placeholder="Rate %" className="field w-28" />
           <Button variant="secondary"><Plus className="h-4 w-4" /> Add</Button>
         </form>
+      </Card>
+      <Card>
+        <CardHeader title="Overdue reminders" description="Automatic e-mails for unpaid invoices past their due date. Demo: logged in the e-mail log, not delivered." />
+        <CardBody>
+          <form action={saveReminderSettings} className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="auto" defaultChecked={cs?.auto_overdue_reminders ?? true} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+              Send automatically, then again every
+            </label>
+            <input name="days" type="number" min={1} max={60} defaultValue={cs?.overdue_reminder_days ?? 7} className="field w-20" aria-label="Days between reminders" />
+            <span>days until paid</span>
+            <SubmitButton size="sm" variant="secondary" pendingText="…">Save</SubmitButton>
+          </form>
+        </CardBody>
       </Card>
       <NamedList table="payment_modes" title="Payment modes" description="How customers pay you." items={modes ?? []} />
       <NamedList table="expense_categories" title="Expense categories" items={cats ?? []} />

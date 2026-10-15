@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Plus, Receipt } from "lucide-react";
+import { Paperclip, Plus, Receipt, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -22,10 +22,11 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   const page = Math.max(1, Number(sp.page) || 1);
   const { supabase, can } = await requireStaff();
   if (!can("expenses", "view")) notFound();
+  await supabase.rpc("run_recurring"); // add any recurring expenses that fell due
 
   let q = supabase
     .from("expenses")
-    .select("id, name, amount, tax_rate, date, is_billable, reference, category:expense_categories(name), customer:customers(id, company), invoice:sales_docs(id, number)", { count: "exact" })
+    .select("id, name, amount, tax_rate, date, is_billable, reference, recurring_every, recurring_from, receipt_path, category:expense_categories(name), customer:customers(id, company), invoice:sales_docs(id, number)", { count: "exact" })
     .order("date", { ascending: false })
     .order("id", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
@@ -127,6 +128,8 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                     <tr key={e.id}>
                       <td>
                         <Link href={`/expenses/${e.id}`} className="font-medium text-slate-900 hover:text-brand-700">{e.name}</Link>
+                        {(e.recurring_every || e.recurring_from) && <Repeat className={`ml-1.5 inline h-3.5 w-3.5 ${e.recurring_every ? "text-violet-600" : "text-slate-400"}`} aria-label={e.recurring_every ? "Repeats" : "Recurring copy"} />}
+                        {e.receipt_path && <Paperclip className="ml-1 inline h-3.5 w-3.5 text-slate-400" aria-label="Receipt attached" />}
                         {e.reference && <div className="text-xs text-slate-400">{e.reference}</div>}
                       </td>
                       <td className="hidden text-slate-600 md:table-cell">{e.category?.name ?? "—"}</td>

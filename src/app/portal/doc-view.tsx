@@ -9,6 +9,7 @@ import { docStatus, KINDS, type DocKind } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { PrintButton, QuoteResponse } from "./forms";
+import { PayNow } from "./pay-now";
 
 /** A client's view of one of their documents (RLS only returns their own, non-draft documents). */
 export async function PortalDocView({ id, kinds, back, backLabel }: { id: number; kinds: DocKind[]; back: string; backLabel: string }) {
@@ -44,17 +45,21 @@ export async function PortalDocView({ id, kinds, back, backLabel }: { id: number
           )}
           {kind === "invoice" && (bal?.balance ?? 0) > 0.005 && doc.status !== "cancelled" && (
             <Card>
-              <CardHeader title="How to pay" />
-              <CardBody className="space-y-3 text-sm">
+              <CardHeader title="Pay this invoice" />
+              <CardBody className="space-y-4 text-sm">
                 <div className="rounded-xl bg-slate-50 p-4">
                   <div className="text-xs text-slate-500">Amount due</div>
                   <div className="text-2xl font-bold text-slate-900">{formatMoney(bal!.balance, doc.currency)}</div>
                   {doc.due_date && <div className="text-xs text-slate-500">by {formatDate(doc.due_date)}</div>}
                 </div>
+                <PayNow id={id} balance={bal!.balance} currency={doc.currency} />
                 {company?.bank_details && (
-                  <div className="flex gap-2 text-slate-600"><Landmark className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><p className="whitespace-pre-wrap">{company.bank_details}</p></div>
+                  <details className="border-t border-slate-100 pt-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-500">Prefer a bank transfer?</summary>
+                    <div className="mt-2 flex gap-2 text-slate-600"><Landmark className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" /><p className="whitespace-pre-wrap">{company.bank_details}</p></div>
+                    <p className="mt-1 text-xs text-slate-400">Please quote the invoice number with your payment.</p>
+                  </details>
                 )}
-                <p className="text-xs text-slate-400">Please quote the invoice number with your payment. Online card / UPI payment can be switched on with a payment gateway.</p>
               </CardBody>
             </Card>
           )}

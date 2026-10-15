@@ -135,3 +135,10 @@ export async function saveRolePermissions(form: FormData) {
   await supabase.from("roles").update({ permissions }).eq("id", id);
   revalidatePath("/settings/staff");
 }
+
+export async function saveReminderSettings(form: FormData) {
+  const { supabase } = await requireAdmin();
+  const days = Math.min(60, Math.max(1, Math.round(num(form, "days") ?? 7)));
+  await supabase.from("company_settings").update({ auto_overdue_reminders: form.get("auto") === "on", overdue_reminder_days: days }).eq("id", true);
+  revalidatePath("/settings/finance");
+}

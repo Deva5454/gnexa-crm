@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { EmailHistory } from "@/components/crm/email-history";
+import { CustomerSubscriptions } from "@/components/sales/customer-subscriptions";
 import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
@@ -187,7 +189,15 @@ export default async function CustomerPage({
 
       {tab === "notes" && <NotesPanel relType="customer" relId={id} path={base} />}
       {tab === "tasks" && <RelatedTasks relType="customer" relId={id} />}
-      {tab === "billing" && <RelatedDocs customerId={id} />}
+      {tab === "billing" && (
+        <div className="space-y-6">
+          <RelatedDocs customerId={id} />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <CustomerSubscriptions customerId={id} />
+            <EmailHistory customerId={id} limit={10} />
+          </div>
+        </div>
+      )}
       {tab === "work" && <CustomerWork customerId={id} />}
       {tab === "activity" && (
         <Card>

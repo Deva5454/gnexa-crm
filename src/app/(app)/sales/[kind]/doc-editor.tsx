@@ -27,6 +27,9 @@ export type DocDraft = {
   notes: string;
   terms: string;
   lines: Line[];
+  recurring_every?: number | null;
+  recurring_unit?: string;
+  recurring_cycles?: number | null;
 };
 
 let seq = 0;
@@ -246,6 +249,30 @@ export function DocEditor({
           </dl>
         </div>
       </Card>
+
+      {kind === "invoice" && (
+        <Card>
+          <CardHeader title="Repeat this invoice" description="A copy is raised automatically on each due date and logged as e-mailed to the customer." />
+          <CardBody className="grid gap-4 sm:grid-cols-3">
+            <Field label="Repeat every" htmlFor="recurring_every">
+              <div className="flex gap-2">
+                <select id="recurring_every" name="recurring_every" defaultValue={draft.recurring_every ?? ""} className="field">
+                  <option value="">Doesn&apos;t repeat</option>
+                  {[1, 2, 3, 4, 6, 12].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <select name="recurring_unit" defaultValue={draft.recurring_unit ?? "month"} className="field" aria-label="Repeat unit">
+                  <option value="week">week(s)</option>
+                  <option value="month">month(s)</option>
+                  <option value="year">year(s)</option>
+                </select>
+              </div>
+            </Field>
+            <Field label="Stop after" htmlFor="recurring_cycles" hint="Leave blank to repeat until you stop it">
+              <input id="recurring_cycles" name="recurring_cycles" type="number" min={1} max={120} defaultValue={draft.recurring_cycles ?? ""} placeholder="∞" className="field" />
+            </Field>
+          </CardBody>
+        </Card>
+      )}
 
       <Card>
         <CardBody className="grid gap-4 sm:grid-cols-2">

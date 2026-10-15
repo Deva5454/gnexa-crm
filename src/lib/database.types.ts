@@ -16,15 +16,15 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
-          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null;
+          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
         };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
-          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null;
+          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
         };
         Relationships: [];
       };
@@ -156,23 +156,27 @@ export type Database = {
           subject: string | null; content: string | null; date: string; due_date: string | null; status: string; currency: string;
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
-          project_id: number | null;
+          project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;
+          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null;
         };
         Insert: {
           id?: never; kind: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
           subject?: string | null; content?: string | null; date?: string; due_date?: string | null; status?: string; currency?: string;
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
-          project_id?: number | null;
+          project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null;
         };
         Update: {
           id?: never; kind?: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
           subject?: string | null; content?: string | null; date?: string; due_date?: string | null; status?: string; currency?: string;
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
-          project_id?: number | null;
+          project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null;
         };
         Relationships: [
+          { foreignKeyName: "sales_docs_subscription_id_fkey"; columns: ["subscription_id"]; isOneToOne: false; referencedRelation: "subscriptions"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_lead_id_fkey"; columns: ["lead_id"]; isOneToOne: false; referencedRelation: "leads"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_source_id_fkey"; columns: ["source_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] },
@@ -211,14 +215,20 @@ export type Database = {
         Row: {
           id: number; name: string; category_id: number | null; amount: number; tax_rate: number; date: string; customer_id: number | null;
           payment_mode_id: number | null; reference: string | null; note: string | null; is_billable: boolean; invoice_id: number | null; created_by: string | null; created_at: string;
+          recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number; next_recurring_date: string | null;
+          recurring_from: number | null; receipt_path: string | null; receipt_name: string | null;
         };
         Insert: {
           id?: never; name: string; category_id?: number | null; amount: number; tax_rate?: number; date?: string; customer_id?: number | null;
           payment_mode_id?: number | null; reference?: string | null; note?: string | null; is_billable?: boolean; invoice_id?: number | null; created_by?: string | null; created_at?: string;
+          recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number; next_recurring_date?: string | null;
+          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null;
         };
         Update: {
           id?: never; name?: string; category_id?: number | null; amount?: number; tax_rate?: number; date?: string; customer_id?: number | null;
           payment_mode_id?: number | null; reference?: string | null; note?: string | null; is_billable?: boolean; invoice_id?: number | null; created_by?: string | null; created_at?: string;
+          recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number; next_recurring_date?: string | null;
+          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null;
         };
         Relationships: [
           { foreignKeyName: "expenses_category_id_fkey"; columns: ["category_id"]; isOneToOne: false; referencedRelation: "expense_categories"; referencedColumns: ["id"] },
@@ -402,6 +412,46 @@ export type Database = {
         Update: { id?: never; title?: string; body?: string; created_at?: string };
         Relationships: [];
       };
+      subscriptions: {
+        Row: {
+          id: number; customer_id: number; name: string; description: string | null; item_id: number | null; quantity: number; unit_price: number; tax_rate: number;
+          currency: string; interval_count: number; interval_unit: string; start_date: string; next_billing_date: string | null; ends_after_cycles: number | null;
+          cycles_billed: number; auto_charge: boolean; status: string; cancelled_at: string | null; created_by: string | null; created_at: string;
+        };
+        Insert: {
+          id?: never; customer_id: number; name: string; description?: string | null; item_id?: number | null; quantity?: number; unit_price: number; tax_rate?: number;
+          currency?: string; interval_count?: number; interval_unit?: string; start_date?: string; next_billing_date?: string | null; ends_after_cycles?: number | null;
+          cycles_billed?: number; auto_charge?: boolean; status?: string; cancelled_at?: string | null; created_by?: string | null; created_at?: string;
+        };
+        Update: {
+          id?: never; customer_id?: number; name?: string; description?: string | null; item_id?: number | null; quantity?: number; unit_price?: number; tax_rate?: number;
+          currency?: string; interval_count?: number; interval_unit?: string; start_date?: string; next_billing_date?: string | null; ends_after_cycles?: number | null;
+          cycles_billed?: number; auto_charge?: boolean; status?: string; cancelled_at?: string | null; created_by?: string | null; created_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "subscriptions_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
+          { foreignKeyName: "subscriptions_item_id_fkey"; columns: ["item_id"]; isOneToOne: false; referencedRelation: "items"; referencedColumns: ["id"] },
+          { foreignKeyName: "subscriptions_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
+      email_log: {
+        Row: {
+          id: number; customer_id: number | null; to_email: string | null; to_name: string | null; subject: string; body: string; kind: string;
+          rel_type: string | null; rel_id: number | null; automatic: boolean; sent_by: string | null; created_at: string;
+        };
+        Insert: {
+          id?: never; customer_id?: number | null; to_email?: string | null; to_name?: string | null; subject: string; body: string; kind?: string;
+          rel_type?: string | null; rel_id?: number | null; automatic?: boolean; sent_by?: string | null; created_at?: string;
+        };
+        Update: {
+          id?: never; customer_id?: number | null; to_email?: string | null; to_name?: string | null; subject?: string; body?: string; kind?: string;
+          rel_type?: string | null; rel_id?: number | null; automatic?: boolean; sent_by?: string | null; created_at?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "email_log_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
+          { foreignKeyName: "email_log_sent_by_fkey"; columns: ["sent_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
       task_assignees: {
         Row: { staff_id: string; task_id: number };
         Insert: { staff_id: string; task_id: number };
@@ -450,6 +500,8 @@ export type Database = {
       start_task_timer: { Args: { p_task: number }; Returns: number };
       stop_task_timer: { Args: { p_timer: number; p_note: string | null }; Returns: number };
       flush_reminders: { Args: Record<PropertyKey, never>; Returns: number };
+      run_recurring: { Args: Record<PropertyKey, never>; Returns: Json };
+      portal_pay: { Args: { p_invoice: number; p_amount: number; p_method: string }; Returns: string };
     };
     Enums: {
       doc_kind: "proposal" | "estimate" | "invoice" | "credit_note";

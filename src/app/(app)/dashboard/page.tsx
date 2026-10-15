@@ -22,6 +22,7 @@ function greeting() {
 
 export default async function DashboardPage() {
   const { supabase, profile, can, roleName } = await requireStaff();
+  if (can("sales", "view") || can("expenses", "view")) await supabase.rpc("run_recurring"); // catch up on recurring billing before the numbers below
   const today = new Date().toISOString().slice(0, 10);
   const since = new Date(Date.now() - 13 * 86400_000);
   since.setHours(0, 0, 0, 0);

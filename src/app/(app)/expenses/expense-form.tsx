@@ -77,6 +77,26 @@ export function ExpenseForm({
           </Field>
         </CardBody>
       </Card>
+      <Card>
+        <CardBody className="grid gap-4 sm:grid-cols-3">
+          <Field label="Repeats" htmlFor="recurring_every" hint="Rent, hosting, subscriptions…">
+            <div className="flex gap-2">
+              <select id="recurring_every" name="recurring_every" defaultValue={e?.recurring_every ?? ""} className="field">
+                <option value="">Doesn&apos;t repeat</option>
+                {[1, 2, 3, 6, 12].map((n) => <option key={n} value={n}>Every {n}</option>)}
+              </select>
+              <select name="recurring_unit" defaultValue={e?.recurring_unit ?? "month"} className="field" aria-label="Repeat unit">
+                <option value="week">week(s)</option>
+                <option value="month">month(s)</option>
+                <option value="year">year(s)</option>
+              </select>
+            </div>
+          </Field>
+          <Field label="Stop after" htmlFor="recurring_cycles" hint="Blank = until you stop it">
+            <input id="recurring_cycles" name="recurring_cycles" type="number" min={1} max={120} defaultValue={e?.recurring_cycles ?? ""} placeholder="∞" className="field" />
+          </Field>
+        </CardBody>
+      </Card>
       <div className="flex justify-end gap-2">
         <Link href="/expenses" className={buttonClass({ variant: "secondary" })}>Cancel</Link>
         <SubmitButton pendingText="Saving…">{e ? "Save changes" : "Add expense"}</SubmitButton>

@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRightLeft, Ban, Check, Pencil, Printer, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { ArrowRightLeft, Ban, Check, Pencil, Printer, Repeat, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { EmailHistory } from "@/components/crm/email-history";
+import { SendEmailForm, type Recipient } from "@/components/crm/send-email-form";
+import { sendDocEmail } from "@/lib/actions/email";
 import { DocPaper } from "@/components/sales/doc-paper";
 import { loadParty } from "@/components/sales/party";
 import { Badge } from "@/components/ui/badge";
@@ -12,13 +15,15 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireStaff } from "@/lib/auth";
-import { docHref, docNumber, docStatus, KINDS, kindFromSlug, type DocKind } from "@/lib/sales";
+import { docHref, docNumber, docStatus, INTERVAL_LABEL, KINDS, kindFromSlug, type DocKind } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { convertDoc, deleteDoc, deletePayment, removeCredit, setDocStatus } from "../../actions";
 import { ApplyCreditForm, PaymentForm } from "./panels";
 
 export const metadata: Metadata = { title: "Document" };
+
+const k0 = (kind: DocKind) => KINDS[kind].label.toLowerCase();
 
 function StatusButton({ id, status, label, icon: Icon, variant = "secondary" }: { id: number; status: string; label: string; icon: typeof Send; variant?: "secondary" | "primary" | "accent" }) {
   return (
@@ -87,6 +92,34 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
       .filter((i) => i.status !== "draft" && (ib.get(i.id)?.balance ?? 0) > 0.005)
       .map((i) => ({ id: i.id, balance: ib.get(i.id)!.balance, label: `${docNumber("invoice", i.number)} · due ${formatMoney(ib.get(i.id)!.balance, cur)}` }));
   }
+
+  // Recurring: the template's copies, or the template this copy came from; subscription it bills
+  const [{ data: copies }, { data: template }, { data: sub }, recipients] = await Promise.all([
+    doc.recurring_every ? supabase.from("sales_docs").select("id, number, date, total, status").eq("recurring_from", id).order("date", { ascending: false }) : Promise.resolve({ data: null }),
+    doc.recurring_from ? supabase.from("sales_docs").select("id, number").eq("id", doc.recurring_from).maybeSingle() : Promise.resolve({ data: null }),
+    doc.subscription_id ? supabase.from("subscriptions").select("id, name").eq("id", doc.subscription_id).maybeSingle() : Promise.resolve({ data: null }),
+    (async (): Promise<Recipient[]> => {
+      if (doc.customer_id) {
+        const { data } = await supabase.from("contacts").select("email, first_name, last_name, is_primary").eq("customer_id", doc.customer_id).not("email", "is", null).order("is_primary", { ascending: false });
+        return (data ?? []).map((c) => ({ email: c.email!, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null }));
+      }
+      if (doc.lead_id) {
+        const { data: l } = await supabase.from("leads").select("name, email").eq("id", doc.lead_id).maybeSingle();
+        return l?.email ? [{ email: l.email, name: l.name }] : [];
+      }
+      return [];
+    })(),
+  ]);
+  const label = docNumber(kind, doc.number);
+  const first = (recipients[0]?.name ?? "").split(" ")[0] || "there";
+  const balanceText = formatMoney(bal?.balance ?? Number(doc.total), cur);
+  const emailBody =
+    kind === "invoice"
+      ? `Hi ${first},\n\nPlease find attached invoice ${label} for ${formatMoney(Number(doc.total), cur)}${doc.due_date ? `, due on ${formatDate(doc.due_date)}` : ""}.\n\nYou can view and pay it online from your client portal.\n\nRegards,\n${company?.company_name ?? ""}`
+      : kind === "credit_note"
+        ? `Hi ${first},\n\nPlease find attached credit note ${label} for ${formatMoney(Number(doc.total), cur)}.\n\nRegards,\n${company?.company_name ?? ""}`
+        : `Hi ${first},\n\nPlease find attached our ${k0(kind)} ${label}${doc.subject ? ` for “${doc.subject}”` : ""}. You can review and accept it online from your client portal.\n\nLet me know if you have any questions.\n\nRegards,\n${company?.company_name ?? ""}`;
+  const reminderBody = `Hi ${first},\n\nThis is a friendly reminder that invoice ${label} was due on ${formatDate(doc.due_date)} and ${balanceText} is still outstanding.\n\nIf you have already paid, please ignore this message.\n\nRegards,\n${company?.company_name ?? ""}`;
 
   const hasMoney = (payments?.length ?? 0) > 0 || (credits?.length ?? 0) > 0;
   const converted = (derived ?? []).length > 0;
@@ -161,10 +194,59 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
         </div>
       )}
 
+      {(doc.recurring_every || template || sub) && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-violet-200 bg-violet-50 px-5 py-3 text-sm text-violet-900">
+          <Repeat className="h-4 w-4 shrink-0 text-violet-600" />
+          {doc.recurring_every ? (
+            <span>
+              <b>Recurring every {INTERVAL_LABEL(doc.recurring_every, doc.recurring_unit)}</b> · {doc.recurring_done} cop{doc.recurring_done === 1 ? "y" : "ies"} made
+              {doc.recurring_cycles ? ` of ${doc.recurring_cycles}` : ""} · {doc.next_recurring_date ? `next on ${formatDate(doc.next_recurring_date)}` : "finished"}
+            </span>
+          ) : template ? (
+            <span>Raised automatically from recurring invoice <Link href={docHref("invoice", template.id)} className="font-semibold underline">{docNumber("invoice", template.number)}</Link></span>
+          ) : (
+            <span>Billed by subscription <Link href={`/subscriptions/${sub!.id}`} className="font-semibold underline">{sub!.name}</Link></span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} />
 
         <aside className="space-y-6">
+          {canEdit && doc.status !== "cancelled" && (
+            <Card>
+              <CardHeader title="Send" description={doc.sent_at ? `Last marked sent ${formatDate(doc.sent_at)}` : "Not sent yet"} />
+              <CardBody className="space-y-2">
+                <SendEmailForm
+                  action={sendDocEmail}
+                  hidden={{ doc_id: id, kind: "document" }}
+                  recipients={recipients}
+                  subject={`${k.label} ${label} from ${company?.company_name ?? "us"}`}
+                  body={emailBody}
+                  attachment={`${label}.pdf`}
+                  label={`E-mail ${k.label.toLowerCase()}`}
+                  tone={doc.status === "draft" ? "primary" : "secondary"}
+                />
+                {status.key === "overdue" && (
+                  <SendEmailForm
+                    action={sendDocEmail}
+                    hidden={{ doc_id: id, kind: "overdue_reminder" }}
+                    recipients={recipients}
+                    subject={`Reminder: invoice ${label} is overdue`}
+                    body={reminderBody}
+                    attachment={`${label}.pdf`}
+                    label="Send overdue reminder"
+                    buttonLabel="Send reminder"
+                    icon="bell"
+                  />
+                )}
+                {status.key === "overdue" && doc.last_reminder_at && (
+                  <p className="text-center text-xs text-slate-500">Last reminder {formatDate(doc.last_reminder_at)}</p>
+                )}
+              </CardBody>
+            </Card>
+          )}
           <Card>
             <CardHeader title="Summary" />
             <CardBody className="space-y-2 text-sm">
@@ -258,6 +340,21 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
               </CardBody>
             </Card>
           )}
+          {(copies?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader title="Recurring copies" description={`${copies!.length} raised so far`} />
+              <ul className="divide-y divide-slate-100">
+                {copies!.slice(0, 8).map((c) => (
+                  <li key={c.id} className="flex items-center justify-between px-5 py-2.5 text-sm">
+                    <Link href={docHref("invoice", c.id)} className="font-mono font-semibold text-brand-700">{docNumber("invoice", c.number)}</Link>
+                    <span className="text-slate-500">{formatDate(c.date)}</span>
+                    <b>{formatMoney(Number(c.total), cur)}</b>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+          <EmailHistory relType="sales_doc" relId={id} />
           <RemindersPanel relType="sales_doc" relId={id} path={docHref(kind, id)} />
         </aside>
       </div>

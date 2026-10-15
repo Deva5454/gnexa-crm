@@ -57,3 +57,17 @@ export async function trackArticle(id: number, event: "view" | "yes" | "no") {
   const { supabase } = await requirePortal();
   await supabase.rpc("kb_track", { p_article: id, p_event: event });
 }
+
+export async function payInvoice(_: PortalState, form: FormData): Promise<PortalState> {
+  const { supabase } = await requirePortal();
+  const id = Number(str(form, "id"));
+  const amount = num(form, "amount");
+  const method = str(form, "method") ?? "upi";
+  if (!amount || amount <= 0) return { error: "Enter an amount to pay." };
+  const { data, error } = await supabase.rpc("portal_pay", { p_invoice: id, p_amount: amount, p_method: method });
+  if (error) return { error: error.message };
+  revalidatePath(`/portal/invoices/${id}`);
+  revalidatePath("/portal/invoices");
+  revalidatePath("/portal");
+  return { ok: `Payment successful. Reference ${data}.` };
+}

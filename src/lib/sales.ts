@@ -136,3 +136,17 @@ export function addDays(iso: string, days: number) {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** date + n days/weeks/months/years. Months clamp to the month's last day (31 Jan + 1 month = 28/29 Feb), like Postgres. */
+export function addInterval(iso: string, n: number, unit: string) {
+  if (unit === "day") return addDays(iso, n);
+  if (unit === "week") return addDays(iso, n * 7);
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  const months = unit === "year" ? n * 12 : n;
+  const total = y * 12 + (m - 1) + months;
+  const ny = Math.floor(total / 12), nm = total % 12;
+  const last = new Date(Date.UTC(ny, nm + 1, 0)).getUTCDate();
+  return `${ny}-${String(nm + 1).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
+}
+
+export const INTERVAL_LABEL = (n: number, unit: string) => (n === 1 ? unit : `${n} ${unit}s`);

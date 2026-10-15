@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
-import { computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
+import { addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { num, str } from "@/lib/utils";
 
@@ -82,6 +82,20 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
     terms: str(form, "terms"),
   };
 
+  // Recurring invoices: next copy = date + (copies made + 1) intervals
+  const every = kind === "invoice" ? Math.round(num(form, "recurring_every") ?? 0) : 0;
+  const unit = ["week", "month", "year"].includes(str(form, "recurring_unit") ?? "") ? str(form, "recurring_unit")! : "month";
+  const cycles = Math.round(num(form, "recurring_cycles") ?? 0) || null;
+  let done = 0;
+  if (id && every) done = (await supabase.from("sales_docs").select("recurring_done").eq("id", id).single()).data?.recurring_done ?? 0;
+  if (cycles != null && every && cycles < done) return { error: `${done} copies already exist — “stop after” can't be lower than that.` };
+  const recurring =
+    kind !== "invoice"
+      ? {}
+      : every > 0 && every <= 36
+        ? { recurring_every: every, recurring_unit: unit, recurring_cycles: cycles, next_recurring_date: cycles != null && done >= cycles ? null : addInterval(date, every * (done + 1), unit) }
+        : { recurring_every: null, recurring_cycles: null, next_recurring_date: null };
+
   let docId = id;
   if (id) {
     // Never let an edit drop an invoice below what's already been paid or credited
@@ -91,14 +105,14 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
       if (totals.total + 0.005 < settled)
         return { error: `Total can't be less than the ${kind === "invoice" ? "amount already received" : "credit already applied"}.` };
     }
-    const { error } = await supabase.from("sales_docs").update(fields).eq("id", id).eq("kind", kind);
+    const { error } = await supabase.from("sales_docs").update({ ...fields, ...recurring }).eq("id", id).eq("kind", kind);
     if (error) return { error: error.message };
     await supabase.from("sales_doc_items").delete().eq("doc_id", id);
   } else {
     const status = form.get("save_as") === "sent" ? "sent" : "draft";
     const { data, error } = await supabase
       .from("sales_docs")
-      .insert({ ...fields, kind, status, sent_at: status === "sent" ? new Date().toISOString() : null })
+      .insert({ ...fields, ...recurring, kind, status, sent_at: status === "sent" ? new Date().toISOString() : null })
       .select("id, number")
       .single();
     if (error) return { error: error.message };
@@ -112,6 +126,7 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
     .insert(lines.map((l, i) => ({ ...l, doc_id: docId!, position: i })));
   if (itemsError) return { error: itemsError.message };
 
+  if (kind === "invoice" && every) await supabase.rpc("run_recurring");
   revalidatePath(`/sales/${KINDS[kind].slug}`);
   redirect(docHref(kind, docId!));
 }

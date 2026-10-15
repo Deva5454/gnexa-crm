@@ -51,6 +51,9 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
           adjustment: Number(doc.adjustment),
           notes: doc.notes ?? "",
           terms: doc.terms ?? "",
+          recurring_every: doc.recurring_every,
+          recurring_unit: doc.recurring_unit,
+          recurring_cycles: doc.recurring_cycles,
           lines: (lines ?? []).map((l) => ({
             item_id: l.item_id,
             description: l.description,

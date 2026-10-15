@@ -21,6 +21,8 @@ import {
   type LucideIcon,
   ScrollText,
   SquareCheckBig,
+  Repeat,
+  Mails,
 } from "lucide-react";
 import type { Module } from "@/lib/permissions";
 
@@ -45,6 +47,7 @@ export const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/sales/invoices", label: "Invoices", icon: ReceiptText, module: "sales" },
       { href: "/sales/payments", label: "Payments", icon: Wallet, module: "sales" },
       { href: "/sales/credit-notes", label: "Credit notes", icon: CreditCard, module: "sales" },
+      { href: "/subscriptions", label: "Subscriptions", icon: Repeat, module: "sales" },
       { href: "/sales/items", label: "Items", icon: Package, module: "sales" },
       { href: "/expenses", label: "Expenses", icon: Receipt, module: "expenses" },
     ],
@@ -65,6 +68,7 @@ export const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/goals", label: "Goals", icon: Target, module: "reports" },
       { href: "/calendar", label: "Calendar", icon: CalendarDays },
       { href: "/announcements", label: "Announcements", icon: Megaphone },
+      { href: "/emails", label: "E-mail log", icon: Mails, module: "sales" },
     ],
   },
   {

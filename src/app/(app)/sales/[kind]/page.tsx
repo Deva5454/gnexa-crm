@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileText, Plus } from "lucide-react";
+import { FileText, Plus, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,10 +29,11 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
   const page = Math.max(1, Number(sp.page) || 1);
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
+  if (kind === "invoice") await supabase.rpc("run_recurring"); // raise any recurring/subscription invoices that fell due
 
   const { data: docs } = await supabase
     .from("sales_docs")
-    .select("id, kind, number, subject, date, due_date, status, total, currency, customer:customers(company), lead:leads(name, company)")
+    .select("id, kind, number, subject, date, due_date, status, total, currency, recurring_every, recurring_from, subscription_id, customer:customers(company), lead:leads(name, company)")
     .eq("kind", kind)
     .order("date", { ascending: false })
     .order("number", { ascending: false })
@@ -161,6 +162,12 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
                         <Link href={docHref(kind, d.id)} className="font-mono text-sm font-semibold text-brand-700 hover:underline">
                           {docNumber(kind, d.number)}
                         </Link>
+                        {(d.recurring_every || d.recurring_from || d.subscription_id) && (
+                          <Repeat
+                            className={cn("ml-1.5 inline h-3.5 w-3.5", d.recurring_every ? "text-violet-600" : "text-slate-400")}
+                            aria-label={d.recurring_every ? "Recurring template" : d.subscription_id ? "From a subscription" : "Recurring copy"}
+                          />
+                        )}
                       </td>
                       <td className="font-medium text-slate-800">
                         {d.party}
