@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { Building2, ListChecks, Magnet, Menu, Plus, Search } from "lucide-react";
+import { Building2, FileSignature, ListChecks, Magnet, Menu, Plus, Receipt, ReceiptText, Search } from "lucide-react";
 import { RoleSwitcher } from "./role-switcher";
 
-export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean };
+export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean; sales: boolean; expenses: boolean };
 
 export function Topbar({
   name,
@@ -35,6 +35,9 @@ export function Topbar({
     { href: "/customers/new", label: "Customer", icon: Building2, ok: canCreate.customers },
     { href: "/leads/new", label: "Lead", icon: Magnet, ok: canCreate.leads },
     { href: "/tasks/new", label: "Task", icon: ListChecks, ok: canCreate.tasks },
+    { href: "/sales/invoices/new", label: "Invoice", icon: ReceiptText, ok: canCreate.sales },
+    { href: "/sales/proposals/new", label: "Proposal", icon: FileSignature, ok: canCreate.sales },
+    { href: "/expenses/new", label: "Expense", icon: Receipt, ok: canCreate.expenses },
   ].filter((i) => i.ok);
 
   return (

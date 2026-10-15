@@ -19,9 +19,24 @@ A calm, modern CRM: customers, leads and tasks in one workspace. Feature set mod
 | Search | Global search across customers, contacts, leads and tasks |
 | Setup (admin) | Company name & currency, staff activation / admin / role, roles, pipeline stages (colour, order, "won" stage), lead sources, customer groups |
 
+## Phase 2 — Finance
+
+| Module | What's included |
+| --- | --- |
+| Proposals | To a lead or a customer, with a written pitch plus priced line items; accept / decline; convert to an estimate or invoice |
+| Estimates | Quote with expiry date; accept / decline / expired; one-click convert to invoice |
+| Invoices | Sequential numbers (INV-00001), GST per line (shown as CGST + SGST), discount %, adjustment, notes & terms, bank details; status works itself out: draft → unpaid → partially paid → paid, or overdue |
+| Payments | Record full or part payments (NEFT/RTGS, UPI, cheque, cash, card) with UTR / reference; payments ledger with monthly totals |
+| Credit notes | Issue credit and apply it to the same customer's open invoices |
+| Items | Product & service catalogue with rate, unit and GST rate — pick items straight into any document |
+| Expenses | Categories, GST, payment mode, customer link; mark billable and **bill to the customer** as an invoice in one click |
+| PDF | Every document has a print-ready A4 page — **Download PDF** uses the browser's "Save as PDF" |
+| Everywhere else | Dashboard money strip (outstanding, overdue, collected, spent), customer **Billing** tab, lead proposals, Setup → Finance (GST rates, payment modes, expense categories) and company details printed on documents |
+
+New role permissions: **Sales** (Manager full, Executive edit, Support view) and **Expenses** (Manager full, Executive edit, Support none).
+
 ## Roadmap
 
-- **Phase 2 — Finance:** proposals, estimates, invoices (PDF), payments, credit notes, expenses, taxes, items catalogue
 - **Phase 3 — Projects & support:** projects (milestones, timesheets, files, discussions), contracts with e-sign, support tickets, knowledge base
 - **Phase 4 — Portal & utilities:** customer portal, calendar, announcements, goals, reports, fine-grained role permissions, email templates
 
@@ -44,6 +59,10 @@ SQL migrations live in `supabase/migrations/` and have already been applied to t
 3. `0003_fk_indexes.sql` — covering indexes for foreign keys
 4. `0004_demo_mode.sql` — demo persona accounts, sample data, `reset_demo_data()` — **run this once in the Supabase
    SQL Editor** (it writes to the `auth` schema). Safe to re-run.
+5. `0005_finance.sql` — finance tables, `doc_balances` view, document numbering, RLS, GST rates, payment modes
+6. `0006_demo_finance.sql` — finance demo data; `reset_demo_data()` now restores it too
+
+Migrations 5 and 6 are run together in the Supabase SQL Editor (one transaction).
 
 ### Demo roles
 

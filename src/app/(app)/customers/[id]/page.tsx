@@ -5,6 +5,7 @@ import { Globe, Mail, MapPin, Pencil, Phone, Star, Trash2 } from "lucide-react";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
+import { RelatedDocs } from "@/components/sales/related-docs";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export default async function CustomerPage({
     { key: "contacts", label: "Contacts", href: `${base}?tab=contacts`, count: contacts?.length ?? 0 },
     { key: "notes", label: "Notes", href: `${base}?tab=notes`, count: notesCount.count ?? 0 },
     { key: "tasks", label: "Tasks", href: `${base}?tab=tasks`, count: tasksCount.count ?? 0 },
+    ...(can("sales", "view") ? [{ key: "billing", label: "Billing", href: `${base}?tab=billing` }] : []),
     { key: "activity", label: "Activity", href: `${base}?tab=activity` },
   ];
 
@@ -175,6 +177,7 @@ export default async function CustomerPage({
 
       {tab === "notes" && <NotesPanel relType="customer" relId={id} path={base} />}
       {tab === "tasks" && <RelatedTasks relType="customer" relId={id} />}
+      {tab === "billing" && <RelatedDocs customerId={id} />}
       {tab === "activity" && (
         <Card>
           <CardHeader title="Activity log" />

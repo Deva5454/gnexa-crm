@@ -5,6 +5,7 @@ import { Ban, CheckCircle2, Mail, Pencil, Phone, Trash2, UserCheck, XCircle } fr
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
+import { RelatedDocs } from "@/components/sales/related-docs";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, ColorBadge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
@@ -121,6 +122,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </div>
           <NotesPanel relType="lead" relId={id} path={`/leads/${id}`} />
           <RelatedTasks relType="lead" relId={id} />
+          <RelatedDocs leadId={id} />
         </div>
 
         <div className="space-y-6">

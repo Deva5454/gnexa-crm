@@ -13,6 +13,8 @@ const MODULES: { key: Module; label: string }[] = [
   { key: "customers", label: "Customers & contacts" },
   { key: "leads", label: "Leads" },
   { key: "tasks", label: "Tasks" },
+  { key: "sales", label: "Sales (proposals, estimates, invoices, payments)" },
+  { key: "expenses", label: "Expenses" },
 ];
 const LEVELS: { key: Level; label: string }[] = [
   { key: "view", label: "View" },

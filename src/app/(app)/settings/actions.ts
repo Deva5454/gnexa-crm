@@ -11,7 +11,20 @@ export async function updateCompany(_: SettingsState, form: FormData): Promise<S
   const company_name = str(form, "company_name");
   const currency = str(form, "currency")?.toUpperCase();
   if (!company_name || !currency || currency.length !== 3) return { error: "Company name and a 3-letter currency code are required." };
-  const { error } = await supabase.from("company_settings").update({ company_name, currency, updated_at: new Date().toISOString() }).eq("id", true);
+  const { error } = await supabase
+    .from("company_settings")
+    .update({
+      company_name,
+      currency,
+      address: str(form, "address"),
+      gstin: str(form, "gstin")?.toUpperCase() ?? null,
+      email: str(form, "email"),
+      phone: str(form, "phone"),
+      bank_details: str(form, "bank_details"),
+      default_terms: str(form, "default_terms"),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
   if (error) return { error: error.message };
   revalidatePath("/", "layout");
   return { ok: "Settings saved." };
@@ -52,14 +65,14 @@ export async function updateStatus(form: FormData) {
   revalidatePath("/leads");
 }
 
-const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses"] as const;
+const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses", "payment_modes", "expense_categories", "taxes"] as const;
 type SimpleTable = (typeof SIMPLE)[number];
 
 export async function addNamed(form: FormData) {
   const { supabase } = await requireAdmin();
   const table = str(form, "table") as SimpleTable;
   const name = str(form, "name");
-  if (!SIMPLE.includes(table) || table === "lead_statuses" || !name) return;
+  if (!SIMPLE.includes(table) || table === "lead_statuses" || table === "taxes" || !name) return;
   await supabase.from(table).insert({ name });
   revalidatePath("/settings", "layout");
 }
@@ -79,4 +92,12 @@ export async function resetDemoData(): Promise<SettingsState> {
   if (error) return { error: error.message };
   revalidatePath("/", "layout");
   return { ok: "Demo data restored — customers, leads, tasks and notes are back to their starting state." };
+}
+
+export async function addTax(form: FormData) {
+  const { supabase } = await requireAdmin();
+  const rate = num(form, "rate");
+  if (rate == null || rate < 0 || rate > 100) return;
+  await supabase.from("taxes").insert({ name: str(form, "name") ?? `GST ${rate}%`, rate });
+  revalidatePath("/settings/finance");
 }

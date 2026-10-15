@@ -12,9 +12,9 @@ export default async function SettingsPage() {
   return (
     <>
       <Card>
-        <CardHeader title="Company" description="Shown across the workspace and used as the default currency." />
+        <CardHeader title="Company" description="Printed on proposals, estimates and invoices." />
         <CardBody>
-          <CompanyForm name={data?.company_name ?? "Gnexa CRM"} currency={data?.currency ?? "INR"} />
+          <CompanyForm settings={data} />
         </CardBody>
       </Card>
       <Card>

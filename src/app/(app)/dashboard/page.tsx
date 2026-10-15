@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlarmClock, ArrowUpRight, Building2, Magnet, Target, TrendingUp } from "lucide-react";
 import { ActivityFeed } from "@/components/crm/activity-feed";
+import { FinanceStrip } from "@/components/sales/finance-strip";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { taskPriority } from "@/lib/constants";
@@ -130,6 +131,8 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      <FinanceStrip />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">

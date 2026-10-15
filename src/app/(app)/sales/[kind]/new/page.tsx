@@ -1,0 +1,56 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { PageHeader } from "@/components/ui/page-header";
+import { requireAccess } from "@/lib/auth";
+import { addDays, KINDS, kindFromSlug } from "@/lib/sales";
+import { saveDoc } from "../../actions";
+import { DocEditor } from "../doc-editor";
+import { editorOptions } from "../editor-data";
+
+export const metadata: Metadata = { title: "New document" };
+
+export default async function NewDocPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ kind: string }>;
+  searchParams: Promise<{ customer?: string; lead?: string }>;
+}) {
+  const kind = kindFromSlug((await params).kind);
+  if (!kind) notFound();
+  const sp = await searchParams;
+  const k = KINDS[kind];
+  const { supabase } = await requireAccess("sales", "edit", `/sales/${k.slug}`);
+  const opts = await editorOptions(supabase);
+  const today = new Date().toISOString().slice(0, 10);
+  const party = sp.customer ? `customer:${Number(sp.customer)}` : sp.lead && kind === "proposal" ? `lead:${Number(sp.lead)}` : "";
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <PageHeader title={`New ${k.label.toLowerCase()}`} description={k.blurb} />
+      <DocEditor
+        kind={kind}
+        action={saveDoc.bind(null, kind, null)}
+        isNew
+        cancelHref={`/sales/${k.slug}`}
+        customers={opts.customers}
+        leads={opts.leads}
+        catalogue={opts.catalogue}
+        taxRates={opts.taxRates}
+        draft={{
+          party,
+          subject: "",
+          content: "",
+          date: today,
+          due_date: k.dueLabel ? addDays(today, kind === "invoice" ? 15 : 30) : "",
+          currency: opts.currency,
+          discount_percent: 0,
+          adjustment: 0,
+          notes: kind === "invoice" ? "Thank you for your business." : "",
+          terms: kind === "invoice" ? opts.defaultTerms : kind === "estimate" ? "Prices valid until the expiry date. Taxes as applicable." : "",
+          lines: [],
+        }}
+      />
+    </div>
+  );
+}

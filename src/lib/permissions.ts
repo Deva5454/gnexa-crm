@@ -1,6 +1,7 @@
 import type { Json } from "@/lib/database.types";
 
-export type Module = "customers" | "leads" | "tasks";
+export type Module = "customers" | "leads" | "tasks" | "sales" | "expenses";
+export const MODULES: Module[] = ["customers", "leads", "tasks", "sales", "expenses"];
 /** view < edit (create & change) < full (also delete) */
 export type Level = "view" | "edit" | "full";
 
@@ -10,13 +11,14 @@ export type Access = Record<Module, Level | "none">;
 
 /** Resolve a staff member's access from the admin flag and their role's `permissions` JSON. */
 export function resolveAccess(isAdmin: boolean, rolePermissions: Json | null | undefined): Access {
-  if (isAdmin) return { customers: "full", leads: "full", tasks: "full" };
+  if (isAdmin) return { customers: "full", leads: "full", tasks: "full", sales: "full", expenses: "full" };
   const perms = (rolePermissions && typeof rolePermissions === "object" && !Array.isArray(rolePermissions) ? rolePermissions : {}) as Record<string, Json>;
   const pick = (m: Module): Level | "none" => {
     const v = perms[m];
-    return v === "view" || v === "edit" || v === "full" ? v : "edit"; // staff without a role default to edit
+    if (v === "none" || v === "view" || v === "edit" || v === "full") return v;
+    return "edit"; // staff without a role (or a role predating a module) default to edit
   };
-  return { customers: pick("customers"), leads: pick("leads"), tasks: pick("tasks") };
+  return Object.fromEntries(MODULES.map((m) => [m, pick(m)])) as Access;
 }
 
 export function allows(access: Access, module: Module, need: Level) {

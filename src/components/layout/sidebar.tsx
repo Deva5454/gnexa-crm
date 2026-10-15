@@ -7,13 +7,16 @@ import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { NAV } from "./nav";
+import type { Module } from "@/lib/permissions";
 
 export function Sidebar({
   isAdmin,
+  visible,
   mobileOpen,
   onClose,
 }: {
   isAdmin: boolean;
+  visible: Module[];
   mobileOpen: boolean;
   onClose: () => void;
 }) {
@@ -58,7 +61,7 @@ export function Sidebar({
 
         <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-3">
           {NAV.map((group) => {
-            const items = group.items.filter((i) => !i.adminOnly || isAdmin);
+            const items = group.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.module || visible.includes(i.module)));
             if (!items.length) return null;
             return (
               <div key={group.section}>

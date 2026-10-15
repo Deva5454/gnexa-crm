@@ -10,7 +10,7 @@ export function NamedList({
   description,
   items,
 }: {
-  table: "lead_sources" | "customer_groups" | "roles";
+  table: "lead_sources" | "customer_groups" | "roles" | "payment_modes" | "expense_categories";
   title: string;
   description?: string;
   items: { id: number; name: string; extra?: React.ReactNode }[];
