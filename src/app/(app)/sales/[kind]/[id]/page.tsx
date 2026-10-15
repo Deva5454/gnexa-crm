@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRightLeft, Ban, Check, Pencil, Printer, RotateCcw, Send, Trash2, X } from "lucide-react";
@@ -257,6 +258,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
               </CardBody>
             </Card>
           )}
+          <RemindersPanel relType="sales_doc" relId={id} path={docHref(kind, id)} />
         </aside>
       </div>
     </>

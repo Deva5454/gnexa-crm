@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
+import { TagChip } from "@/components/crm/tag-editor";
+import { TagFilter } from "@/components/crm/tag-filter";
 import Link from "next/link";
 import { Columns3, List, Magnet, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -14,7 +17,7 @@ import { LeadsKanban } from "./kanban";
 
 export const metadata: Metadata = { title: "Leads" };
 
-type SP = { view?: string; q?: string; mine?: string; source?: string; show?: string };
+type SP = { view?: string; q?: string; mine?: string; source?: string; show?: string; tag?: string };
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -36,13 +39,19 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   if (sp.show === "lost") query = query.eq("is_lost", true);
   else if (sp.show === "junk") query = query.eq("is_junk", true);
   else query = query.eq("is_lost", false).eq("is_junk", false);
+  if (Number(sp.tag)) {
+    const ids = await idsWithTag(supabase, "lead", Number(sp.tag));
+    query = query.in("id", ids.length ? ids : [0]);
+  }
 
-  const [{ data: leads }, { data: statuses }, { data: sources }, { data: settings }] = await Promise.all([
+  const [{ data: leads }, { data: statuses }, { data: sources }, { data: settings }, tagList] = await Promise.all([
     query,
     supabase.from("lead_statuses").select("id, name, color").order("sort_order"),
     supabase.from("lead_sources").select("id, name").order("name"),
     supabase.from("company_settings").select("currency").maybeSingle(),
+    allTags(supabase),
   ]);
+  const tagMap = await tagsFor(supabase, "lead", (leads ?? []).map((l) => l.id));
   const currency = settings?.currency ?? "INR";
   const rows = leads ?? [];
 
@@ -94,7 +103,10 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </Link>
           ))}
         </div>
-        <SearchInput placeholder="Search leads…" />
+        <div className="flex items-center gap-2">
+          {tagList.length > 0 && <TagFilter tags={tagList} />}
+          <SearchInput placeholder="Search leads…" />
+        </div>
       </div>
 
       {view === "board" ? (
@@ -113,6 +125,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             last_contact_at: l.last_contact_at,
             source: l.source?.name ?? null,
             assignee: l.assignee?.full_name ?? null,
+            tags: tagMap.get(l.id) ?? [],
           }))}
         />
       ) : (
@@ -138,6 +151,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                     <tr key={l.id}>
                       <td>
                         <Link href={`/leads/${l.id}`} className="font-semibold text-slate-900 hover:text-brand-700">{l.name}</Link>
+                        {(tagMap.get(l.id) ?? []).map((g) => <TagChip key={g.id} tag={g} className="ml-1.5 px-1.5 text-[10px]" />)}
                         {l.company && <div className="text-xs text-slate-500">{l.company}</div>}
                       </td>
                       <td className="hidden text-slate-600 md:table-cell">

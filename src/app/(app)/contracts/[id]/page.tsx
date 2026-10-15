@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Ban, Pencil, Printer, RefreshCcw, RotateCcw, Send, Trash2 } from "lucide-react";
@@ -95,6 +96,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
               <CardBody><SignForm id={id} defaultSigner={party.contact ?? ""} /></CardBody>
             </Card>
           )}
+          <RemindersPanel relType="contract" relId={id} path={`/contracts/${id}`} />
         </aside>
       </div>
     </>

@@ -20,6 +20,7 @@ import {
   Wallet,
   type LucideIcon,
   ScrollText,
+  SquareCheckBig,
 } from "lucide-react";
 import type { Module } from "@/lib/permissions";
 
@@ -33,6 +34,7 @@ export const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/customers", label: "Customers", icon: Building2, module: "customers" },
       { href: "/leads", label: "Leads", icon: Magnet, module: "leads" },
       { href: "/tasks", label: "Tasks", icon: ListChecks, module: "tasks" },
+      { href: "/todos", label: "To-do", icon: SquareCheckBig },
     ],
   },
   {

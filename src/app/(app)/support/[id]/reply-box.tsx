@@ -12,7 +12,26 @@ const MODES = [
   { key: "customer", label: "Log customer message", hint: "Paste an email or call summary from the customer · re-opens the ticket" },
 ] as const;
 
-export function ReplyBox({ ticketId, contactName }: { ticketId: number; contactName: string }) {
+export function ReplyBox({
+  ticketId,
+  contactName,
+  agentName,
+  replies = [],
+}: {
+  ticketId: number;
+  contactName: string;
+  agentName: string;
+  replies?: { id: number; title: string; body: string }[];
+}) {
+  const text = useRef<HTMLTextAreaElement>(null);
+  const insert = (id: string) => {
+    const r = replies.find((x) => String(x.id) === id);
+    const el = text.current;
+    if (!r || !el) return;
+    const filled = r.body.replaceAll("{contact}", contactName.split(" ")[0] || "there").replaceAll("{agent}", agentName);
+    el.value = el.value.trim() ? `${el.value.trimEnd()}\n\n${filled}` : filled;
+    el.focus();
+  };
   const [mode, setMode] = useState<(typeof MODES)[number]["key"]>("reply");
   const [state, action] = useActionState(addReply, undefined);
   const ref = useRef<HTMLFormElement>(null);
@@ -40,7 +59,19 @@ export function ReplyBox({ ticketId, contactName }: { ticketId: number; contactN
         ))}
       </div>
       <div className={cn("p-4", mode === "note" && "bg-amber-50/40")}>
+        {mode !== "customer" && replies.length > 0 && (
+          <select
+            value=""
+            onChange={(e) => insert(e.target.value)}
+            aria-label="Insert predefined reply"
+            className="mb-2 h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs text-slate-600 focus:border-brand-300 focus:outline-none"
+          >
+            <option value="">Insert predefined reply…</option>
+            {replies.map((r) => <option key={r.id} value={r.id}>{r.title}</option>)}
+          </select>
+        )}
         <textarea
+          ref={text}
           name="body"
           required
           rows={5}

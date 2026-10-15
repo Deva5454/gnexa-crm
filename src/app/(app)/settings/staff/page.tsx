@@ -13,9 +13,11 @@ export const metadata: Metadata = { title: "Staff" };
 
 export default async function StaffPage() {
   const { supabase, profile: me } = await requireAdmin();
-  const [{ data: staff }, { data: roles }] = await Promise.all([
+  const [{ data: staff }, { data: roles }, { data: depts }, { data: memberships }] = await Promise.all([
     supabase.from("profiles").select("*").order("is_active").order("full_name"),
     supabase.from("roles").select("id, name, permissions").order("name"),
+    supabase.from("ticket_departments").select("id, name").order("name"),
+    supabase.from("staff_departments").select("staff_id, department_id"),
   ]);
   const pending = staff?.filter((s) => !s.is_active).length ?? 0;
 
@@ -24,7 +26,7 @@ export default async function StaffPage() {
       <Card>
         <CardHeader
           title="Team members"
-          description="New sign-ups appear here inactive. Tick Active to let them in."
+          description="New sign-ups appear here inactive. Tick Active to let them in. Departments decide who hears about new portal tickets."
           action={pending ? <Badge className="bg-amber-50 text-amber-700 ring-amber-200">{pending} awaiting approval</Badge> : undefined}
         />
         <ul className="divide-y divide-slate-100">
@@ -43,6 +45,17 @@ export default async function StaffPage() {
                         {!s.is_active && <Badge className="bg-amber-50 text-amber-700 ring-amber-200">Pending</Badge>}
                       </div>
                       <div className="truncate text-xs text-slate-500">{s.email} · joined {formatDate(s.created_at)}</div>
+                      {(depts?.length ?? 0) > 0 && (
+                        <fieldset className="mt-2 flex flex-wrap gap-1.5">
+                          <legend className="sr-only">Support departments</legend>
+                          {depts!.map((d) => (
+                            <label key={d.id} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700 has-[:checked]:ring-brand-200">
+                              <input type="checkbox" name="dept" value={d.id} defaultChecked={memberships?.some((m) => m.staff_id === s.id && m.department_id === d.id)} className="h-3 w-3 rounded border-slate-300 text-brand-600" />
+                              {d.name}
+                            </label>
+                          ))}
+                        </fieldset>
+                      )}
                     </div>
                   </div>
                   <select name="role_id" defaultValue={s.role_id ?? ""} className="field md:w-44" aria-label="Role">

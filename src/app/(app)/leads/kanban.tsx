@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useOptimistic, useState, useTransition } from "react";
 import { Building2, Clock } from "lucide-react";
+import { TagChip, type TagLite } from "@/components/crm/tag-editor";
 import { Avatar } from "@/components/ui/avatar";
 import { cn, formatMoney, timeAgo } from "@/lib/utils";
 import { moveLead } from "./actions";
@@ -18,6 +19,7 @@ export type KanbanLead = {
   last_contact_at: string | null;
   source: string | null;
   assignee: string | null;
+  tags?: TagLite[];
 };
 export type KanbanStatus = { id: number; name: string; color: string };
 
@@ -119,6 +121,7 @@ export function LeadsKanban({
                       dragging === l.id && "opacity-40",
                     )}
                   >
+                    {(l.tags?.length ?? 0) > 0 && <div className="mb-1.5 flex flex-wrap gap-1">{l.tags!.map((g) => <TagChip key={g.id} tag={g} className="px-1.5 text-[10px]" />)}</div>}
                     <Link href={`/leads/${l.id}`} className="block text-sm font-semibold text-slate-900 hover:text-brand-700">
                       {l.name}
                     </Link>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ListChecks, Plus } from "lucide-react";
+import { Columns3, List, ListChecks, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -12,11 +12,15 @@ import { requireStaff } from "@/lib/auth";
 import { TASK_STATUSES, taskPriority } from "@/lib/constants";
 import type { Enums } from "@/lib/database.types";
 import { cn, formatDate, PAGE_SIZE, searchTerm } from "@/lib/utils";
+import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
+import { TagChip } from "@/components/crm/tag-editor";
 import { CompleteToggle, StatusSelect } from "./status-select";
+import { TasksBoard, type BoardTask } from "./kanban";
+import { TagFilter } from "@/components/crm/tag-filter";
 
 export const metadata: Metadata = { title: "Tasks" };
 
-type SP = { q?: string; status?: string; scope?: string; due?: string; page?: string };
+type SP = { q?: string; status?: string; scope?: string; due?: string; page?: string; view?: string; tag?: string };
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -25,6 +29,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const canEdit = can("tasks", "edit");
   const today = new Date().toISOString().slice(0, 10);
   const mine = sp.scope !== "all";
+  const board = sp.view === "board";
+  const tagId = Number(sp.tag) || null;
+  const tagged = tagId ? await idsWithTag(supabase, "task", tagId) : null;
 
   // "Mine" = assigned to me. Use an inner join on assignees so the filter applies to the parent row.
   const assigneeSel = mine
@@ -35,16 +42,31 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     .select(`id, name, status, priority, start_date, due_date, rel_type, rel_id, ${assigneeSel}`, { count: "exact" })
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("id", { ascending: false })
-    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+    .range(board ? 0 : (page - 1) * PAGE_SIZE, board ? 299 : page * PAGE_SIZE - 1);
+  if (tagged) query = query.in("id", tagged.length ? tagged : [0]);
   if (mine) query = query.eq("task_assignees.staff_id", profile.id);
   const term = sp.q ? searchTerm(sp.q) : "";
   if (term) query = query.ilike("name", `%${term}%`);
-  if (sp.status && TASK_STATUSES.some((s) => s.value === sp.status)) query = query.eq("status", sp.status as Enums<"task_status">);
+  if (board) {
+    // The board shows every column; keep finished work to the last fortnight so it stays readable
+    query = query.or(`status.neq.complete,completed_at.gte.${new Date(Date.now() - 14 * 86400_000).toISOString()}`);
+  } else if (sp.status && TASK_STATUSES.some((s) => s.value === sp.status)) query = query.eq("status", sp.status as Enums<"task_status">);
   else if (!sp.status) query = query.neq("status", "complete");
   if (sp.due === "overdue") query = query.lt("due_date", today).neq("status", "complete");
   if (sp.due === "today") query = query.eq("due_date", today);
 
   const { data: tasks, count } = await query;
+  const ids = (tasks ?? []).map((t) => t.id);
+  const [tagMap, tagList, boardExtras] = await Promise.all([
+    tagsFor(supabase, "task", ids),
+    allTags(supabase),
+    board && ids.length
+      ? Promise.all([
+          supabase.from("task_checklist_items").select("task_id, is_done").in("task_id", ids),
+          supabase.from("task_comments").select("task_id").in("task_id", ids),
+        ])
+      : Promise.resolve(null),
+  ]);
 
   // Status summary for the current scope
   const { data: summaryRows } = mine
@@ -77,6 +99,24 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     const qs = next.toString();
     return qs ? `/tasks?${qs}` : "/tasks";
   };
+  const boardTasks: BoardTask[] = board
+    ? (tasks ?? []).map((t) => {
+        const cl = boardExtras?.[0].data?.filter((c) => c.task_id === t.id) ?? [];
+        return {
+          id: t.id,
+          name: t.name,
+          status: t.status,
+          priority: t.priority,
+          due_date: t.due_date,
+          rel: relName(t) ?? null,
+          assignees: t.task_assignees.map((a) => a.staff?.full_name ?? "?"),
+          tags: tagMap.get(t.id) ?? [],
+          checklist: [cl.filter((c) => c.is_done).length, cl.length],
+          comments: boardExtras?.[1].data?.filter((c) => c.task_id === t.id).length ?? 0,
+        };
+      })
+    : [];
+
   const pill = (active: boolean) =>
     cn("rounded-full px-3 py-1 text-xs font-medium", active ? "bg-ink-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50");
 
@@ -85,9 +125,22 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <PageHeader
         title="Tasks"
         description={mine ? "Everything assigned to you." : "Everything across the team."}
-        actions={canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>}
+        actions={
+          <>
+            <div className="flex rounded-lg bg-slate-100 p-0.5">
+              <Link href={href({ view: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold", !board ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800")}>
+                <List className="h-3.5 w-3.5" /> List
+              </Link>
+              <Link href={href({ view: "board", status: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold", board ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800")}>
+                <Columns3 className="h-3.5 w-3.5" /> Board
+              </Link>
+            </div>
+            {canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>}
+          </>
+        }
       />
 
+      {!board && (
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {TASK_STATUSES.map((s) => (
           <Link key={s.value} href={href({ status: sp.status === s.value ? undefined : s.value })}>
@@ -98,8 +151,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           </Link>
         ))}
       </div>
+      )}
 
-      <Card>
+      <Card className={cn(board && "mb-5")}>
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             <Link href={href({ scope: undefined })} className={pill(mine)}>My tasks</Link>
@@ -107,11 +161,12 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             <span className="mx-1 h-5 w-px bg-slate-200" />
             <Link href={href({ due: sp.due === "today" ? undefined : "today" })} className={pill(sp.due === "today")}>Due today</Link>
             <Link href={href({ due: sp.due === "overdue" ? undefined : "overdue" })} className={pill(sp.due === "overdue")}>Overdue</Link>
+            {tagList.length > 0 && <><span className="mx-1 h-5 w-px bg-slate-200" /><TagFilter tags={tagList} /></>}
           </div>
           <SearchInput placeholder="Search tasks…" />
         </div>
 
-        {!tasks?.length ? (
+        {board ? null : !tasks?.length ? (
           <EmptyState icon={ListChecks} title="Nothing here" description={sp.status ? "No tasks with this status." : "You're all caught up."} action={canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>} />
         ) : (
           <>
@@ -140,6 +195,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                           <Link href={`/tasks/${t.id}`} className={cn("font-medium text-slate-900 hover:text-brand-700", t.status === "complete" && "text-slate-400 line-through")}>
                             {t.name}
                           </Link>
+                          {(tagMap.get(t.id) ?? []).length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">{tagMap.get(t.id)!.map((g) => <TagChip key={g.id} tag={g} className="px-1.5 text-[10px]" />)}</div>
+                          )}
                         </td>
                         <td className="hidden md:table-cell">
                           {rn ? (
@@ -167,10 +225,11 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/tasks" params={{ q: sp.q, status: sp.status, scope: sp.scope, due: sp.due }} />
+            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/tasks" params={{ q: sp.q, status: sp.status, scope: sp.scope, due: sp.due, tag: sp.tag }} />
           </>
         )}
       </Card>
+      {board && <TasksBoard tasks={boardTasks} canEdit={canEdit} today={today} />}
     </>
   );
 }

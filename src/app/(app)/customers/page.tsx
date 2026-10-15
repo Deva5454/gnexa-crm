@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
+import { TagChip } from "@/components/crm/tag-editor";
+import { TagFilter } from "@/components/crm/tag-filter";
 import Link from "next/link";
 import { Building2, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -14,7 +17,7 @@ import { cn, formatDate, PAGE_SIZE, searchTerm } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Customers" };
 
-type SP = { q?: string; group?: string; status?: string; page?: string };
+type SP = { q?: string; group?: string; status?: string; page?: string; tag?: string };
 
 export default async function CustomersPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -34,14 +37,20 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   if (sp.group) query = query.eq("group_id", Number(sp.group));
   if (sp.status === "active") query = query.eq("is_active", true);
   if (sp.status === "inactive") query = query.eq("is_active", false);
+  if (Number(sp.tag)) {
+    const ids = await idsWithTag(supabase, "customer", Number(sp.tag));
+    query = query.in("id", ids.length ? ids : [0]);
+  }
 
-  const [{ data: rows, count }, { data: groups }, total, active, contacts] = await Promise.all([
+  const [{ data: rows, count }, { data: groups }, total, active, contacts, tagList] = await Promise.all([
     query,
     supabase.from("customer_groups").select("id, name").order("name"),
     supabase.from("customers").select("id", { count: "exact", head: true }),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
     supabase.from("contacts").select("id", { count: "exact", head: true }),
+    allTags(supabase),
   ]);
+  const tagMap = await tagsFor(supabase, "customer", (rows ?? []).map((c) => c.id));
 
   const stats = [
     { label: "Total customers", value: total.count ?? 0, tone: "text-slate-900" },
@@ -114,7 +123,10 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
               </Link>
             ))}
           </div>
-          <SearchInput placeholder="Search company, phone, city…" />
+          <div className="flex items-center gap-2">
+            {tagList.length > 0 && <TagFilter tags={tagList} />}
+            <SearchInput placeholder="Search company, phone, city…" />
+          </div>
         </div>
 
         {!rows?.length ? (
@@ -147,7 +159,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                         <td>
                           <Link href={`/customers/${c.id}`} className="flex items-center gap-3 font-semibold text-slate-900 hover:text-brand-700">
                             <Avatar name={c.company} className="rounded-lg" />
-                            {c.company}
+                            <span>
+                              {c.company}
+                              {(tagMap.get(c.id) ?? []).length > 0 && (
+                                <span className="mt-0.5 flex flex-wrap gap-1">{tagMap.get(c.id)!.map((g) => <TagChip key={g.id} tag={g} className="px-1.5 text-[10px]" />)}</span>
+                              )}
+                            </span>
                           </Link>
                         </td>
                         <td>
@@ -175,7 +192,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/customers" params={{ q: sp.q, group: sp.group, status: sp.status }} />
+            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/customers" params={{ q: sp.q, group: sp.group, status: sp.status, tag: sp.tag }} />
           </>
         )}
       </Card>

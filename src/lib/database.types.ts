@@ -330,6 +330,78 @@ export type Database = {
         Update: { id?: never; title?: string; metric?: string; target?: number; start_date?: string; end_date?: string; staff_id?: string | null; created_by?: string | null; created_at?: string };
         Relationships: [{ foreignKeyName: "goals_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "goals_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
+      task_checklist_items: {
+        Row: { id: number; task_id: number; description: string; is_done: boolean; done_by: string | null; done_at: string | null; position: number; created_by: string | null; created_at: string };
+        Insert: { id?: never; task_id: number; description: string; is_done?: boolean; done_by?: string | null; done_at?: string | null; position?: number; created_by?: string | null; created_at?: string };
+        Update: { id?: never; task_id?: number; description?: string; is_done?: boolean; done_by?: string | null; done_at?: string | null; position?: number; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "task_checklist_items_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] }, { foreignKeyName: "task_checklist_items_done_by_fkey"; columns: ["done_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "task_checklist_items_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      task_comments: {
+        Row: { id: number; task_id: number; body: string; created_by: string | null; created_at: string };
+        Insert: { id?: never; task_id: number; body: string; created_by?: string | null; created_at?: string };
+        Update: { id?: never; task_id?: number; body?: string; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "task_comments_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] }, { foreignKeyName: "task_comments_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      task_files: {
+        Row: { id: number; task_id: number; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; task_id: number; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; task_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "task_files_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] }, { foreignKeyName: "task_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      task_followers: {
+        Row: { task_id: number; staff_id: string };
+        Insert: { task_id: number; staff_id: string };
+        Update: { task_id?: number; staff_id?: string };
+        Relationships: [{ foreignKeyName: "task_followers_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] }, { foreignKeyName: "task_followers_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      task_timers: {
+        Row: { id: number; task_id: number; staff_id: string; started_at: string; ended_at: string | null; note: string | null; timesheet_id: number | null };
+        Insert: { id?: never; task_id: number; staff_id?: string; started_at?: string; ended_at?: string | null; note?: string | null; timesheet_id?: number | null };
+        Update: { id?: never; task_id?: number; staff_id?: string; started_at?: string; ended_at?: string | null; note?: string | null; timesheet_id?: number | null };
+        Relationships: [{ foreignKeyName: "task_timers_task_id_fkey"; columns: ["task_id"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] }, { foreignKeyName: "task_timers_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "task_timers_timesheet_id_fkey"; columns: ["timesheet_id"]; isOneToOne: false; referencedRelation: "timesheets"; referencedColumns: ["id"] }];
+      };
+      reminders: {
+        Row: { id: number; rel_type: string; rel_id: number; staff_id: string; remind_at: string; description: string; is_notified: boolean; created_by: string | null; created_at: string };
+        Insert: { id?: never; rel_type: string; rel_id: number; staff_id?: string; remind_at: string; description: string; is_notified?: boolean; created_by?: string | null; created_at?: string };
+        Update: { id?: never; rel_type?: string; rel_id?: number; staff_id?: string; remind_at?: string; description?: string; is_notified?: boolean; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "reminders_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "reminders_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      todos: {
+        Row: { id: number; staff_id: string; body: string; is_done: boolean; done_at: string | null; position: number; created_at: string };
+        Insert: { id?: never; staff_id?: string; body: string; is_done?: boolean; done_at?: string | null; position?: number; created_at?: string };
+        Update: { id?: never; staff_id?: string; body?: string; is_done?: boolean; done_at?: string | null; position?: number; created_at?: string };
+        Relationships: [{ foreignKeyName: "todos_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      notifications: {
+        Row: { id: number; user_id: string; actor_id: string | null; title: string; body: string | null; link: string | null; is_read: boolean; created_at: string };
+        Insert: { id?: never; user_id: string; actor_id?: string | null; title: string; body?: string | null; link?: string | null; is_read?: boolean; created_at?: string };
+        Update: { id?: never; user_id?: string; actor_id?: string | null; title?: string; body?: string | null; link?: string | null; is_read?: boolean; created_at?: string };
+        Relationships: [{ foreignKeyName: "notifications_user_id_fkey"; columns: ["user_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "notifications_actor_id_fkey"; columns: ["actor_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      tags: {
+        Row: { id: number; name: string; color: string };
+        Insert: { id?: never; name: string; color?: string };
+        Update: { id?: never; name?: string; color?: string };
+        Relationships: [];
+      };
+      taggables: {
+        Row: { tag_id: number; rel_type: string; rel_id: number };
+        Insert: { tag_id: number; rel_type: string; rel_id: number };
+        Update: { tag_id?: number; rel_type?: string; rel_id?: number };
+        Relationships: [{ foreignKeyName: "taggables_tag_id_fkey"; columns: ["tag_id"]; isOneToOne: false; referencedRelation: "tags"; referencedColumns: ["id"] }];
+      };
+      staff_departments: {
+        Row: { staff_id: string; department_id: number };
+        Insert: { staff_id: string; department_id: number };
+        Update: { staff_id?: string; department_id?: number };
+        Relationships: [{ foreignKeyName: "staff_departments_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "staff_departments_department_id_fkey"; columns: ["department_id"]; isOneToOne: false; referencedRelation: "ticket_departments"; referencedColumns: ["id"] }];
+      };
+      predefined_replies: {
+        Row: { id: number; title: string; body: string; created_at: string };
+        Insert: { id?: never; title: string; body: string; created_at?: string };
+        Update: { id?: never; title?: string; body?: string; created_at?: string };
+        Relationships: [];
+      };
       task_assignees: {
         Row: { staff_id: string; task_id: number };
         Insert: { staff_id: string; task_id: number };
@@ -375,6 +447,9 @@ export type Database = {
       portal_sign_contract: { Args: { p_contract: number; p_name: string }; Returns: undefined };
       portal_open_ticket: { Args: { p_subject: string; p_body: string; p_department: number | null; p_priority: string }; Returns: number };
       portal_reply: { Args: { p_ticket: number; p_body: string }; Returns: undefined };
+      start_task_timer: { Args: { p_task: number }; Returns: number };
+      stop_task_timer: { Args: { p_timer: number; p_note: string | null }; Returns: number };
+      flush_reminders: { Args: Record<PropertyKey, never>; Returns: number };
     };
     Enums: {
       doc_kind: "proposal" | "estimate" | "invoice" | "credit_note";

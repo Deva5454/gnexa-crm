@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building, Magnet, UsersRound, Boxes, Landmark, LifeBuoy } from "lucide-react";
+import { Building, Magnet, UsersRound, Boxes, Landmark, LifeBuoy, Tags } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -12,6 +12,7 @@ const items = [
   { href: "/settings/customers", label: "Customer groups", icon: Boxes },
   { href: "/settings/finance", label: "Finance", icon: Landmark },
   { href: "/settings/delivery", label: "Contracts & support", icon: LifeBuoy },
+  { href: "/settings/tags", label: "Tags", icon: Tags },
 ];
 
 export function SettingsNav() {

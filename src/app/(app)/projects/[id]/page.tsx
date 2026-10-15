@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RecordTags } from "@/components/crm/tags";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Circle, Clock, Download, FileText, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react";
@@ -119,6 +121,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         }
       />
 
+      <div className="-mt-3 mb-5"><RecordTags relType="project" relId={id} path={base} canEdit={canEdit} /></div>
       <Tabs tabs={tabs} active={tab} />
 
       {tab === "overview" && (
@@ -186,6 +189,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 {!members?.length && <li className="text-sm text-slate-400">No one assigned yet.</li>}
               </ul>
             </Card>
+            <RemindersPanel relType="project" relId={id} path={base} />
             <Card>
               <CardHeader title="Activity" />
               <ActivityFeed relType="project" relId={id} limit={8} />

@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RecordTags } from "@/components/crm/tags";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BookOpen, Lock, Mail, Phone, Trash2 } from "lucide-react";
@@ -21,9 +23,9 @@ const STOP = new Set(["the", "a", "an", "to", "for", "on", "in", "of", "and", "i
 
 export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
-  const { supabase, can } = await requireStaff();
+  const { supabase, can, profile } = await requireStaff();
   if (!can("support", "view")) notFound();
-  const [{ data: t }, { data: replies }, { data: departments }, { data: staff }] = await Promise.all([
+  const [{ data: t }, { data: replies }, { data: departments }, { data: staff }, { data: canned }] = await Promise.all([
     supabase
       .from("tickets")
       .select("*, customer:customers(id, company), contact:contacts(first_name, last_name, email, phone), department:ticket_departments(name), assignee:profiles!tickets_assigned_to_fkey(full_name)")
@@ -32,6 +34,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
     supabase.from("ticket_replies").select("id, body, is_internal, author_name, created_at, author:profiles(full_name)").eq("ticket_id", id).order("created_at"),
     supabase.from("ticket_departments").select("id, name").order("name"),
     supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
+    supabase.from("predefined_replies").select("id, title, body").order("title"),
   ]);
   if (!t) notFound();
   const { data: projects } = t.customer_id
@@ -68,6 +71,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
           )
         }
       />
+      <div className="-mt-3 mb-5"><RecordTags relType="ticket" relId={id} path={`/support/${id}`} canEdit={can("support", "edit")} /></div>
       <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
         <div className="space-y-4">
           <ol className="space-y-4">
@@ -95,7 +99,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               );
             })}
           </ol>
-          {canEdit && <ReplyBox ticketId={id} contactName={contactName} />}
+          {canEdit && <ReplyBox ticketId={id} contactName={contactName} agentName={profile.full_name} replies={canned ?? []} />}
         </div>
 
         <aside className="space-y-6">
@@ -114,6 +118,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
               <TicketProperties ticket={t} departments={departments ?? []} staff={staff ?? []} projects={projects ?? []} disabled={!canEdit} />
             </CardBody>
           </Card>
+          <RemindersPanel relType="ticket" relId={id} path={`/support/${id}`} />
           {can("knowledge_base", "view") && (articles?.length ?? 0) > 0 && (
             <Card>
               <CardHeader title="Suggested articles" description="Share a link in your reply" />

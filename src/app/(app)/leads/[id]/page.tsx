@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RecordTags } from "@/components/crm/tags";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Ban, CheckCircle2, Mail, Pencil, Phone, Trash2, UserCheck, XCircle } from "lucide-react";
@@ -91,6 +93,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </>
         }
       />
+      <div className="-mt-3 mb-5"><RecordTags relType="lead" relId={id} path={`/leads/${id}`} canEdit={canEdit} /></div>
 
       {l.customer && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm text-emerald-800">
@@ -145,6 +148,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               )}
             </CardBody>
           </Card>
+          <RemindersPanel relType="lead" relId={id} path={`/leads/${id}`} />
           <Card>
             <CardHeader title="Activity" />
             <ActivityFeed relType="lead" relId={id} limit={15} />

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Building2, FileSignature, FolderKanban, LifeBuoy, ListChecks, Magnet, Menu, Plus, Receipt, ReceiptText, Search } from "lucide-react";
+import { NotificationBell } from "./notification-bell";
 import { RoleSwitcher } from "./role-switcher";
 
 export type CreateRights = { customers: boolean; leads: boolean; tasks: boolean; sales: boolean; expenses: boolean; projects: boolean; support: boolean };
@@ -62,6 +63,7 @@ export function Topbar({
         <span className="hidden rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-600 xl:inline">
           Demo
         </span>
+        <NotificationBell />
         {createItems.length > 0 && (
           <div className="relative" ref={createRef}>
             <button

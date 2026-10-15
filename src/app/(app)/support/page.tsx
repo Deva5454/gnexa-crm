@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
+import { TagChip } from "@/components/crm/tag-editor";
+import { TagFilter } from "@/components/crm/tag-filter";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LifeBuoy, MessageSquare, Plus } from "lucide-react";
@@ -15,7 +18,7 @@ import { cn, searchTerm, timeAgo } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Support" };
 
-type SP = { q?: string; status?: string; view?: string; dept?: string };
+type SP = { q?: string; status?: string; view?: string; dept?: string; tag?: string };
 
 export default async function SupportPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -33,13 +36,24 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
   else if (!sp.view) q = q.neq("status", "closed");
   if (sp.view === "mine") q = q.eq("assigned_to", profile.id);
   if (sp.view === "unassigned") q = q.is("assigned_to", null);
+  if (sp.view === "my_depts") {
+    const { data: md } = await supabase.from("staff_departments").select("department_id").eq("staff_id", profile.id);
+    q = q.in("department_id", md?.length ? md.map((d) => d.department_id) : [0]);
+  }
+  if (Number(sp.tag)) {
+    const ids = await idsWithTag(supabase, "ticket", Number(sp.tag));
+    q = q.in("id", ids.length ? ids : [0]);
+  }
   if (sp.dept) q = q.eq("department_id", Number(sp.dept));
 
-  const [{ data: tickets }, { data: all }, { data: depts }] = await Promise.all([
+  const [{ data: tickets }, { data: all }, { data: depts }, tagList, { count: myDeptCount }] = await Promise.all([
     q,
     supabase.from("tickets").select("status, priority, assigned_to"),
     supabase.from("ticket_departments").select("id, name").order("name"),
+    allTags(supabase),
+    supabase.from("staff_departments").select("department_id", { count: "exact", head: true }).eq("staff_id", profile.id),
   ]);
+  const tagMap = await tagsFor(supabase, "ticket", (tickets ?? []).map((t) => t.id));
   const counts = new Map<string, number>();
   for (const t of all ?? []) counts.set(t.status, (counts.get(t.status) ?? 0) + 1);
   const urgentOpen = (all ?? []).filter((t) => t.status !== "closed" && (t.priority === "urgent" || t.priority === "high")).length;
@@ -76,6 +90,8 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
             <Link href={href({ view: undefined, status: undefined })} className={pill(!sp.view && !sp.status)}>Not closed</Link>
             <Link href={href({ view: "mine" })} className={pill(sp.view === "mine")}>Assigned to me</Link>
             <Link href={href({ view: "unassigned" })} className={pill(sp.view === "unassigned")}>Unassigned</Link>
+            {(myDeptCount ?? 0) > 0 && <Link href={href({ view: "my_depts" })} className={pill(sp.view === "my_depts")}>My departments</Link>}
+            {tagList.length > 0 && <TagFilter tags={tagList} />}
             <span className="mx-1 h-5 w-px bg-slate-200" />
             {depts?.map((d) => <Link key={d.id} href={href({ dept: sp.dept === String(d.id) ? undefined : String(d.id) })} className={pill(sp.dept === String(d.id))}>{d.name}</Link>)}
           </div>
@@ -94,7 +110,10 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
                   <Link href={`/support/${t.id}`} className="flex items-center gap-4 px-5 py-4 hover:bg-brand-50/30">
                     <span className={cn("h-10 w-1 shrink-0 rounded-full", t.priority === "urgent" ? "bg-rose-500" : t.priority === "high" ? "bg-orange-400" : t.priority === "medium" ? "bg-sky-400" : "bg-slate-300")} title={`${pr.label} priority`} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-semibold text-slate-900">{t.subject}</div>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate font-semibold text-slate-900">{t.subject}</span>
+                        {(tagMap.get(t.id) ?? []).map((g) => <TagChip key={g.id} tag={g} className="px-1.5 text-[10px]" />)}
+                      </div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                         <span className="font-mono">{ticketNumber(t.id)}</span>
                         {t.customer && <span>· {t.customer.company}</span>}

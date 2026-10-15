@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlarmClock, ArrowUpRight, Building2, Magnet, Target, TrendingUp } from "lucide-react";
+import { TodoWidget } from "@/components/crm/todo-widget";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { FinanceStrip } from "@/components/sales/finance-strip";
 import { WorkStrip } from "@/components/crm/work-strip";
@@ -219,10 +220,11 @@ export default async function DashboardPage() {
           </CardBody>
         </Card>
 
-        <Card className="xl:col-span-3">
+        <Card className="xl:col-span-2">
           <CardHeader title="Latest activity" description="Across the whole team" />
           <ActivityFeed limit={10} />
         </Card>
+        <TodoWidget />
       </div>
     </>
   );

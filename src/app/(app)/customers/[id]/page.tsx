@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { RecordTags } from "@/components/crm/tags";
+import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Globe, Mail, MapPin, Pencil, Phone, Star, Trash2 } from "lucide-react";
@@ -96,6 +98,7 @@ export default async function CustomerPage({
         }
       />
 
+      <div className="-mt-3 mb-5"><RecordTags relType="customer" relId={id} path={base} canEdit={canEdit} /></div>
       <Tabs tabs={tabs} active={tab} />
 
       {tab === "profile" && (
@@ -124,6 +127,7 @@ export default async function CustomerPage({
           </Card>
           <div className="space-y-6">
             <PortalAccess customerId={id} />
+            <RemindersPanel relType="customer" relId={id} path={base} />
             <Card>
               <CardHeader title="Recent activity" />
               <ActivityFeed relType="customer" relId={id} limit={8} />

@@ -40,7 +40,28 @@ export async function updateStaff(form: FormData) {
     is_active: id === profile.id ? true : form.get("is_active") === "on",
   };
   await supabase.from("profiles").update(patch).eq("id", id);
+  // Support departments the person belongs to (they get portal tickets for these)
+  const depts = form.getAll("dept").map(Number).filter(Boolean);
+  await supabase.from("staff_departments").delete().eq("staff_id", id);
+  if (depts.length) await supabase.from("staff_departments").insert(depts.map((department_id) => ({ staff_id: id, department_id })));
   revalidatePath("/settings/staff");
+}
+
+export async function savePredefinedReply(form: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = Number(str(form, "id"));
+  const title = str(form, "title");
+  const body = str(form, "body");
+  if (!title || !body) return;
+  if (id) await supabase.from("predefined_replies").update({ title, body }).eq("id", id);
+  else await supabase.from("predefined_replies").insert({ title, body });
+  revalidatePath("/settings/delivery");
+}
+
+export async function deletePredefinedReply(form: FormData) {
+  const { supabase } = await requireAdmin();
+  await supabase.from("predefined_replies").delete().eq("id", Number(str(form, "id")));
+  revalidatePath("/settings/delivery");
 }
 
 export async function addStatus(form: FormData) {
