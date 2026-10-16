@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import type { Tables } from "@/lib/database.types";
 import { placeOfSupply, taxComponents, type SupplyType } from "@/lib/gst";
 import { computeTotals, docNumber, KINDS, type DocKind, type StatusView } from "@/lib/sales";
+import { proposalVars, RichText } from "./rich-text";
 import type { Balance } from "@/lib/sales-data";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -112,7 +113,20 @@ export function DocPaper({
         </section>
 
         {doc.subject && <h2 className="mt-6 text-lg font-semibold text-slate-900">{doc.subject}</h2>}
-        {kind === "proposal" && doc.content && <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{doc.content}</div>}
+        {kind === "proposal" && doc.content && (
+          <RichText
+            text={doc.content}
+            className="mt-3 text-sm leading-relaxed text-slate-600"
+            vars={proposalVars({
+              customer: party.name,
+              number: docNumber(kind, doc.number),
+              total: money(Number(doc.total), cur),
+              openTill: formatDate(doc.due_date),
+              date: formatDate(doc.date),
+              company: company?.company_name ?? "",
+            })}
+          />
+        )}
 
         {/* Lines */}
         <div className="mt-6 overflow-x-auto">

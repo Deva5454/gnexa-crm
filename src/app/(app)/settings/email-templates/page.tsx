@@ -8,11 +8,11 @@ export const metadata: Metadata = { title: "E-mail templates" };
 
 const VARS: Record<string, string[]> = {
   invoice_send: ["doc_number", "total", "due_date"],
-  estimate_send: ["doc_number", "total", "subject"],
-  proposal_send: ["doc_number", "total", "subject"],
+  estimate_send: ["doc_number", "total", "subject", "public_link"],
+  proposal_send: ["doc_number", "total", "subject", "public_link"],
   credit_note_send: ["doc_number", "total"],
   overdue_reminder: ["doc_number", "due_date", "balance"],
-  expiry_reminder: ["doc_number", "due_date", "total", "subject"],
+  expiry_reminder: ["doc_number", "due_date", "total", "subject", "public_link"],
   payment_receipt: ["doc_number", "amount", "reference"],
   subscription_invoice: ["doc_number", "plan", "total"],
   subscription_charged: ["doc_number", "plan", "total"],

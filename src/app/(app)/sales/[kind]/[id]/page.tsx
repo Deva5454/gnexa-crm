@@ -7,6 +7,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRightLeft, Ban, Check, Copy, Download, Lock, Paperclip, Pencil, Printer, Repeat, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { FileUploader } from "@/components/crm/file-uploader";
+import { CopyLink, StaffCommentForm } from "@/components/sales/share-panel";
+import { headers } from "next/headers";
 import { EmailHistory } from "@/components/crm/email-history";
 import { SendEmailForm, type Recipient } from "@/components/crm/send-email-form";
 import { sendDocEmail } from "@/lib/actions/email";
@@ -21,9 +23,9 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, INTERVAL_LABEL, KINDS, kindFromSlug, type DocKind } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { daysFromToday } from "@/lib/dates";
-import { convertDoc, copyDoc, deleteDoc, deleteDocFile, deletePayment, recordDocFile, removeCredit, setDocStatus } from "../../actions";
+import { convertDoc, copyDoc, createPublicLink, deleteDoc, deleteDocComment, deleteDocFile, deletePayment, disablePublicLink, recordDocFile, removeCredit, setAllowComments, setDocStatus } from "../../actions";
 import { ApplyCreditForm, PaymentForm } from "./panels";
 
 export const metadata: Metadata = { title: "Document" };
@@ -123,6 +125,13 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
       return [];
     })(),
   ]);
+  // Public link (Perfex's proposal link) and the discussion with the client
+  const h = await headers();
+  const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("x-forwarded-host") ?? h.get("host") ?? ""}`;
+  const publicUrl = (kind === "estimate" || kind === "proposal") && doc.public_token ? `${origin}/p/${doc.public_token}` : null;
+  const { data: comments } = kind === "estimate" || kind === "proposal"
+    ? await supabase.from("sales_doc_comments").select("id, body, from_customer, author_name, created_at, staff_id, staff:profiles(full_name)").eq("doc_id", id).order("created_at")
+    : { data: null };
   const label = docNumber(kind, doc.number);
   const tplVars = {
     contact_name: (recipients[0]?.name ?? "").split(" ")[0] || "there",
@@ -133,6 +142,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
     due_date: doc.due_date ? formatDate(doc.due_date) : "on receipt",
     balance: formatMoney(bal?.balance ?? Number(doc.total), cur),
     subject: doc.subject ?? "",
+    public_link: publicUrl ?? "",
   };
   // Estimates and proposals: offer an expiry reminder in the last week (or once expired), like Perfex
   const quote = kind === "estimate" || kind === "proposal";
@@ -290,6 +300,67 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 {expiring && doc.last_reminder_at && (
                   <p className="text-center text-xs text-slate-500">Expiry reminder sent {formatDate(doc.last_reminder_at)}</p>
                 )}
+              </CardBody>
+            </Card>
+          )}
+          {quote && (
+            <Card>
+              <CardHeader
+                title="Share & discuss"
+                description={doc.first_viewed_at ? `Opened ${formatDateTime(doc.first_viewed_at)}${doc.last_viewed_at && doc.last_viewed_at !== doc.first_viewed_at ? ` · last ${formatDateTime(doc.last_viewed_at)}` : ""}` : publicUrl ? "Not opened yet" : "A link anyone can open — no sign-in needed"}
+              />
+              <CardBody className="space-y-3 text-sm">
+                {publicUrl ? (
+                  <>
+                    <CopyLink url={publicUrl} />
+                    {doc.status === "draft" && <p className="text-xs text-amber-700">Mark it as sent first — drafts don&apos;t open from the link.</p>}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      <a href={publicUrl} target="_blank" rel="noreferrer" className="font-semibold text-brand-600 hover:underline">Open as the client sees it</a>
+                      {canEdit && (
+                        <form action={disablePublicLink}>
+                          <input type="hidden" name="id" value={id} />
+                          <button className="text-slate-500 hover:text-rose-600">Turn off link</button>
+                        </form>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  canEdit && (
+                    <form action={createPublicLink}>
+                      <input type="hidden" name="id" value={id} />
+                      <SubmitButton size="sm" variant="secondary" pendingText="Creating…">Create public link</SubmitButton>
+                    </form>
+                  )
+                )}
+                {canEdit && (
+                  <form action={setAllowComments} className="text-xs">
+                    <input type="hidden" name="id" value={id} />
+                    <input type="hidden" name="allow" value={doc.allow_comments ? "0" : "1"} />
+                    <button className="text-slate-500 hover:text-brand-700">{doc.allow_comments ? "Client comments are on — turn off" : "Client comments are off — turn on"}</button>
+                  </form>
+                )}
+                <div className="border-t border-slate-100 pt-3">
+                  <div className="label">Discussion</div>
+                  {!comments?.length && <p className="text-xs text-slate-400">No comments yet.</p>}
+                  <ul className="space-y-2">
+                    {(comments ?? []).map((c) => (
+                      <li key={c.id} className={`group rounded-lg px-3 py-2 ${c.from_customer ? "bg-amber-50" : "bg-slate-50"}`}>
+                        <div className="flex items-center justify-between gap-2 text-[11px]">
+                          <span className="font-semibold text-slate-700">{c.from_customer ? `${c.author_name ?? "Client"} · client` : (c.staff?.full_name ?? "Staff")}</span>
+                          <span className="text-slate-400" suppressHydrationWarning>{formatDateTime(c.created_at)}</span>
+                        </div>
+                        <p className="mt-0.5 whitespace-pre-wrap text-slate-700">{c.body}</p>
+                        {canEdit && (
+                          <ConfirmForm action={deleteDocComment} message="Delete this comment?">
+                            <input type="hidden" name="id" value={c.id} />
+                            <button className="mt-1 text-[11px] text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100">Delete</button>
+                          </ConfirmForm>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                  {canEdit && <div className="mt-2"><StaffCommentForm docId={id} /></div>}
+                </div>
               </CardBody>
             </Card>
           )}

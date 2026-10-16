@@ -49,6 +49,7 @@ export function DocEditor({
   currencies = ["INR"],
   billableExpenses = [],
   staff = [],
+  templates = [],
   isNew,
   cancelHref,
 }: {
@@ -62,6 +63,7 @@ export function DocEditor({
   currencies?: string[];
   billableExpenses?: BillableExpense[];
   staff?: { value: string; label: string }[];
+  templates?: { id: number; name: string; content: string }[];
   isNew: boolean;
   cancelHref: string;
 }) {
@@ -183,8 +185,30 @@ export function DocEditor({
             <input id="subject" name="subject" required={kind === "proposal"} defaultValue={draft.subject} placeholder={kind === "invoice" ? "e.g. Annual maintenance — Q4" : ""} className="field" />
           </Field>
           {kind === "proposal" && (
-            <Field label="Proposal content" htmlFor="content" className="sm:col-span-2 lg:col-span-4" hint="The pitch: problem, approach, timeline. Shown above the pricing table.">
-              <textarea id="content" name="content" rows={6} defaultValue={draft.content} className="field" />
+            <Field
+              label="Proposal content"
+              htmlFor="content"
+              className="sm:col-span-2 lg:col-span-4"
+              hint="The pitch: problem, approach, timeline — shown above the pricing table. # Heading · **bold** · *italic* · “- ” lists. Merge fields: {customer_name} {total} {open_till} {proposal_number}"
+            >
+              {templates.length > 0 && (
+                <select
+                  aria-label="Insert a proposal template"
+                  value=""
+                  onChange={(e) => {
+                    const t = templates.find((x) => String(x.id) === e.target.value);
+                    const box = document.getElementById("content") as HTMLTextAreaElement | null;
+                    if (!t || !box) return;
+                    box.value = box.value.trim() ? `${box.value.trimEnd()}\n\n${t.content}` : t.content;
+                    box.focus();
+                  }}
+                  className="field mb-2 h-8 w-auto py-0 text-xs"
+                >
+                  <option value="">Insert a template…</option>
+                  {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              )}
+              <textarea id="content" name="content" rows={10} defaultValue={draft.content} className="field" />
             </Field>
           )}
         </CardBody>

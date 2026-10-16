@@ -41,6 +41,7 @@ export default async function NewDocPage({
         currencies={opts.currencies}
         billableExpenses={kind === "invoice" ? opts.billableExpenses : []}
         staff={opts.staff}
+        templates={kind === "proposal" ? opts.templates : []}
         draft={{
           party,
           subject: "",

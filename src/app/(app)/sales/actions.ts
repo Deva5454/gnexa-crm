@@ -557,3 +557,58 @@ export async function moveDocStatus(id: number, status: string): Promise<{ error
   revalidatePath(docHref(doc.kind, id));
   return {};
 }
+
+// ───────────── Public link & discussion (Perfex proposal link / comments) ─────────────
+const quoteHref = async (supabase: Awaited<ReturnType<typeof requireStaff>>["supabase"], id: number) => {
+  const { data } = await supabase.from("sales_docs").select("kind").eq("id", id).maybeSingle();
+  return data ? docHref(data.kind as DocKind, id) : "/sales/proposals";
+};
+
+export async function createPublicLink(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    must(await supabase.from("sales_docs").update({ public_token: crypto.randomUUID() }).eq("id", id).in("kind", ["proposal", "estimate"]).is("public_token", null));
+    revalidatePath(await quoteHref(supabase, id));
+  });
+}
+
+/** Turn the link off — anyone holding the old one sees "not found". A new link can be made later. */
+export async function disablePublicLink(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    must(await supabase.from("sales_docs").update({ public_token: null }).eq("id", id));
+    revalidatePath(await quoteHref(supabase, id));
+  });
+}
+
+export async function setAllowComments(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    must(await supabase.from("sales_docs").update({ allow_comments: str(form, "allow") === "1" }).eq("id", id));
+    revalidatePath(await quoteHref(supabase, id));
+  });
+}
+
+export async function addDocComment(_: FormState, form: FormData): Promise<FormState> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  const id = Number(str(form, "doc_id"));
+  const body = (str(form, "body") ?? "").slice(0, 2000);
+  if (!body) return { error: "Write a comment first." };
+  const { error } = await supabase.from("sales_doc_comments").insert({ doc_id: id, body });
+  if (error) return { error: friendlyError(error.message) };
+  revalidatePath(await quoteHref(supabase, id));
+  return { ok: "Comment posted." };
+}
+
+export async function deleteDocComment(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const { data } = await supabase.from("sales_doc_comments").delete().eq("id", Number(str(form, "id"))).select("doc_id").maybeSingle();
+    if (!data) throw new Error("Only the author, or someone with full sales access, can delete this comment.");
+    revalidatePath(await quoteHref(supabase, data.doc_id));
+  });
+}

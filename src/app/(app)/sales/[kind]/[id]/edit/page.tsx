@@ -44,6 +44,7 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
         currencies={opts.currencies}
         billableExpenses={kind === "invoice" ? opts.billableExpenses : []}
         staff={opts.staff}
+        templates={kind === "proposal" ? opts.templates : []}
         draft={{
           party,
           subject: doc.subject ?? "",

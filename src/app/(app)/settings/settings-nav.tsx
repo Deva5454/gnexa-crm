@@ -12,6 +12,7 @@ const ITEMS: { label: string; href?: string; children?: { href: string; label: s
   { label: "Support", href: "/settings/support" },
   { label: "Leads", href: "/settings/leads" },
   { label: "Finance", children: [{ href: "/settings/finance", label: "Taxes, payments & expenses" }, { href: "/settings/currencies", label: "Currencies" }] },
+  { label: "Proposals", href: "/settings/proposal-templates" },
   { label: "Contracts", href: "/settings/contracts" },
   { label: "Estimate request", children: [{ href: "/settings/web-forms", label: "Forms" }, { href: "/settings/estimate-statuses", label: "Statuses" }] },
   { label: "Modules", href: "/settings/modules" },

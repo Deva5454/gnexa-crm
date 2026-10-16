@@ -189,6 +189,18 @@ export type Database = {
         Update: { id?: never; doc_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
         Relationships: [{ foreignKeyName: "sales_doc_files_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] }, { foreignKeyName: "sales_doc_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
+      sales_doc_comments: {
+        Row: { id: number; doc_id: number; body: string; staff_id: string | null; author_name: string | null; from_customer: boolean; created_at: string };
+        Insert: { id?: never; doc_id: number; body: string; staff_id?: string | null; author_name?: string | null; from_customer?: boolean; created_at?: string };
+        Update: { id?: never; doc_id?: number; body?: string; staff_id?: string | null; author_name?: string | null; from_customer?: boolean; created_at?: string };
+        Relationships: [{ foreignKeyName: "sales_doc_comments_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] }, { foreignKeyName: "sales_doc_comments_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      proposal_templates: {
+        Row: { id: number; name: string; content: string; created_at: string };
+        Insert: { id?: never; name: string; content: string; created_at?: string };
+        Update: { id?: never; name?: string; content?: string; created_at?: string };
+        Relationships: [];
+      };
       sales_docs: {
         Row: {
           id: number; kind: Database["public"]["Enums"]["doc_kind"]; number: number; customer_id: number | null; lead_id: number | null;
@@ -197,7 +209,7 @@ export type Database = {
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
           project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;
-          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null; sale_agent: string | null; responded_by: string | null; responded_at: string | null;
+          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null; sale_agent: string | null; responded_by: string | null; responded_at: string | null; public_token: string | null; allow_comments: boolean; first_viewed_at: string | null; last_viewed_at: string | null;
         };
         Insert: {
           id?: never; kind: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -205,7 +217,7 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null; public_token?: string | null; allow_comments?: boolean; first_viewed_at?: string | null; last_viewed_at?: string | null;
         };
         Update: {
           id?: never; kind?: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -213,7 +225,7 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null; public_token?: string | null; allow_comments?: boolean; first_viewed_at?: string | null; last_viewed_at?: string | null;
         };
         Relationships: [
           { foreignKeyName: "sales_docs_sale_agent_fkey"; columns: ["sale_agent"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
@@ -660,6 +672,9 @@ export type Database = {
       convert_lead: { Args: { p_lead_id: number }; Returns: number };
       reset_demo_data: { Args: Record<PropertyKey, never>; Returns: undefined };
       kb_track: { Args: { p_article: number; p_event: string }; Returns: undefined };
+      public_doc: { Args: { p_token: string }; Returns: Json };
+      public_doc_respond: { Args: { p_token: string; p_accept: boolean; p_name?: string | null }; Returns: undefined };
+      public_doc_comment: { Args: { p_token: string; p_name: string; p_body: string }; Returns: undefined };
       portal_respond: { Args: { p_doc: number; p_accept: boolean; p_name?: string | null }; Returns: undefined };
       portal_sign_contract: { Args: { p_contract: number; p_name: string }; Returns: undefined };
       portal_open_ticket: { Args: { p_subject: string; p_body: string; p_department: number | null; p_priority: string }; Returns: number };

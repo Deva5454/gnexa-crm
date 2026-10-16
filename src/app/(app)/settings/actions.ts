@@ -331,3 +331,25 @@ export async function deleteReqStatus(form: FormData) {
     revalidatePath("/settings/estimate-statuses");
   });
 }
+
+// ───────────── Proposal templates ─────────────
+export async function saveProposalTemplate(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const name = (str(form, "name") ?? "").slice(0, 120);
+    const content = (str(form, "content") ?? "").slice(0, 20000);
+    if (!name || !content) throw new Error("Give the template a name and some content.");
+    const id = num(form, "id");
+    if (id) must(await supabase.from("proposal_templates").update({ name, content }).eq("id", id));
+    else must(await supabase.from("proposal_templates").insert({ name, content }));
+    revalidatePath("/settings/proposal-templates");
+  });
+}
+
+export async function deleteProposalTemplate(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    must(await supabase.from("proposal_templates").delete().eq("id", num(form, "id") ?? 0));
+    revalidatePath("/settings/proposal-templates");
+  });
+}
