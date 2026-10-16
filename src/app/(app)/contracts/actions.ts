@@ -26,6 +26,8 @@ export async function saveContract(id: number | null, _: FormState, form: FormDa
   if (fields.end_date && fields.end_date < fields.start_date) return { error: "End date can't be before the start date." };
   let contractId = id;
   if (id) {
+    const { data: cur } = await supabase.from("contracts").select("status").eq("id", id).single();
+    if (cur?.status === "signed") return { error: "This contract is signed — reopen it as a draft (which clears the signature) before changing its terms." };
     const { error } = await supabase.from("contracts").update(fields).eq("id", id);
     if (error) return { error: error.message };
   } else {

@@ -626,6 +626,8 @@ export type Database = {
       stop_task_timer: { Args: { p_timer: number; p_note: string | null }; Returns: number };
       flush_reminders: { Args: Record<PropertyKey, never>; Returns: number };
       run_recurring: { Args: Record<PropertyKey, never>; Returns: Json };
+      save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
+      invoice_project: { Args: { p_project: number }; Returns: Json };
       portal_pay: { Args: { p_invoice: number; p_amount: number; p_method: string }; Returns: string };
       web_form_info: { Args: { p_key: string }; Returns: Json };
       submit_web_form: { Args: { p_key: string; p_data: Json }; Returns: string };

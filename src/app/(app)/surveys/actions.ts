@@ -7,6 +7,15 @@ import { str } from "@/lib/utils";
 
 const TYPES = ["short", "long", "single", "multiple", "rating"];
 
+/** Only the survey's creator or an admin may change it (the database enforces the same). */
+async function ownSurvey(surveyId: number) {
+  const ctx = await requireStaff();
+  const { data } = await ctx.supabase.from("surveys").select("created_by").eq("id", surveyId).maybeSingle();
+  if (!data) throw new Error("Survey not found.");
+  if (data.created_by !== ctx.profile.id && !ctx.profile.is_admin) throw new Error("Only the survey's creator or an admin can change it.");
+  return ctx;
+}
+
 export async function createSurvey(form: FormData) {
   const { supabase } = await requireStaff();
   const title = str(form, "title");
@@ -17,8 +26,8 @@ export async function createSurvey(form: FormData) {
 }
 
 export async function updateSurvey(form: FormData) {
-  const { supabase } = await requireStaff();
   const id = Number(str(form, "id"));
+  const { supabase } = await ownSurvey(id);
   const title = str(form, "title");
   if (!title) return;
   await supabase
@@ -30,22 +39,23 @@ export async function updateSurvey(form: FormData) {
 }
 
 export async function deleteSurvey(form: FormData) {
-  const { supabase } = await requireStaff();
-  await supabase.from("surveys").delete().eq("id", Number(str(form, "id")));
+  const id = Number(str(form, "id"));
+  const { supabase } = await ownSurvey(id);
+  await supabase.from("surveys").delete().eq("id", id);
   revalidatePath("/surveys");
   redirect("/surveys");
 }
 
 export async function saveQuestion(form: FormData) {
-  const { supabase } = await requireStaff();
   const id = Number(str(form, "id"));
   const surveyId = Number(str(form, "survey_id"));
+  const { supabase } = await ownSurvey(surveyId);
   const label = str(form, "label");
   const type = str(form, "type") ?? "short";
   if (!label || !TYPES.includes(type)) return;
   const options = (str(form, "options") ?? "").split(/[\n,]/).map((o) => o.trim()).filter(Boolean).slice(0, 20);
   const patch = { label: label.slice(0, 300), type, options: type === "single" || type === "multiple" ? options : [], required: form.get("required") === "on" };
-  if (id) await supabase.from("survey_questions").update(patch).eq("id", id);
+  if (id) await supabase.from("survey_questions").update(patch).eq("id", id).eq("survey_id", surveyId);
   else {
     const { count } = await supabase.from("survey_questions").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
     await supabase.from("survey_questions").insert({ ...patch, survey_id: surveyId, position: (count ?? 0) + 1 });
@@ -55,6 +65,10 @@ export async function saveQuestion(form: FormData) {
 
 export async function deleteQuestion(form: FormData) {
   const { supabase } = await requireStaff();
-  const { data } = await supabase.from("survey_questions").delete().eq("id", Number(str(form, "id"))).select("survey_id").single();
+  const id = Number(str(form, "id"));
+  const { data: q } = await supabase.from("survey_questions").select("survey_id").eq("id", id).maybeSingle();
+  if (!q) return;
+  await ownSurvey(q.survey_id);
+  const { data } = await supabase.from("survey_questions").delete().eq("id", id).select("survey_id").single();
   if (data) revalidatePath(`/surveys/${data.survey_id}`);
 }

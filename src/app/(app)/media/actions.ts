@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
+import { discardUpload, fileRow } from "@/lib/uploads";
 
 const BUCKET = "media";
 
 export async function recordMedia(input: { folder: string; name: string; path: string; size: number; mime: string | null }): Promise<{ error?: string }> {
   const { supabase } = await requireStaff();
-  const folder = input.folder.trim().replace(/[\\/]+/g, "-").slice(0, 60) || "General";
-  if (!input.path.startsWith("lib/")) return { error: "Invalid file path." };
-  const { error } = await supabase.from("media_files").insert({ ...input, folder, name: input.name.slice(0, 200) });
+  const folder = String(input?.folder ?? "").trim().replace(/[\\/]+/g, "-").slice(0, 60) || "General";
+  const row = fileRow(input);
+  if (!row || !row.path.startsWith("lib/")) return { error: "Invalid file." };
+  const { error } = await supabase.from("media_files").insert({ ...row, folder });
   if (error) {
-    await supabase.storage.from(BUCKET).remove([input.path]);
+    await discardUpload(supabase, BUCKET, "media_files", row.path);
     return { error: error.message };
   }
   revalidatePath("/media");

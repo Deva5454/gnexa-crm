@@ -102,28 +102,32 @@ export async function invoiceExpense(form: FormData) {
   if (!e.customer_id) throw new Error("Assign a customer to this expense first.");
   if (e.invoice_id) redirect(docHref("invoice", e.invoice_id));
 
-  const line = { description: e.name, long_description: [e.category?.name, e.reference].filter(Boolean).join(" · ") || null, qty: 1, rate: Number(e.amount), tax_rate: Number(e.tax_rate) };
+  if (!e.is_billable) throw new Error("Mark the expense as billable first.");
+
+  const line = { description: e.name, long_description: [e.category?.name, e.reference].filter(Boolean).join(" · ") || null, qty: 1, rate: Number(e.amount), tax_rate: Number(e.tax_rate), expense_id: id };
   const t = computeTotals([line], 0, 0);
   const { data: settings } = await supabase.from("company_settings").select("currency, default_terms").maybeSingle();
-  const { data: inv, error } = await supabase
-    .from("sales_docs")
-    .insert({
-      kind: "invoice",
+  // One transaction: if the expense was billed meanwhile (e.g. a double click), nothing is created
+  const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+    p_kind: "invoice",
+    p_id: null,
+    p_doc: {
       customer_id: e.customer_id,
       subject: `Reimbursable expense — ${e.name}`,
+      date: new Date().toISOString().slice(0, 10),
       due_date: new Date(Date.now() + 15 * 86400_000).toISOString().slice(0, 10),
       currency: settings?.currency ?? "INR",
-      subtotal: t.subtotal,
-      discount_total: 0,
-      tax_total: t.tax_total,
-      total: t.total,
+      ...t,
       terms: settings?.default_terms ?? null,
-    })
-    .select("id, number")
-    .single();
-  if (error) throw new Error(error.message);
-  await supabase.from("sales_doc_items").insert({ ...line, doc_id: inv.id, position: 0, expense_id: id });
-  await supabase.from("expenses").update({ invoice_id: inv.id }).eq("id", id);
+    },
+    p_lines: [line],
+  });
+  if (error) {
+    const { data: now } = await supabase.from("expenses").select("invoice_id").eq("id", id).single();
+    if (now?.invoice_id) redirect(docHref("invoice", now.invoice_id)); // billed by a click that got there first
+    throw new Error(error.message);
+  }
+  const inv = saved as { id: number; number: number };
   await logActivity(supabase, `billed expense “${e.name}” on ${docNumber("invoice", inv.number)}`, { type: "customer", id: e.customer_id });
   revalidatePath("/expenses");
   redirect(docHref("invoice", inv.id));

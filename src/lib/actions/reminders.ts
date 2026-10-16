@@ -27,7 +27,8 @@ export async function addReminder(_: ReminderState, form: FormData): Promise<Rem
     rel_id: relId,
     description,
     remind_at: new Date(utc).toISOString(),
-    staff_id: str(form, "staff_id") ?? profile.id,
+    // Only admins set reminders for colleagues (the database enforces the same)
+    staff_id: profile.is_admin ? (str(form, "staff_id") ?? profile.id) : profile.id,
   });
   if (error) return { error: error.message };
   const path = str(form, "path");

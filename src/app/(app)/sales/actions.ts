@@ -10,36 +10,6 @@ import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
-/** Expenses on invoice lines must be billable, for this customer, and not billed on another invoice. */
-async function checkExpenses(lines: Line[], customerId: number | null, docId: number): Promise<{ ok: number[] } | { error: string }> {
-  const ids = [...new Set(lines.map((l) => l.expense_id).filter((x): x is number => !!x))];
-  if (!ids.length) return { ok: [] };
-  const { supabase } = await requireStaff();
-  const { data: exps } = await supabase.from("expenses").select("id, name, customer_id, is_billable, invoice_id").in("id", ids);
-  for (const id of ids) {
-    const e = exps?.find((x) => x.id === id);
-    if (!e) return { error: "An expense on this invoice no longer exists — remove that line." };
-    if (!e.is_billable || e.customer_id !== customerId) return { error: `“${e.name}” isn't a billable expense for this customer.` };
-    if (e.invoice_id && e.invoice_id !== docId) return { error: `“${e.name}” is already billed on another invoice.` };
-  }
-  return { ok: ids };
-}
-
-/** Make expenses.invoice_id match the invoice's lines: linked lines → billed, removed lines → pending again. */
-export async function syncBilledExpenses(docId: number) {
-  const { supabase } = await requireStaff();
-  const [{ data: items }, { data: doc }] = await Promise.all([
-    supabase.from("sales_doc_items").select("expense_id").eq("doc_id", docId).not("expense_id", "is", null),
-    supabase.from("sales_docs").select("status").eq("id", docId).single(),
-  ]);
-  const ids = doc?.status === "cancelled" ? [] : (items ?? []).map((i) => i.expense_id!);
-  let release = supabase.from("expenses").update({ invoice_id: null }).eq("invoice_id", docId);
-  if (ids.length) release = release.not("id", "in", `(${ids.join(",")})`);
-  await release;
-  if (ids.length) await supabase.from("expenses").update({ invoice_id: docId }).in("id", ids).is("invoice_id", null);
-  revalidatePath("/expenses");
-}
-
 function parseLines(raw: string | null): Line[] | string {
   let data: unknown;
   try {
@@ -127,43 +97,25 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
         ? { recurring_every: every, recurring_unit: unit, recurring_cycles: cycles, next_recurring_date: cycles != null && done >= cycles ? null : addInterval(date, every * (done + 1), unit) }
         : { recurring_every: null, recurring_cycles: null, next_recurring_date: null };
 
-  let docId = id;
-  if (id) {
-    // Never let an edit drop an invoice below what's already been paid or credited
-    if (kind === "invoice" || kind === "credit_note") {
-      const bal = (await balancesFor(supabase, [id])).get(id);
-      const settled = kind === "invoice" ? (bal?.paid ?? 0) + (bal?.credited ?? 0) : (bal?.credit_used ?? 0);
-      if (totals.total + 0.005 < settled)
-        return { error: `Total can't be less than the ${kind === "invoice" ? "amount already received" : "credit already applied"}.` };
-    }
-    const { error } = await supabase.from("sales_docs").update({ ...fields, ...recurring }).eq("id", id).eq("kind", kind);
-    if (error) return { error: error.message };
-    await supabase.from("sales_doc_items").delete().eq("doc_id", id);
-  } else {
-    const status = form.get("save_as") === "sent" ? "sent" : "draft";
-    const { data, error } = await supabase
-      .from("sales_docs")
-      .insert({ ...fields, ...recurring, kind, status, sent_at: status === "sent" ? new Date().toISOString() : null })
-      .select("id, number")
-      .single();
-    if (error) return { error: error.message };
-    docId = data.id;
+  // Header + lines in one transaction; the database checks expense lines, settled totals and permissions
+  const status = !id && form.get("save_as") === "sent" ? "sent" : "draft";
+  const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+    p_kind: kind,
+    p_id: id,
+    p_doc: { ...fields, ...recurring, ...(id ? {} : { status }) },
+    p_lines: lines,
+  });
+  if (error) return { error: error.message };
+  const docId = (saved as { id: number; number: number }).id;
+  if (!id) {
     const rel = customer_id ? ({ type: "customer", id: customer_id } as const) : ({ type: "lead", id: lead_id! } as const);
-    await logActivity(supabase, `created ${KINDS[kind].label.toLowerCase()} ${docNumber(kind, data.number)}`, rel);
+    await logActivity(supabase, `created ${KINDS[kind].label.toLowerCase()} ${docNumber(kind, (saved as { number: number }).number)}`, rel);
   }
-
-  // Only invoices bill expenses; any other document drops the link
-  const billed = kind === "invoice" ? await checkExpenses(lines, customer_id, docId!) : { ok: [] as number[] };
-  if ("error" in billed) return { error: billed.error };
-  const { error: itemsError } = await supabase
-    .from("sales_doc_items")
-    .insert(lines.map((l, i) => ({ ...l, expense_id: l.expense_id && billed.ok.includes(l.expense_id) ? l.expense_id : null, doc_id: docId!, position: i })));
-  if (itemsError) return { error: itemsError.message };
-  if (kind === "invoice") await syncBilledExpenses(docId!);
+  if (kind === "invoice") revalidatePath("/expenses");
 
   if (kind === "invoice" && every) await supabase.rpc("run_recurring");
   revalidatePath(`/sales/${KINDS[kind].slug}`);
-  redirect(docHref(kind, docId!));
+  redirect(docHref(kind, docId));
 }
 
 const STATUS_VERB: Record<string, string> = { sent: "marked as sent", accepted: "marked as accepted", declined: "marked as declined", cancelled: "cancelled", draft: "reopened as draft" };
@@ -173,14 +125,15 @@ export async function setDocStatus(form: FormData) {
   const id = Number(str(form, "id"));
   const status = str(form, "status")!;
   if (!(status in STATUS_VERB)) return;
-  const { data: doc } = await supabase
+  const { data: doc, error } = await supabase
     .from("sales_docs")
     .update({ status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) })
     .eq("id", id)
     .select("kind, number, customer_id, lead_id")
     .single();
-  // Cancelling an invoice frees its expenses for billing again; reopening re-claims any still free
-  if (doc?.kind === "invoice" && (status === "cancelled" || status === "draft")) await syncBilledExpenses(id);
+  // The database refuses to cancel or reopen documents with money on them, and frees billed expenses and hours on cancel
+  if (error) throw new Error(error.message);
+  if (doc.kind === "invoice") revalidatePath("/expenses");
   if (doc) {
     const rel = doc.customer_id ? ({ type: "customer", id: doc.customer_id } as const) : ({ type: "lead", id: doc.lead_id! } as const);
     await logActivity(supabase, `${STATUS_VERB[status]} ${docNumber(doc.kind, doc.number)}`, rel);
@@ -198,49 +151,47 @@ export async function convertDoc(form: FormData) {
 
   const { data: src } = await supabase.from("sales_docs").select("*").eq("id", id).single();
   if (!src) throw new Error("Document not found.");
+  if (src.kind !== "proposal" && src.kind !== "estimate") throw new Error("Only proposals and estimates can be converted.");
+  if (src.kind === "estimate" && to === "estimate") throw new Error("This is already an estimate.");
   if (!src.customer_id) throw new Error("Convert the lead to a customer first, then link this proposal to that customer.");
+  const { data: existing } = await supabase.from("sales_docs").select("id, kind").eq("source_id", id).neq("status", "cancelled").limit(1).maybeSingle();
+  if (existing) redirect(docHref(existing.kind, existing.id)); // already converted (e.g. a double click)
   const { data: lines } = await supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position");
+  if (!lines?.length) throw new Error("This document has no line items to convert.");
   const { data: settings } = await supabase.from("company_settings").select("default_terms").maybeSingle();
 
   const today = new Date().toISOString().slice(0, 10);
   const due = new Date(Date.now() + (to === "invoice" ? 15 : 30) * 86400_000).toISOString().slice(0, 10);
-  const { data: created, error } = await supabase
-    .from("sales_docs")
-    .insert({
-      kind: to,
+  const copied: Line[] = lines.map((l) => ({
+    item_id: l.item_id,
+    description: l.description,
+    long_description: l.long_description,
+    qty: Number(l.qty),
+    unit: l.unit,
+    rate: Number(l.rate),
+    tax_rate: Number(l.tax_rate),
+  }));
+  const totals = computeTotals(copied, Number(src.discount_percent), Number(src.adjustment));
+  const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+    p_kind: to,
+    p_id: null,
+    p_doc: {
       customer_id: src.customer_id,
       subject: src.subject,
       date: today,
       due_date: due,
       currency: src.currency,
-      discount_percent: src.discount_percent,
-      adjustment: src.adjustment,
-      subtotal: src.subtotal,
-      discount_total: src.discount_total,
-      tax_total: src.tax_total,
-      total: src.total,
+      discount_percent: Number(src.discount_percent),
+      adjustment: Number(src.adjustment),
+      ...totals,
       notes: src.notes,
       terms: to === "invoice" ? (settings?.default_terms ?? src.terms) : src.terms,
       source_id: src.id,
-    })
-    .select("id, number")
-    .single();
+    },
+    p_lines: copied,
+  });
   if (error) throw new Error(error.message);
-  if (lines?.length) {
-    await supabase.from("sales_doc_items").insert(
-      lines.map((l) => ({
-        doc_id: created.id,
-        position: l.position,
-        item_id: l.item_id,
-        description: l.description,
-        long_description: l.long_description,
-        qty: l.qty,
-        unit: l.unit,
-        rate: l.rate,
-        tax_rate: l.tax_rate,
-      })),
-    );
-  }
+  const created = saved as { id: number; number: number };
   await supabase.from("sales_docs").update({ status: "accepted" }).eq("id", id);
   await logActivity(supabase, `converted ${docNumber(src.kind, src.number)} to ${docNumber(to, created.number)}`, {
     type: "customer",
@@ -255,7 +206,7 @@ export async function deleteDoc(form: FormData) {
   const { supabase } = await assertAccess("sales", "full");
   const id = Number(str(form, "id"));
   const { data: doc } = await supabase.from("sales_docs").select("kind").eq("id", id).single();
-  await supabase.from("expenses").update({ invoice_id: null }).eq("invoice_id", id);
+  // Billed expenses are released by the foreign key; documents with money on them are refused by the database
   const { error } = await supabase.from("sales_docs").delete().eq("id", id);
   if (error) throw new Error(error.message);
   const slug = KINDS[(doc?.kind ?? "invoice") as DocKind].slug;
@@ -299,7 +250,8 @@ export async function deletePayment(form: FormData) {
   const { supabase } = await assertAccess("sales", "full");
   const id = Number(str(form, "id"));
   const invoiceId = Number(str(form, "invoice_id"));
-  await supabase.from("payments").delete().eq("id", id);
+  const { error } = await supabase.from("payments").delete().eq("id", id).eq("invoice_id", invoiceId);
+  if (error) throw new Error(error.message);
   revalidatePath(docHref("invoice", invoiceId));
   revalidatePath("/sales/payments");
 }

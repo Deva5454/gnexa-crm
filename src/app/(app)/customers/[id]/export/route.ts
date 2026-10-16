@@ -3,10 +3,10 @@ import { logActivity } from "@/lib/activity";
 import { requireStaff } from "@/lib/auth";
 import { customerDataExport, jsonDownload } from "@/lib/gdpr";
 
-// GDPR data export for one customer (staff)
+// GDPR data export for one customer. It includes invoices, payments, contracts and tickets, so it's admin-only.
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { supabase, can } = await requireStaff();
-  if (!can("customers", "view")) return new NextResponse("Not allowed", { status: 403 });
+  const { supabase, profile } = await requireStaff();
+  if (!profile.is_admin) return new NextResponse("Only administrators can export a customer's data.", { status: 403 });
   const id = Number((await params).id);
   const data = await customerDataExport(supabase, id);
   if (!data.customer) return new NextResponse("Not found", { status: 404 });

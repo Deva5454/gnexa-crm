@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { PROJECT_STATUSES } from "@/lib/constants";
-import { computeTotals, docHref, docNumber, type Line } from "@/lib/sales";
+import { docHref, docNumber } from "@/lib/sales";
+import { discardUpload, fileRow } from "@/lib/uploads";
 import { num, str } from "@/lib/utils";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -114,9 +115,14 @@ export async function logTime(_: FormState, form: FormData): Promise<FormState> 
   const projectId = Number(str(form, "project_id"));
   const hours = num(form, "hours");
   if (!hours || hours <= 0 || hours > 24) return { error: "Hours must be between 0 and 24." };
+  const taskId = num(form, "task_id");
+  if (taskId) {
+    const { data: t } = await supabase.from("tasks").select("id").eq("id", taskId).eq("rel_type", "project").eq("rel_id", projectId).maybeSingle();
+    if (!t) return { error: "That task isn't part of this project." };
+  }
   const { error } = await supabase.from("timesheets").insert({
     project_id: projectId,
-    task_id: num(form, "task_id"),
+    task_id: taskId,
     date: str(form, "date") ?? new Date().toISOString().slice(0, 10),
     hours,
     note: str(form, "note"),
@@ -143,51 +149,12 @@ export async function invoiceProject(form: FormData) {
   await assertAccess("sales", "edit");
   const { supabase } = await assertAccess("projects", "edit");
   const id = Number(str(form, "id"));
-  const { data: p } = await supabase.from("projects").select("*").eq("id", id).single();
+  const { data: p } = await supabase.from("projects").select("name").eq("id", id).single();
   if (!p) throw new Error("Project not found.");
-  const { data: settings } = await supabase.from("company_settings").select("currency, default_terms").maybeSingle();
-
-  let lines: Line[] = [];
-  let entryIds: number[] = [];
-  if (p.billing_type === "hourly") {
-    const { data: entries } = await supabase
-      .from("timesheets")
-      .select("id, hours, task:tasks(name)")
-      .eq("project_id", id)
-      .eq("is_billable", true)
-      .is("invoice_id", null);
-    if (!entries?.length) throw new Error("There are no unbilled billable hours on this project.");
-    const byTask = new Map<string, number>();
-    for (const e of entries) byTask.set(e.task?.name ?? "General work", (byTask.get(e.task?.name ?? "General work") ?? 0) + Number(e.hours));
-    lines = [...byTask.entries()].map(([task, hrs]) => ({ description: task, long_description: `${p.name} — ${hrs} h`, qty: hrs, unit: "hrs", rate: Number(p.hourly_rate), tax_rate: 18 }));
-    entryIds = entries.map((e) => e.id);
-  } else {
-    if (!p.fixed_price) throw new Error("Set a fixed price on the project first.");
-    lines = [{ description: p.name, long_description: "Fixed-price project", qty: 1, unit: "project", rate: Number(p.fixed_price), tax_rate: 18 }];
-  }
-
-  const t = computeTotals(lines, 0, 0);
-  const { data: inv, error } = await supabase
-    .from("sales_docs")
-    .insert({
-      kind: "invoice",
-      customer_id: p.customer_id,
-      project_id: id,
-      subject: p.billing_type === "hourly" ? `${p.name} — time & materials` : p.name,
-      due_date: new Date(Date.now() + 15 * 86400_000).toISOString().slice(0, 10),
-      currency: settings?.currency ?? "INR",
-      subtotal: t.subtotal,
-      discount_total: 0,
-      tax_total: t.tax_total,
-      total: t.total,
-      notes: "Thank you for your business.",
-      terms: settings?.default_terms ?? null,
-    })
-    .select("id, number")
-    .single();
+  // Claims the hours (or checks the fixed price wasn't billed) and creates the invoice in one transaction
+  const { data: saved, error } = await supabase.rpc("invoice_project", { p_project: id });
   if (error) throw new Error(error.message);
-  await supabase.from("sales_doc_items").insert(lines.map((l, i) => ({ ...l, doc_id: inv.id, position: i })));
-  if (entryIds.length) await supabase.from("timesheets").update({ invoice_id: inv.id }).in("id", entryIds);
+  const inv = saved as { id: number; number: number };
   await logActivity(supabase, `invoiced project "${p.name}" on ${docNumber("invoice", inv.number)}`, { type: "project", id });
   revalidatePath(path(id));
   redirect(docHref("invoice", inv.id));
@@ -217,10 +184,11 @@ export async function deleteComment(form: FormData) {
 export async function recordFile(input: { project_id: number; name: string; path: string; size: number; mime: string | null }): Promise<{ error?: string }> {
   const { supabase, can, roleName } = await requireStaff();
   if (!can("projects", "edit")) return denied(roleName, "projects", "edit");
-  if (!input.path.startsWith(`${input.project_id}/`)) return { error: "Invalid file path." };
-  const { error } = await supabase.from("project_files").insert(input);
+  const row = fileRow(input);
+  if (!row || !row.path.startsWith(`${Number(input.project_id)}/`)) return { error: "Invalid file." };
+  const { error } = await supabase.from("project_files").insert({ project_id: Number(input.project_id), ...row });
   if (error) {
-    await supabase.storage.from(BUCKET).remove([input.path]);
+    await discardUpload(supabase, BUCKET, "project_files", row.path);
     return { error: error.message };
   }
   await logActivity(supabase, `uploaded “${input.name}”`, { type: "project", id: input.project_id });
@@ -229,11 +197,11 @@ export async function recordFile(input: { project_id: number; name: string; path
 }
 
 export async function deleteFile(form: FormData) {
-  const { supabase } = await assertAccess("projects", "full");
+  const { supabase } = await assertAccess("projects", "edit");
   const id = Number(str(form, "id"));
-  const { data } = await supabase.from("project_files").delete().eq("id", id).select("path, project_id").single();
-  if (data) {
-    await supabase.storage.from(BUCKET).remove([data.path]);
-    revalidatePath(path(data.project_id, "files"));
-  }
+  // The uploader, or someone with full project access (enforced by the database)
+  const { data } = await supabase.from("project_files").delete().eq("id", id).select("path, project_id").maybeSingle();
+  if (!data) throw new Error("Only the uploader, or someone with full project access, can delete this file.");
+  await supabase.storage.from(BUCKET).remove([data.path]);
+  revalidatePath(path(data.project_id, "files"));
 }

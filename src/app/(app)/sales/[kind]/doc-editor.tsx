@@ -372,9 +372,7 @@ export function DocEditor({
         {isNew ? (
           <>
             <SubmitButton variant="secondary" pendingText="Saving…">Save as draft</SubmitButton>
-            <button type="submit" name="save_as" value="sent" className={buttonClass({ variant: "primary" })}>
-              Save & mark as sent
-            </button>
+            <SubmitButton name="save_as" value="sent" pendingText="Saving…">Save & mark as sent</SubmitButton>
           </>
         ) : (
           <SubmitButton pendingText="Saving…">Save changes</SubmitButton>

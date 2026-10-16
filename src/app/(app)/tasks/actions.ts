@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import type { Enums } from "@/lib/database.types";
+import { discardUpload, fileRow } from "@/lib/uploads";
 import { str } from "@/lib/utils";
 
 export type FormState = { error?: string; ok?: string } | undefined;
@@ -193,10 +194,11 @@ const TASK_BUCKET = "task-files";
 export async function recordTaskFile(input: { task_id: number; name: string; path: string; size: number; mime: string | null }): Promise<{ error?: string }> {
   const { supabase, can, roleName } = await requireStaff();
   if (!can("tasks", "edit")) return denied(roleName, "tasks", "edit");
-  if (!input.path.startsWith(`${input.task_id}/`)) return { error: "Invalid file path." };
-  const { error } = await supabase.from("task_files").insert(input);
+  const row = fileRow(input);
+  if (!row || !row.path.startsWith(`${Number(input.task_id)}/`)) return { error: "Invalid file." };
+  const { error } = await supabase.from("task_files").insert({ task_id: Number(input.task_id), ...row });
   if (error) {
-    await supabase.storage.from(TASK_BUCKET).remove([input.path]);
+    await discardUpload(supabase, TASK_BUCKET, "task_files", row.path);
     return { error: error.message };
   }
   revalidatePath(taskPath(input.task_id));
@@ -205,9 +207,8 @@ export async function recordTaskFile(input: { task_id: number; name: string; pat
 
 export async function deleteTaskFile(form: FormData) {
   const { supabase } = await assertAccess("tasks", "edit");
-  const { data } = await supabase.from("task_files").delete().eq("id", Number(str(form, "id"))).select("path, task_id").single();
-  if (data) {
-    await supabase.storage.from(TASK_BUCKET).remove([data.path]);
-    revalidatePath(taskPath(data.task_id));
-  }
+  const { data } = await supabase.from("task_files").delete().eq("id", Number(str(form, "id"))).select("path, task_id").maybeSingle();
+  if (!data) throw new Error("Only the uploader, or someone with full task access, can delete this file.");
+  await supabase.storage.from(TASK_BUCKET).remove([data.path]);
+  revalidatePath(taskPath(data.task_id));
 }

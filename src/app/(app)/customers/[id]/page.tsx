@@ -37,7 +37,7 @@ export default async function CustomerPage({
 }) {
   const id = Number((await params).id);
   const tab = (await searchParams).tab ?? "profile";
-  const { supabase, can } = await requireStaff();
+  const { supabase, can, profile } = await requireStaff();
   const canEdit = can("customers", "edit");
   const canDelete = can("customers", "full");
 
@@ -148,9 +148,11 @@ export default async function CustomerPage({
             description="People at this company"
             action={
               <div className="flex items-center gap-2">
-                <a href={`${base}/export`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50" title="GDPR data export (JSON)">
-                  <Download className="h-3.5 w-3.5" /> Export data
-                </a>
+                {profile.is_admin && (
+                  <a href={`${base}/export`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-600 hover:bg-slate-50" title="GDPR data export (JSON)">
+                    <Download className="h-3.5 w-3.5" /> Export data
+                  </a>
+                )}
                 {canEdit && <ContactForm customerId={id} />}
               </div>
             }
