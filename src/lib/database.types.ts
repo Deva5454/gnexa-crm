@@ -42,21 +42,36 @@ export type Database = {
         Update: { id?: never; name?: string };
         Relationships: [];
       };
+      customer_admins: {
+        Row: { customer_id: number; staff_id: string; created_at: string };
+        Insert: { customer_id: number; staff_id: string; created_at?: string };
+        Update: { customer_id?: number; staff_id?: string; created_at?: string };
+        Relationships: [{ foreignKeyName: "customer_admins_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "customer_admins_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      customer_files: {
+        Row: { id: number; customer_id: number; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; customer_id: number; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; customer_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "customer_files_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "customer_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
       customers: {
         Row: {
           address: string | null; city: string | null; company: string; country: string | null; created_at: string; created_by: string | null;
           currency: string | null; group_id: number | null; id: number; is_active: boolean; phone: string | null; state: string | null;
           vat: string | null; website: string | null; zip: string | null;
+          shipping_address: string | null; shipping_city: string | null; shipping_state: string | null; shipping_zip: string | null; shipping_country: string | null;
         };
         Insert: {
           address?: string | null; city?: string | null; company: string; country?: string | null; created_at?: string; created_by?: string | null;
           currency?: string | null; group_id?: number | null; id?: never; is_active?: boolean; phone?: string | null; state?: string | null;
           vat?: string | null; website?: string | null; zip?: string | null;
+          shipping_address?: string | null; shipping_city?: string | null; shipping_state?: string | null; shipping_zip?: string | null; shipping_country?: string | null;
         };
         Update: {
           address?: string | null; city?: string | null; company?: string; country?: string | null; created_at?: string; created_by?: string | null;
           currency?: string | null; group_id?: number | null; id?: never; is_active?: boolean; phone?: string | null; state?: string | null;
           vat?: string | null; website?: string | null; zip?: string | null;
+          shipping_address?: string | null; shipping_city?: string | null; shipping_state?: string | null; shipping_zip?: string | null; shipping_country?: string | null;
         };
         Relationships: [
           { foreignKeyName: "customers_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },

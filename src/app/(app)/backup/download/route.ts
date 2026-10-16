@@ -12,7 +12,7 @@ const TABLES: Table[] = [
   "company_settings", "roles", "profiles", "currencies", "taxes", "payment_modes", "expense_categories", "customer_groups",
   "lead_statuses", "lead_sources", "contract_types", "ticket_departments", "kb_groups", "custom_fields", "email_templates",
   "web_forms", "estimate_request_statuses", "tags",
-  "customers", "contacts", "leads", "lead_files", "notes", "taggables", "custom_field_values",
+  "customers", "customer_admins", "customer_files", "contacts", "leads", "lead_files", "notes", "taggables", "custom_field_values",
   "items", "sales_docs", "sales_doc_items", "payments", "credit_applications", "subscriptions", "expenses",
   "projects", "project_members", "milestones", "timesheets", "tasks", "task_assignees", "task_checklist_items", "task_comments",
   "contracts", "tickets", "ticket_replies", "kb_articles", "estimate_requests",

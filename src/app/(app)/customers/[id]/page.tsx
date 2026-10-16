@@ -7,7 +7,9 @@ import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Globe, Mail, MapPin, Pencil, Phone, Star, Trash2, Download } from "lucide-react";
+import { Globe, Mail, MapPin, Paperclip, Pencil, Phone, Star, Trash2, Download, Truck, X } from "lucide-react";
+import { FileUploader } from "@/components/crm/file-uploader";
+import { CustomerExpenses, CustomerPayments } from "@/components/crm/customer-money";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
@@ -23,7 +25,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Tabs } from "@/components/ui/tabs";
 import { requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
-import { deleteContact, deleteCustomer, makePrimaryContact, toggleCustomerActive } from "../actions";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { addCustomerAdmin, deleteContact, deleteCustomer, deleteCustomerFile, makePrimaryContact, recordCustomerFile, removeCustomerAdmin, toggleCustomerActive } from "../actions";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = { title: "Customer" };
@@ -41,12 +44,15 @@ export default async function CustomerPage({
   const canEdit = can("customers", "edit");
   const canDelete = can("customers", "full");
 
-  const [{ data: c }, { data: contacts }, notesCount, tasksCount, { data: lead }] = await Promise.all([
+  const [{ data: c }, { data: contacts }, notesCount, tasksCount, { data: lead }, { data: files }, { data: admins }, { data: staff }] = await Promise.all([
     supabase.from("customers").select("*, group:customer_groups(name)").eq("id", id).maybeSingle(),
     supabase.from("contacts").select("*").eq("customer_id", id).order("is_primary", { ascending: false }).order("first_name"),
     supabase.from("notes").select("id", { count: "exact", head: true }).eq("rel_type", "customer").eq("rel_id", id),
     supabase.from("tasks").select("id", { count: "exact", head: true }).eq("rel_type", "customer").eq("rel_id", id),
     supabase.from("leads").select("id, name").eq("converted_customer_id", id).maybeSingle(),
+    supabase.from("customer_files").select("id, name, size, created_at, uploader:profiles!customer_files_uploaded_by_fkey(full_name)").eq("customer_id", id).order("created_at", { ascending: false }),
+    supabase.from("customer_admins").select("staff_id, created_at, staff:profiles(full_name)").eq("customer_id", id).order("created_at"),
+    supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
   ]);
   if (!c) notFound();
 
@@ -57,9 +63,16 @@ export default async function CustomerPage({
     { key: "notes", label: "Notes", href: `${base}?tab=notes`, count: notesCount.count ?? 0 },
     { key: "tasks", label: "Tasks", href: `${base}?tab=tasks`, count: tasksCount.count ?? 0 },
     ...(can("sales", "view") ? [{ key: "billing", label: "Billing", href: `${base}?tab=billing` }] : []),
+    ...(can("sales", "view") ? [{ key: "payments", label: "Payments", href: `${base}?tab=payments` }] : []),
+    ...(can("expenses", "view") ? [{ key: "expenses", label: "Expenses", href: `${base}?tab=expenses` }] : []),
+    ...(can("sales", "view") ? [{ key: "statement", label: "Statement", href: `${base}/statement` }] : []),
     ...(can("projects", "view") || can("support", "view") || can("contracts", "view") ? [{ key: "work", label: "Projects & support", href: `${base}?tab=work` }] : []),
+    { key: "files", label: "Files", href: `${base}?tab=files`, count: files?.length ?? 0 },
     { key: "activity", label: "Activity", href: `${base}?tab=activity` },
   ];
+  const shipping = [c.shipping_address, c.shipping_city, c.shipping_state, c.shipping_zip, c.shipping_country].filter(Boolean).join(", ");
+  const adminIds = new Set((admins ?? []).map((a) => a.staff_id));
+  const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
   const address = [c.address, c.city, c.state, c.zip, c.country].filter(Boolean).join(", ");
 
@@ -114,7 +127,8 @@ export default async function CustomerPage({
                 {[
                   ["Phone", c.phone ? <a href={`tel:${c.phone}`} className="text-brand-700">{c.phone}</a> : null, Phone],
                   ["Website", c.website ? <a href={c.website.startsWith("http") ? c.website : `https://${c.website}`} target="_blank" rel="noreferrer" className="text-brand-700">{c.website}</a> : null, Globe],
-                  ["Address", address || null, MapPin],
+                  ["Billing address", address || null, MapPin],
+                  ["Shipping address", shipping || (address ? <span className="text-slate-400">Same as billing</span> : null), Truck],
                   ["GST / VAT", c.vat, null],
                   ["Group", c.group?.name, null],
                   ["Currency", c.currency, null],
@@ -130,6 +144,40 @@ export default async function CustomerPage({
             </CardBody>
           </Card>
           <div className="space-y-6">
+            <Card>
+              <CardHeader title="Customer admins" description="Staff who look after this customer" />
+              <CardBody className="space-y-3">
+                {!admins?.length && <p className="text-sm text-slate-400">No one assigned yet.</p>}
+                {(admins ?? []).length > 0 && (
+                  <ul className="space-y-2">
+                    {admins!.map((a) => (
+                      <li key={a.staff_id} className="flex items-center gap-2 text-sm">
+                        <Avatar name={a.staff?.full_name ?? "?"} className="h-7 w-7 text-[10px]" />
+                        <span className="flex-1 text-slate-700">{a.staff?.full_name ?? "—"}</span>
+                        <span className="text-xs text-slate-400">since {formatDate(a.created_at)}</span>
+                        {canEdit && (
+                          <form action={removeCustomerAdmin}>
+                            <input type="hidden" name="customer_id" value={id} />
+                            <input type="hidden" name="staff_id" value={a.staff_id} />
+                            <button className="rounded p-1 text-slate-400 hover:text-rose-600" aria-label={`Remove ${a.staff?.full_name ?? "admin"}`}><X className="h-3.5 w-3.5" /></button>
+                          </form>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {canEdit && (staff ?? []).some((s) => !adminIds.has(s.id)) && (
+                  <form action={addCustomerAdmin} className="flex gap-2">
+                    <input type="hidden" name="customer_id" value={id} />
+                    <select name="staff_id" required aria-label="Staff member to assign" className="field h-9 py-0 text-sm">
+                      <option value="">Assign staff…</option>
+                      {(staff ?? []).filter((s) => !adminIds.has(s.id)).map((s) => <option key={s.id} value={s.id}>{s.full_name}</option>)}
+                    </select>
+                    <SubmitButton size="sm" variant="secondary" pendingText="…">Add</SubmitButton>
+                  </form>
+                )}
+              </CardBody>
+            </Card>
             <PortalAccess customerId={id} />
             <CustomFieldsCard entity="customer" relId={id} path={base} />
             <RemindersPanel relType="customer" relId={id} path={base} />
@@ -219,6 +267,34 @@ export default async function CustomerPage({
         </div>
       )}
       {tab === "work" && <CustomerWork customerId={id} />}
+      {tab === "payments" && <CustomerPayments customerId={id} />}
+      {tab === "expenses" && <CustomerExpenses customerId={id} />}
+      {tab === "files" && (
+        <Card>
+          <CardHeader title="Files" description="Contracts, briefs, KYC documents and anything else for this customer" />
+          <CardBody className="space-y-3">
+            {(files ?? []).length > 0 && (
+              <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+                {files!.map((f) => (
+                  <li key={f.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                    <Paperclip className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                    <a href={`/customers/files/${f.id}`} className="min-w-0 flex-1 truncate font-medium text-slate-800 hover:text-brand-700">{f.name}</a>
+                    <span className="hidden text-xs text-slate-400 sm:inline">{kb(Number(f.size))} · {f.uploader?.full_name?.split(" ")[0] ?? "—"} · {formatDate(f.created_at)}</span>
+                    <a href={`/customers/files/${f.id}`} className="rounded p-1 text-slate-400 hover:text-brand-700" aria-label={`Download ${f.name}`}><Download className="h-4 w-4" /></a>
+                    {canEdit && (
+                      <ConfirmForm action={deleteCustomerFile} message={`Delete ${f.name}?`}>
+                        <input type="hidden" name="id" value={f.id} />
+                        <button className="rounded p-1 text-slate-400 hover:text-rose-600" aria-label={`Delete ${f.name}`}><Trash2 className="h-4 w-4" /></button>
+                      </ConfirmForm>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit ? <FileUploader bucket="customer-files" relId={id} record={recordCustomerFile} /> : !files?.length && <p className="text-sm text-slate-400">No files.</p>}
+          </CardBody>
+        </Card>
+      )}
       {tab === "activity" && (
         <Card>
           <CardHeader title="Activity log" />

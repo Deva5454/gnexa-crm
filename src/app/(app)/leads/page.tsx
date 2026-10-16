@@ -16,7 +16,10 @@ import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { todayIST } from "@/lib/dates";
 import { cn, formatDate, formatMoney, searchTerm, timeAgo } from "@/lib/utils";
-import { BULK_FORM, BulkBar, SelectAll } from "./bulk-bar";
+import { BulkBar, SelectAll } from "@/components/crm/bulk-bar";
+import { bulkLeads } from "./actions";
+
+const BULK_FORM = "bulk-leads";
 import { LeadsKanban, type KanbanSort } from "./kanban";
 import { allRows } from "@/lib/fetch-all";
 
@@ -208,11 +211,21 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <Card>
           {canEdit && (
             <BulkBar
-              statuses={opts(statuses)}
-              sources={opts(sources)}
-              staff={opts(staff)}
-              tags={tagList.map((t) => ({ value: String(t.id), label: t.name }))}
-              canDelete={can("leads", "full")}
+              id={BULK_FORM}
+              action={bulkLeads}
+              noun="lead"
+              ops={[
+                { value: "status", label: "Change status", target: { label: "New status", options: opts(statuses) } },
+                { value: "source", label: "Change source", target: { label: "New source", options: opts(sources) } },
+                { value: "assign", label: "Assign to staff", target: { label: "Assign to", options: [{ value: "none", label: "— Unassigned —" }, ...opts(staff)] } },
+                ...(tagList.length ? [{ value: "tag", label: "Add tag", target: { label: "Tag", options: tagList.map((t) => ({ value: String(t.id), label: t.name })) } }] : []),
+                { value: "contacted", label: "Mark contacted today" },
+                { value: "lost", label: "Mark as lost" },
+                { value: "unlost", label: "Unmark lost" },
+                { value: "junk", label: "Mark as junk" },
+                { value: "unjunk", label: "Unmark junk" },
+                ...(can("leads", "full") ? [{ value: "delete", label: "Delete", danger: true }] : []),
+              ]}
             />
           )}
           {!rows.length ? (
@@ -222,7 +235,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               <table className="table-base">
                 <thead>
                   <tr>
-                    {canEdit && <th className="w-8"><SelectAll /></th>}
+                    {canEdit && <th className="w-8"><SelectAll form={BULK_FORM} label="Select all leads on this page" /></th>}
                     {sortHead("id", "#", "w-12")}
                     {sortHead("name", "Name")}
                     {sortHead("company", "Company", "hidden lg:table-cell")}

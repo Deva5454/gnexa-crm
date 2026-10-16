@@ -19,9 +19,12 @@ export function ExpenseForm({
   customers,
   modes,
   taxRates,
+  defaultCustomer,
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
   expense?: Tables<"expenses">;
+  /** pre-selected customer for a new expense (?customer=) */
+  defaultCustomer?: number;
   categories: Opt[];
   customers: Opt[];
   modes: Opt[];
@@ -29,7 +32,7 @@ export function ExpenseForm({
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const e = expense;
-  const [customer, setCustomer] = useState(String(e?.customer_id ?? ""));
+  const [customer, setCustomer] = useState(String(e?.customer_id ?? defaultCustomer ?? ""));
   const billed = !!e?.invoice_id;
   return (
     <form action={formAction} className="space-y-6">

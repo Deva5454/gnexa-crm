@@ -60,7 +60,7 @@ export function CustomerForm({
       </Card>
 
       <Card>
-        <CardHeader title="Address" />
+        <CardHeader title="Billing address" />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Street address" htmlFor="address" className="sm:col-span-2">
             <textarea id="address" name="address" rows={2} defaultValue={c?.address ?? ""} className="field" />
@@ -69,6 +69,39 @@ export function CustomerForm({
           <Field label="State" htmlFor="state"><input id="state" name="state" defaultValue={c?.state ?? ""} className="field" /></Field>
           <Field label="Postal code" htmlFor="zip"><input id="zip" name="zip" defaultValue={c?.zip ?? ""} className="field" /></Field>
           <Field label="Country" htmlFor="country"><input id="country" name="country" defaultValue={c?.country ?? ""} className="field" /></Field>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Shipping address"
+          description="Leave empty if it's the same as the billing address"
+          action={
+            <button
+              type="button"
+              className="text-xs font-semibold text-brand-600 hover:text-brand-700"
+              onClick={(e) => {
+                const f = e.currentTarget.form;
+                if (!f) return;
+                for (const k of ["address", "city", "state", "zip", "country"]) {
+                  const from = f.elements.namedItem(k) as HTMLInputElement | null;
+                  const to = f.elements.namedItem(`shipping_${k}`) as HTMLInputElement | null;
+                  if (from && to) to.value = from.value;
+                }
+              }}
+            >
+              Copy billing address
+            </button>
+          }
+        />
+        <CardBody className="grid gap-4 sm:grid-cols-2">
+          <Field label="Street address" htmlFor="shipping_address" className="sm:col-span-2">
+            <textarea id="shipping_address" name="shipping_address" rows={2} defaultValue={c?.shipping_address ?? ""} className="field" />
+          </Field>
+          <Field label="City" htmlFor="shipping_city"><input id="shipping_city" name="shipping_city" defaultValue={c?.shipping_city ?? ""} className="field" /></Field>
+          <Field label="State" htmlFor="shipping_state"><input id="shipping_state" name="shipping_state" defaultValue={c?.shipping_state ?? ""} className="field" /></Field>
+          <Field label="Postal code" htmlFor="shipping_zip"><input id="shipping_zip" name="shipping_zip" defaultValue={c?.shipping_zip ?? ""} className="field" /></Field>
+          <Field label="Country" htmlFor="shipping_country"><input id="shipping_country" name="shipping_country" defaultValue={c?.shipping_country ?? ""} className="field" /></Field>
         </CardBody>
       </Card>
 
