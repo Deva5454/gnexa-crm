@@ -13,7 +13,10 @@ export async function respondToQuote(_: PortalState, form: FormData): Promise<Po
   const { supabase } = await requirePortal();
   const id = Number(str(form, "id"));
   const accept = str(form, "decision") === "accept";
-  const { error } = await supabase.rpc("portal_respond", { p_doc: id, p_accept: accept });
+  const name = str(form, "name");
+  if (accept && !name) return { error: "Type your full name to accept." };
+  if (accept && form.get("agree") !== "on") return { error: "Tick the box to confirm you accept." };
+  const { error } = await supabase.rpc("portal_respond", { p_doc: id, p_accept: accept, p_name: name });
   if (error) return { error: error.message };
   revalidatePath(`/portal/quotes/${id}`);
   revalidatePath("/portal");

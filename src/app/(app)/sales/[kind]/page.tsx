@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowDown, ArrowUp, Download, FileStack, FileText, Plus, Repeat, Wallet } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns3, Download, FileStack, FileText, List, Plus, Repeat, Wallet } from "lucide-react";
 import { BulkBar, SelectAll, type BulkOp } from "@/components/crm/bulk-bar";
 import { ParamSelect } from "@/components/ui/param-select";
 import { bulkDocs } from "../actions";
+import { DocPipeline } from "./pipeline";
 import { Badge } from "@/components/ui/badge";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ kind: str
   return { title: kind ? KINDS[kind].plural : "Sales" };
 }
 
-type SP = { q?: string; status?: string; page?: string; year?: string; agent?: string; recurring?: string; sent?: string; project?: string; sort?: string; dir?: string };
+type SP = { q?: string; status?: string; page?: string; year?: string; agent?: string; recurring?: string; sent?: string; project?: string; sort?: string; dir?: string; view?: string };
 
 const BULK_FORM = "bulk-docs";
 type SortKey = "number" | "date" | "due" | "total" | "party";
@@ -126,6 +127,16 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
   };
   filtered.sort((a, b) => (asc ? 1 : -1) * cmp[sortKey](a, b));
   const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Estimates and proposals: Perfex's pipeline board instead of the table
+  const quote = kind === "estimate" || kind === "proposal";
+  const pipeline = quote && sp.view === "pipeline";
+
+  // Estimates / proposals already turned into an invoice (or estimate) show "Invoiced" like Perfex
+  const shown = pipeline ? filtered.slice(0, 500) : rows;
+  const { data: derived } = quote && shown.length
+    ? await supabase.from("sales_docs").select("id, kind, number, source_id").in("source_id", shown.map((d) => d.id)).neq("status", "cancelled")
+    : { data: [] as { id: number; kind: DocKind; number: number; source_id: number | null }[] };
+  const derivedOf = new Map((derived ?? []).map((x) => [x.source_id!, x]));
 
   const [{ data: staff }, { data: projects }] = await Promise.all([
     supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
@@ -219,6 +230,16 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
           <SearchInput placeholder={`Search ${k.plural.toLowerCase()}…`} />
         </div>
         <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-3">
+          {quote && (
+            <div className="mr-1 flex rounded-lg bg-white p-0.5 ring-1 ring-slate-200">
+              <Link href={link({ view: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium", !pipeline ? "bg-brand-600 text-white" : "text-slate-600")}>
+                <List className="h-3.5 w-3.5" /> List
+              </Link>
+              <Link href={link({ view: "pipeline", sort: undefined, dir: undefined })} className={cn("flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium", pipeline ? "bg-brand-600 text-white" : "text-slate-600")}>
+                <Columns3 className="h-3.5 w-3.5" /> Pipeline
+              </Link>
+            </div>
+          )}
           {years.length > 1 && <ParamSelect name="year" label="Year" allLabel="All years" options={years.map((y) => ({ value: y, label: y }))} />}
           <ParamSelect name="agent" label="Sale agent" allLabel="Any sale agent" options={[{ value: "me", label: "My sales" }, { value: "none", label: "No sale agent" }, ...staffOpts]} />
           <ParamSelect name="sent" label="E-mailed" allLabel="E-mailed or not" options={[{ value: "not", label: "Not e-mailed yet" }]} />
@@ -227,14 +248,38 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
             <ParamSelect name="project" label="Project" allLabel="Any project" options={[{ value: "any", label: "Project invoices" }, ...(projects ?? []).map((p) => ({ value: String(p.id), label: p.name }))]} />
           )}
         </div>
-        {canEdit && (
+        {canEdit && !pipeline && (
           <>
             <BulkBar id={BULK_FORM} action={bulkDocs} noun={k.label.toLowerCase()} ops={bulkOps} />
             <input type="hidden" name="kind" value={kind} form={BULK_FORM} />
           </>
         )}
 
-        {!rows.length ? (
+        {pipeline ? (
+          <div className="p-4">
+            <DocPipeline
+              base={`/sales/${k.slug}`}
+              canEdit={canEdit}
+              cards={shown.map((d) => {
+                const inv = derivedOf.get(d.id);
+                return {
+                  id: d.id,
+                  href: docHref(kind, d.id),
+                  label: docNumber(kind, d.number),
+                  party: d.party,
+                  total: d.total,
+                  currency: d.currency,
+                  date: d.date,
+                  due: d.due_date,
+                  status: d.status,
+                  expired: d.st.key === "expired",
+                  agent: d.agent?.full_name ?? null,
+                  invoiced: inv ? { href: docHref(inv.kind as DocKind, inv.id), label: docNumber(inv.kind as DocKind, inv.number) } : null,
+                };
+              })}
+            />
+          </div>
+        ) : !rows.length ? (
           <EmptyState
             icon={FileText}
             title={all.length ? "Nothing matches" : `No ${k.plural.toLowerCase()} yet`}
@@ -303,6 +348,11 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
                       <td className="hidden text-slate-600 xl:table-cell">{d.agent?.full_name ?? "—"}</td>
                       <td>
                         <Badge className={d.st.color}>{d.st.label}</Badge>
+                        {derivedOf.has(d.id) && (
+                          <Link href={docHref(derivedOf.get(d.id)!.kind as DocKind, derivedOf.get(d.id)!.id)} className="ml-1 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:underline" title={docNumber(derivedOf.get(d.id)!.kind as DocKind, derivedOf.get(d.id)!.number)}>
+                            {derivedOf.get(d.id)!.kind === "invoice" ? "Invoiced" : "Converted"}
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -168,6 +168,15 @@ export async function saveReminderSettings(form: FormData) {
   });
 }
 
+export async function saveExpirySettings(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const days = Math.min(30, Math.max(1, Math.round(num(form, "days") ?? 3)));
+    must(await supabase.from("company_settings").update({ auto_expiry_reminders: form.get("auto") === "on", expiry_reminder_days: days }).eq("id", true));
+    revalidatePath("/settings/finance");
+  });
+}
+
 export async function saveEmailTemplate(form: FormData) {
   return withFlash(async () => {
     const { supabase } = await requireAdmin();

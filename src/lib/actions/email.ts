@@ -18,7 +18,7 @@ export async function sendDocEmail(_: EmailState, form: FormData): Promise<Email
   const to = str(form, "to");
   const subject = str(form, "subject");
   const body = str(form, "body");
-  const kind = str(form, "kind") === "overdue_reminder" ? "overdue_reminder" : "document";
+  const kind = str(form, "kind") === "overdue_reminder" ? "overdue_reminder" : str(form, "kind") === "expiry_reminder" ? "expiry_reminder" : "document";
   if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to.split("|")[0]!)) return { error: "Choose who to send it to." };
   if (!subject || !body) return { error: "Subject and message are required." };
   const { data: d } = await supabase.from("sales_docs").select("id, kind, number, status, customer_id, lead_id").eq("id", id).single();
@@ -36,9 +36,10 @@ export async function sendDocEmail(_: EmailState, form: FormData): Promise<Email
   });
   if (error) return { error: friendlyError(error.message) };
   if (d.status === "draft") await supabase.from("sales_docs").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", id);
-  if (kind === "overdue_reminder") await supabase.from("sales_docs").update({ last_reminder_at: new Date().toISOString() }).eq("id", id);
+  if (kind !== "document") await supabase.from("sales_docs").update({ last_reminder_at: new Date().toISOString() }).eq("id", id);
   const label = docNumber(d.kind, d.number);
-  const what = kind === "overdue_reminder" ? `sent an overdue reminder for ${label}` : `e-mailed ${KINDS[d.kind].label.toLowerCase()} ${label}`;
+  const what =
+    kind === "overdue_reminder" ? `sent an overdue reminder for ${label}` : kind === "expiry_reminder" ? `sent an expiry reminder for ${label}` : `e-mailed ${KINDS[d.kind].label.toLowerCase()} ${label}`;
   if (d.customer_id) await logActivity(supabase, `${what} to ${name || email}`, { type: "customer", id: d.customer_id });
   else if (d.lead_id) await logActivity(supabase, `${what} to ${name || email}`, { type: "lead", id: d.lead_id });
   revalidatePath(docHref(d.kind, id));

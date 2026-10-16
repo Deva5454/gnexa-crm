@@ -14,7 +14,7 @@ import { PayNow } from "./pay-now";
 
 /** A client's view of one of their documents (RLS only returns their own, non-draft documents). */
 export async function PortalDocView({ id, kinds, back, backLabel }: { id: number; kinds: DocKind[]; back: string; backLabel: string }) {
-  const { supabase } = await requirePortal();
+  const { supabase, contactName } = await requirePortal();
   const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).in("kind", kinds).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
@@ -36,13 +36,23 @@ export async function PortalDocView({ id, kinds, back, backLabel }: { id: number
         <Link href={back} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"><ArrowLeft className="h-4 w-4" /> {backLabel}</Link>
         <PrintButton />
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px] print:block">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] print:block">
         <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={st} balance={bal} extra={extra} />
         <aside className="space-y-6 print:hidden">
+          {doc.responded_by && (doc.status === "accepted" || doc.status === "declined") && (
+            <Card>
+              <CardBody className="text-sm">
+                <div className={doc.status === "accepted" ? "font-semibold text-emerald-700" : "font-semibold text-slate-700"}>
+                  {doc.status === "accepted" ? "Accepted" : "Declined"} by {doc.responded_by}
+                </div>
+                {doc.responded_at && <div className="text-xs text-slate-500">{formatDate(doc.responded_at)}</div>}
+              </CardBody>
+            </Card>
+          )}
           {canRespond && (
             <Card>
               <CardHeader title={`Respond to this ${KINDS[kind].label.toLowerCase()}`} description={doc.due_date ? `Valid until ${formatDate(doc.due_date)}` : undefined} />
-              <CardBody><QuoteResponse id={id} kindLabel={KINDS[kind].label} /></CardBody>
+              <CardBody><QuoteResponse id={id} kindLabel={KINDS[kind].label} defaultName={contactName} /></CardBody>
             </Card>
           )}
           {kind === "invoice" && (bal?.balance ?? 0) > 0.005 && doc.status !== "cancelled" && (

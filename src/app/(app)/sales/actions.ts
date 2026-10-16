@@ -536,3 +536,24 @@ export async function deleteDocFile(form: FormData) {
     if (data.doc) revalidatePath(docHref(data.doc.kind as DocKind, data.doc.id));
   });
 }
+
+/** Pipeline drag: change an estimate's or proposal's status. */
+export async function moveDocStatus(id: number, status: string): Promise<{ error?: string }> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  if (!["draft", "sent", "accepted", "declined"].includes(status)) return { error: "Unknown status." };
+  const { data: doc, error } = await supabase
+    .from("sales_docs")
+    .update({ status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) })
+    .eq("id", id)
+    .in("kind", ["estimate", "proposal"])
+    .select("kind, number, customer_id, lead_id")
+    .maybeSingle();
+  if (error) return { error: friendlyError(error.message) };
+  if (!doc) return { error: "Document not found." };
+  const rel = doc.customer_id ? ({ type: "customer", id: doc.customer_id } as const) : ({ type: "lead", id: doc.lead_id! } as const);
+  await logActivity(supabase, `${STATUS_VERB[status]} ${docNumber(doc.kind, doc.number)}`, rel);
+  revalidatePath(`/sales/${KINDS[doc.kind].slug}`);
+  revalidatePath(docHref(doc.kind, id));
+  return {};
+}

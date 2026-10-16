@@ -16,15 +16,15 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
-          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
+          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
          theme?: string; disabled_modules?: string[]; menu_config?: Json; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
-          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
+          address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
          theme?: string; disabled_modules?: string[]; menu_config?: Json; };
         Relationships: [];
       };
@@ -197,7 +197,7 @@ export type Database = {
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
           project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;
-          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null; sale_agent: string | null;
+          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null; sale_agent: string | null; responded_by: string | null; responded_at: string | null;
         };
         Insert: {
           id?: never; kind: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -205,7 +205,7 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null;
         };
         Update: {
           id?: never; kind?: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -213,7 +213,7 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null; responded_by?: string | null; responded_at?: string | null;
         };
         Relationships: [
           { foreignKeyName: "sales_docs_sale_agent_fkey"; columns: ["sale_agent"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
@@ -660,7 +660,7 @@ export type Database = {
       convert_lead: { Args: { p_lead_id: number }; Returns: number };
       reset_demo_data: { Args: Record<PropertyKey, never>; Returns: undefined };
       kb_track: { Args: { p_article: number; p_event: string }; Returns: undefined };
-      portal_respond: { Args: { p_doc: number; p_accept: boolean }; Returns: undefined };
+      portal_respond: { Args: { p_doc: number; p_accept: boolean; p_name?: string | null }; Returns: undefined };
       portal_sign_contract: { Args: { p_contract: number; p_name: string }; Returns: undefined };
       portal_open_ticket: { Args: { p_subject: string; p_body: string; p_department: number | null; p_priority: string }; Returns: number };
       portal_reply: { Args: { p_ticket: number; p_body: string }; Returns: undefined };

@@ -22,6 +22,7 @@ import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, INTERVAL_LABEL, KINDS, kindFromSlug, type DocKind } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { daysFromToday } from "@/lib/dates";
 import { convertDoc, copyDoc, deleteDoc, deleteDocFile, deletePayment, recordDocFile, removeCredit, setDocStatus } from "../../actions";
 import { ApplyCreditForm, PaymentForm } from "./panels";
 
@@ -133,9 +134,13 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
     balance: formatMoney(bal?.balance ?? Number(doc.total), cur),
     subject: doc.subject ?? "",
   };
-  const [sendTpl, reminderTpl] = await Promise.all([
+  // Estimates and proposals: offer an expiry reminder in the last week (or once expired), like Perfex
+  const quote = kind === "estimate" || kind === "proposal";
+  const expiring = quote && doc.status === "sent" && !!doc.due_date && doc.due_date <= daysFromToday(7);
+  const [sendTpl, reminderTpl, expiryTpl] = await Promise.all([
     renderTemplate(supabase, `${kind}_send`, tplVars),
     status.key === "overdue" ? renderTemplate(supabase, "overdue_reminder", tplVars) : Promise.resolve(null),
+    expiring ? renderTemplate(supabase, "expiry_reminder", tplVars) : Promise.resolve(null),
   ]);
 
   const hasMoney = (payments?.length ?? 0) > 0 || (credits?.length ?? 0) > 0;
@@ -269,6 +274,22 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 {status.key === "overdue" && doc.last_reminder_at && (
                   <p className="text-center text-xs text-slate-500">Last reminder {formatDate(doc.last_reminder_at)}</p>
                 )}
+                {expiring && (
+                  <SendEmailForm
+                    action={sendDocEmail}
+                    hidden={{ doc_id: id, kind: "expiry_reminder" }}
+                    recipients={recipients}
+                    subject={expiryTpl?.subject ?? `Reminder: ${label} expires on ${formatDate(doc.due_date)}`}
+                    body={expiryTpl?.body ?? ""}
+                    attachment={`${label}.pdf`}
+                    label={status.key === "expired" ? "Send reminder (expired)" : "Send expiry reminder"}
+                    buttonLabel="Send reminder"
+                    icon="bell"
+                  />
+                )}
+                {expiring && doc.last_reminder_at && (
+                  <p className="text-center text-xs text-slate-500">Expiry reminder sent {formatDate(doc.last_reminder_at)}</p>
+                )}
               </CardBody>
             </Card>
           )}
@@ -288,6 +309,12 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
               )}
               {doc.sent_at && <div className="flex justify-between text-xs text-slate-400"><span>Sent</span><span>{formatDate(doc.sent_at)}</span></div>}
               <div className="flex justify-between text-xs"><span className="text-slate-400">Sale agent</span><span className="text-slate-700">{agent?.full_name ?? "—"}</span></div>
+              {doc.responded_by && (
+                <div className={`rounded-lg px-3 py-2 text-xs ${doc.status === "accepted" ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-700"}`}>
+                  <b>{doc.status === "accepted" ? "Accepted" : "Declined"} in the portal</b> by {doc.responded_by}
+                  {doc.responded_at && <> · {formatDate(doc.responded_at)}</>}
+                </div>
+              )}
               {source && (
                 <div className="flex justify-between text-xs"><span className="text-slate-400">Created from</span><Link href={docHref(source.kind, source.id)} className="font-mono text-brand-700">{docNumber(source.kind, source.number)}</Link></div>
               )}

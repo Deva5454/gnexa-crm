@@ -6,6 +6,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 export const EMAIL_KIND: Record<string, { label: string; color: string }> = {
   document: { label: "Document", color: "bg-brand-50 text-brand-700" },
   overdue_reminder: { label: "Overdue reminder", color: "bg-rose-50 text-rose-700" },
+  expiry_reminder: { label: "Expiry reminder", color: "bg-amber-50 text-amber-700" },
   statement: { label: "Statement", color: "bg-sky-50 text-sky-700" },
   receipt: { label: "Receipt", color: "bg-emerald-50 text-emerald-700" },
   subscription: { label: "Subscription", color: "bg-violet-50 text-violet-700" },
