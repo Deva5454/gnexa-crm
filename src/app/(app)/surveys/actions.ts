@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaff } from "@/lib/auth";
 import { str } from "@/lib/utils";
+import { must, withFlash } from "@/lib/flash";
 
 const TYPES = ["short", "long", "single", "multiple", "rating"];
 
@@ -17,58 +18,68 @@ async function ownSurvey(surveyId: number) {
 }
 
 export async function createSurvey(form: FormData) {
-  const { supabase } = await requireStaff();
-  const title = str(form, "title");
-  if (!title) return;
-  const { data } = await supabase.from("surveys").insert({ title: title.slice(0, 160), description: str(form, "description") }).select("id").single();
-  revalidatePath("/surveys");
-  if (data) redirect(`/surveys/${data.id}`);
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    const title = str(form, "title");
+    if (!title) return;
+    const { data } = await supabase.from("surveys").insert({ title: title.slice(0, 160), description: str(form, "description") }).select("id").single();
+    revalidatePath("/surveys");
+    if (data) redirect(`/surveys/${data.id}`);
+  });
 }
 
 export async function updateSurvey(form: FormData) {
-  const id = Number(str(form, "id"));
-  const { supabase } = await ownSurvey(id);
-  const title = str(form, "title");
-  if (!title) return;
-  await supabase
-    .from("surveys")
-    .update({ title: title.slice(0, 160), description: str(form, "description"), thank_you: str(form, "thank_you") ?? "Thanks for your feedback!", is_active: form.get("is_active") === "on" })
-    .eq("id", id);
-  revalidatePath(`/surveys/${id}`);
-  revalidatePath("/surveys");
+  return withFlash(async () => {
+    const id = Number(str(form, "id"));
+    const { supabase } = await ownSurvey(id);
+    const title = str(form, "title");
+    if (!title) return;
+    await supabase
+      .from("surveys")
+      .update({ title: title.slice(0, 160), description: str(form, "description"), thank_you: str(form, "thank_you") ?? "Thanks for your feedback!", is_active: form.get("is_active") === "on" })
+      .eq("id", id);
+    revalidatePath(`/surveys/${id}`);
+    revalidatePath("/surveys");
+  });
 }
 
 export async function deleteSurvey(form: FormData) {
-  const id = Number(str(form, "id"));
-  const { supabase } = await ownSurvey(id);
-  await supabase.from("surveys").delete().eq("id", id);
-  revalidatePath("/surveys");
-  redirect("/surveys");
+  return withFlash(async () => {
+    const id = Number(str(form, "id"));
+    const { supabase } = await ownSurvey(id);
+    must(await supabase.from("surveys").delete().eq("id", id));
+    revalidatePath("/surveys");
+    redirect("/surveys");
+  });
 }
 
 export async function saveQuestion(form: FormData) {
-  const id = Number(str(form, "id"));
-  const surveyId = Number(str(form, "survey_id"));
-  const { supabase } = await ownSurvey(surveyId);
-  const label = str(form, "label");
-  const type = str(form, "type") ?? "short";
-  if (!label || !TYPES.includes(type)) return;
-  const options = (str(form, "options") ?? "").split(/[\n,]/).map((o) => o.trim()).filter(Boolean).slice(0, 20);
-  const patch = { label: label.slice(0, 300), type, options: type === "single" || type === "multiple" ? options : [], required: form.get("required") === "on" };
-  if (id) await supabase.from("survey_questions").update(patch).eq("id", id).eq("survey_id", surveyId);
-  else {
-    const { count } = await supabase.from("survey_questions").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
-    await supabase.from("survey_questions").insert({ ...patch, survey_id: surveyId, position: (count ?? 0) + 1 });
-  }
-  revalidatePath(`/surveys/${surveyId}`);
+  return withFlash(async () => {
+    const id = Number(str(form, "id"));
+    const surveyId = Number(str(form, "survey_id"));
+    const { supabase } = await ownSurvey(surveyId);
+    const label = str(form, "label");
+    const type = str(form, "type") ?? "short";
+    if (!label || !TYPES.includes(type)) return;
+    const options = (str(form, "options") ?? "").split(/[\n,]/).map((o) => o.trim()).filter(Boolean).slice(0, 20);
+    const patch = { label: label.slice(0, 300), type, options: type === "single" || type === "multiple" ? options : [], required: form.get("required") === "on" };
+    if (id) must(await supabase.from("survey_questions").update(patch).eq("id", id).eq("survey_id", surveyId));
+    else {
+      const { count } = await supabase.from("survey_questions").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
+      must(await supabase.from("survey_questions").insert({ ...patch, survey_id: surveyId, position: (count ?? 0) + 1 }));
+    }
+    revalidatePath(`/surveys/${surveyId}`);
+  });
 }
 
 export async function deleteQuestion(form: FormData) {
-  const { supabase } = await requireStaff();
-  const id = Number(str(form, "id"));
-  const { data: q } = await supabase.from("survey_questions").select("survey_id").eq("id", id).maybeSingle();
-  if (!q) return;
-  await ownSurvey(q.survey_id);
-  const { data } = await supabase.from("survey_questions").delete().eq("id", id).select("survey_id").single();
-  if (data) revalidatePath(`/surveys/${data.survey_id}`);
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    const id = Number(str(form, "id"));
+    const { data: q } = await supabase.from("survey_questions").select("survey_id").eq("id", id).maybeSingle();
+    if (!q) return;
+    await ownSurvey(q.survey_id);
+    const { data } = await supabase.from("survey_questions").delete().eq("id", id).select("survey_id").single();
+    if (data) revalidatePath(`/surveys/${data.survey_id}`);
+  });
 }

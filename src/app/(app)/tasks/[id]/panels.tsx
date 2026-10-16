@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { addChecklistItem, addTaskComment, deleteChecklistItem, recordTaskFile, startTimer, stopTimer, toggleChecklistItem } from "../actions";
+import { KeepValues } from "@/components/ui/keep-values";
 
 const pad = (n: number) => String(n).padStart(2, "0");
 function clock(ms: number) {
@@ -171,6 +172,7 @@ export function CommentBox({ taskId }: { taskId: number }) {
     <form ref={ref} action={action} className="space-y-2">
       <input type="hidden" name="task_id" value={taskId} />
       <textarea name="body" required rows={3} placeholder="Write a comment — assignees and followers get notified" className="field resize-y" />
+      <KeepValues active={!!state?.error} />
       {state?.error && <p className="text-xs text-rose-600">{state.error}</p>}
       <div className="flex justify-end">
         <SubmitButton size="sm" pendingText="Posting…">Comment</SubmitButton>

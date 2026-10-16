@@ -5,6 +5,7 @@ import { BellPlus } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { addReminder } from "@/lib/actions/reminders";
 import type { ReminderType } from "@/lib/links";
+import { KeepValues } from "@/components/ui/keep-values";
 
 export function ReminderForm({
   relType,
@@ -59,6 +60,7 @@ export function ReminderForm({
           <option key={s.id} value={s.id}>{s.id === meId ? `Me (${s.full_name})` : s.full_name}</option>
         ))}
       </select>
+      <KeepValues active={!!state?.error} />
       {state?.error && <p className="text-xs text-rose-600">{state.error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={() => setOpen(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100">Cancel</button>

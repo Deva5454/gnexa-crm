@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { REMINDER_TYPES, type ReminderType } from "@/lib/links";
 import { str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type ReminderState = { error?: string; ok?: string } | undefined;
 
@@ -30,16 +31,18 @@ export async function addReminder(_: ReminderState, form: FormData): Promise<Rem
     // Only admins set reminders for colleagues (the database enforces the same)
     staff_id: profile.is_admin ? (str(form, "staff_id") ?? profile.id) : profile.id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   const path = str(form, "path");
   if (path) revalidatePath(path);
   return { ok: "Reminder set." };
 }
 
 export async function deleteReminder(form: FormData) {
-  const { supabase } = await requireStaff();
-  await supabase.from("reminders").delete().eq("id", Number(str(form, "id")));
-  const path = str(form, "path");
-  if (path) revalidatePath(path);
-  revalidatePath("/todos");
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    must(await supabase.from("reminders").delete().eq("id", Number(str(form, "id"))));
+    const path = str(form, "path");
+    if (path) revalidatePath(path);
+    revalidatePath("/todos");
+  });
 }

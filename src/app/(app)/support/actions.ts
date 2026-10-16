@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { TASK_PRIORITIES, TICKET_STATUSES, ticketNumber } from "@/lib/constants";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -33,7 +34,7 @@ export async function createTicket(_: FormState, form: FormData): Promise<FormSt
     })
     .select("id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
 
   // The opening message is from the customer's contact when one is chosen, otherwise from staff
   let authorName: string | null = null;
@@ -67,7 +68,7 @@ export async function addReply(_: FormState, form: FormData): Promise<FormState>
     author_id: mode === "customer" ? null : profile.id,
     author_name: mode === "customer" ? contactName : null,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
 
   // Status follows the conversation: staff reply → answered, customer message → open (re-opens closed tickets)
   const next = mode === "reply" ? (str(form, "close") === "1" ? "closed" : "answered") : mode === "customer" ? "open" : t.status;
@@ -86,25 +87,29 @@ export async function addReply(_: FormState, form: FormData): Promise<FormState>
 }
 
 export async function updateTicket(form: FormData) {
-  const { supabase } = await assertAccess("support", "edit");
-  const id = Number(str(form, "id"));
-  const status = str(form, "status");
-  const patch = {
-    status: TICKET_STATUSES.some((s) => s.value === status) ? status! : "open",
-    priority: PRIORITY(str(form, "priority")),
-    department_id: num(form, "department_id"),
-    assigned_to: str(form, "assigned_to"),
-    project_id: num(form, "project_id"),
-    closed_at: status === "closed" ? new Date().toISOString() : null,
-  };
-  await supabase.from("tickets").update(patch).eq("id", id);
-  revalidatePath(`/support/${id}`);
-  revalidatePath("/support");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("support", "edit");
+    const id = Number(str(form, "id"));
+    const status = str(form, "status");
+    const patch = {
+      status: TICKET_STATUSES.some((s) => s.value === status) ? status! : "open",
+      priority: PRIORITY(str(form, "priority")),
+      department_id: num(form, "department_id"),
+      assigned_to: str(form, "assigned_to"),
+      project_id: num(form, "project_id"),
+      closed_at: status === "closed" ? new Date().toISOString() : null,
+    };
+    must(await supabase.from("tickets").update(patch).eq("id", id));
+    revalidatePath(`/support/${id}`);
+    revalidatePath("/support");
+  });
 }
 
 export async function deleteTicket(form: FormData) {
-  const { supabase } = await assertAccess("support", "full");
-  await supabase.from("tickets").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/support");
-  redirect("/support");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("support", "full");
+    must(await supabase.from("tickets").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/support");
+    redirect("/support");
+  });
 }

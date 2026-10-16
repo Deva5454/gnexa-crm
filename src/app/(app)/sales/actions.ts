@@ -7,6 +7,7 @@ import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -105,7 +106,7 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
     p_doc: { ...fields, ...recurring, ...(id ? {} : { status }) },
     p_lines: lines,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   const docId = (saved as { id: number; number: number }).id;
   if (!id) {
     const rel = customer_id ? ({ type: "customer", id: customer_id } as const) : ({ type: "lead", id: lead_id! } as const);
@@ -121,97 +122,103 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
 const STATUS_VERB: Record<string, string> = { sent: "marked as sent", accepted: "marked as accepted", declined: "marked as declined", cancelled: "cancelled", draft: "reopened as draft" };
 
 export async function setDocStatus(form: FormData) {
-  const { supabase } = await assertAccess("sales", "edit");
-  const id = Number(str(form, "id"));
-  const status = str(form, "status")!;
-  if (!(status in STATUS_VERB)) return;
-  const { data: doc, error } = await supabase
-    .from("sales_docs")
-    .update({ status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) })
-    .eq("id", id)
-    .select("kind, number, customer_id, lead_id")
-    .single();
-  // The database refuses to cancel or reopen documents with money on them, and frees billed expenses and hours on cancel
-  if (error) throw new Error(error.message);
-  if (doc.kind === "invoice") revalidatePath("/expenses");
-  if (doc) {
-    const rel = doc.customer_id ? ({ type: "customer", id: doc.customer_id } as const) : ({ type: "lead", id: doc.lead_id! } as const);
-    await logActivity(supabase, `${STATUS_VERB[status]} ${docNumber(doc.kind, doc.number)}`, rel);
-    revalidatePath(docHref(doc.kind, id));
-    revalidatePath(`/sales/${KINDS[doc.kind].slug}`);
-  }
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const status = str(form, "status")!;
+    if (!(status in STATUS_VERB)) return;
+    const { data: doc, error } = await supabase
+      .from("sales_docs")
+      .update({ status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) })
+      .eq("id", id)
+      .select("kind, number, customer_id, lead_id")
+      .single();
+    // The database refuses to cancel or reopen documents with money on them, and frees billed expenses and hours on cancel
+    if (error) throw new Error(error.message);
+    if (doc.kind === "invoice") revalidatePath("/expenses");
+    if (doc) {
+      const rel = doc.customer_id ? ({ type: "customer", id: doc.customer_id } as const) : ({ type: "lead", id: doc.lead_id! } as const);
+      await logActivity(supabase, `${STATUS_VERB[status]} ${docNumber(doc.kind, doc.number)}`, rel);
+      revalidatePath(docHref(doc.kind, id));
+      revalidatePath(`/sales/${KINDS[doc.kind].slug}`);
+    }
+  });
 }
 
 /** Proposal → estimate/invoice, estimate → invoice. Copies lines; marks the source accepted. */
 export async function convertDoc(form: FormData) {
-  const { supabase } = await assertAccess("sales", "edit");
-  const id = Number(str(form, "id"));
-  const to = str(form, "to") as DocKind;
-  if (to !== "estimate" && to !== "invoice") return;
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const to = str(form, "to") as DocKind;
+    if (to !== "estimate" && to !== "invoice") return;
 
-  const { data: src } = await supabase.from("sales_docs").select("*").eq("id", id).single();
-  if (!src) throw new Error("Document not found.");
-  if (src.kind !== "proposal" && src.kind !== "estimate") throw new Error("Only proposals and estimates can be converted.");
-  if (src.kind === "estimate" && to === "estimate") throw new Error("This is already an estimate.");
-  if (!src.customer_id) throw new Error("Convert the lead to a customer first, then link this proposal to that customer.");
-  const { data: existing } = await supabase.from("sales_docs").select("id, kind").eq("source_id", id).neq("status", "cancelled").limit(1).maybeSingle();
-  if (existing) redirect(docHref(existing.kind, existing.id)); // already converted (e.g. a double click)
-  const { data: lines } = await supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position");
-  if (!lines?.length) throw new Error("This document has no line items to convert.");
-  const { data: settings } = await supabase.from("company_settings").select("default_terms").maybeSingle();
+    const { data: src } = await supabase.from("sales_docs").select("*").eq("id", id).single();
+    if (!src) throw new Error("Document not found.");
+    if (src.kind !== "proposal" && src.kind !== "estimate") throw new Error("Only proposals and estimates can be converted.");
+    if (src.kind === "estimate" && to === "estimate") throw new Error("This is already an estimate.");
+    if (!src.customer_id) throw new Error("Convert the lead to a customer first, then link this proposal to that customer.");
+    const { data: existing } = await supabase.from("sales_docs").select("id, kind").eq("source_id", id).neq("status", "cancelled").limit(1).maybeSingle();
+    if (existing) redirect(docHref(existing.kind, existing.id)); // already converted (e.g. a double click)
+    const { data: lines } = await supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position");
+    if (!lines?.length) throw new Error("This document has no line items to convert.");
+    const { data: settings } = await supabase.from("company_settings").select("default_terms").maybeSingle();
 
-  const today = new Date().toISOString().slice(0, 10);
-  const due = new Date(Date.now() + (to === "invoice" ? 15 : 30) * 86400_000).toISOString().slice(0, 10);
-  const copied: Line[] = lines.map((l) => ({
-    item_id: l.item_id,
-    description: l.description,
-    long_description: l.long_description,
-    qty: Number(l.qty),
-    unit: l.unit,
-    rate: Number(l.rate),
-    tax_rate: Number(l.tax_rate),
-  }));
-  const totals = computeTotals(copied, Number(src.discount_percent), Number(src.adjustment));
-  const { data: saved, error } = await supabase.rpc("save_sales_doc", {
-    p_kind: to,
-    p_id: null,
-    p_doc: {
-      customer_id: src.customer_id,
-      subject: src.subject,
-      date: today,
-      due_date: due,
-      currency: src.currency,
-      discount_percent: Number(src.discount_percent),
-      adjustment: Number(src.adjustment),
-      ...totals,
-      notes: src.notes,
-      terms: to === "invoice" ? (settings?.default_terms ?? src.terms) : src.terms,
-      source_id: src.id,
-    },
-    p_lines: copied,
+    const today = new Date().toISOString().slice(0, 10);
+    const due = new Date(Date.now() + (to === "invoice" ? 15 : 30) * 86400_000).toISOString().slice(0, 10);
+    const copied: Line[] = lines.map((l) => ({
+      item_id: l.item_id,
+      description: l.description,
+      long_description: l.long_description,
+      qty: Number(l.qty),
+      unit: l.unit,
+      rate: Number(l.rate),
+      tax_rate: Number(l.tax_rate),
+    }));
+    const totals = computeTotals(copied, Number(src.discount_percent), Number(src.adjustment));
+    const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+      p_kind: to,
+      p_id: null,
+      p_doc: {
+        customer_id: src.customer_id,
+        subject: src.subject,
+        date: today,
+        due_date: due,
+        currency: src.currency,
+        discount_percent: Number(src.discount_percent),
+        adjustment: Number(src.adjustment),
+        ...totals,
+        notes: src.notes,
+        terms: to === "invoice" ? (settings?.default_terms ?? src.terms) : src.terms,
+        source_id: src.id,
+      },
+      p_lines: copied,
+    });
+    if (error) throw new Error(error.message);
+    const created = saved as { id: number; number: number };
+    must(await supabase.from("sales_docs").update({ status: "accepted" }).eq("id", id));
+    await logActivity(supabase, `converted ${docNumber(src.kind, src.number)} to ${docNumber(to, created.number)}`, {
+      type: "customer",
+      id: src.customer_id,
+    });
+    revalidatePath(`/sales/${KINDS[src.kind].slug}`);
+    revalidatePath(`/sales/${KINDS[to].slug}`);
+    redirect(docHref(to, created.id));
   });
-  if (error) throw new Error(error.message);
-  const created = saved as { id: number; number: number };
-  await supabase.from("sales_docs").update({ status: "accepted" }).eq("id", id);
-  await logActivity(supabase, `converted ${docNumber(src.kind, src.number)} to ${docNumber(to, created.number)}`, {
-    type: "customer",
-    id: src.customer_id,
-  });
-  revalidatePath(`/sales/${KINDS[src.kind].slug}`);
-  revalidatePath(`/sales/${KINDS[to].slug}`);
-  redirect(docHref(to, created.id));
 }
 
 export async function deleteDoc(form: FormData) {
-  const { supabase } = await assertAccess("sales", "full");
-  const id = Number(str(form, "id"));
-  const { data: doc } = await supabase.from("sales_docs").select("kind").eq("id", id).single();
-  // Billed expenses are released by the foreign key; documents with money on them are refused by the database
-  const { error } = await supabase.from("sales_docs").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  const slug = KINDS[(doc?.kind ?? "invoice") as DocKind].slug;
-  revalidatePath(`/sales/${slug}`);
-  redirect(`/sales/${slug}`);
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    const id = Number(str(form, "id"));
+    const { data: doc } = await supabase.from("sales_docs").select("kind").eq("id", id).single();
+    // Billed expenses are released by the foreign key; documents with money on them are refused by the database
+    const { error } = await supabase.from("sales_docs").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    const slug = KINDS[(doc?.kind ?? "invoice") as DocKind].slug;
+    revalidatePath(`/sales/${slug}`);
+    redirect(`/sales/${slug}`);
+  });
 }
 
 export async function recordPayment(_: FormState, form: FormData): Promise<FormState> {
@@ -234,7 +241,7 @@ export async function recordPayment(_: FormState, form: FormData): Promise<FormS
     transaction_id: str(form, "transaction_id"),
     note: str(form, "note"),
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   // Recording money against a draft means it has gone out
   if (inv.status === "draft") await supabase.from("sales_docs").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", invoiceId);
   await logActivity(supabase, `recorded a payment of ₹${amount.toLocaleString("en-IN")} on ${docNumber("invoice", inv.number)}`, {
@@ -247,13 +254,15 @@ export async function recordPayment(_: FormState, form: FormData): Promise<FormS
 }
 
 export async function deletePayment(form: FormData) {
-  const { supabase } = await assertAccess("sales", "full");
-  const id = Number(str(form, "id"));
-  const invoiceId = Number(str(form, "invoice_id"));
-  const { error } = await supabase.from("payments").delete().eq("id", id).eq("invoice_id", invoiceId);
-  if (error) throw new Error(error.message);
-  revalidatePath(docHref("invoice", invoiceId));
-  revalidatePath("/sales/payments");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    const id = Number(str(form, "id"));
+    const invoiceId = Number(str(form, "invoice_id"));
+    const { error } = await supabase.from("payments").delete().eq("id", id).eq("invoice_id", invoiceId);
+    if (error) throw new Error(error.message);
+    revalidatePath(docHref("invoice", invoiceId));
+    revalidatePath("/sales/payments");
+  });
 }
 
 /** Apply part of a credit note to one of the same customer's invoices. */
@@ -280,7 +289,7 @@ export async function applyCredit(_: FormState, form: FormData): Promise<FormSta
   if (amount > due + 0.005) return { error: `The invoice only has ${due.toFixed(2)} outstanding.` };
 
   const { error } = await supabase.from("credit_applications").insert({ credit_note_id: creditId, invoice_id: invoiceId, amount });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   await logActivity(supabase, `applied ₹${amount.toLocaleString("en-IN")} from ${docNumber("credit_note", cn.number)} to ${docNumber("invoice", inv.number)}`, {
     type: "customer",
     id: cn.customer_id!,
@@ -291,13 +300,15 @@ export async function applyCredit(_: FormState, form: FormData): Promise<FormSta
 }
 
 export async function removeCredit(form: FormData) {
-  const { supabase } = await assertAccess("sales", "full");
-  const id = Number(str(form, "id"));
-  const { data } = await supabase.from("credit_applications").delete().eq("id", id).select("credit_note_id, invoice_id").single();
-  if (data) {
-    revalidatePath(docHref("credit_note", data.credit_note_id));
-    revalidatePath(docHref("invoice", data.invoice_id));
-  }
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    const id = Number(str(form, "id"));
+    const { data } = await supabase.from("credit_applications").delete().eq("id", id).select("credit_note_id, invoice_id").single();
+    if (data) {
+      revalidatePath(docHref("credit_note", data.credit_note_id));
+      revalidatePath(docHref("invoice", data.invoice_id));
+    }
+  });
 }
 
 // ───────────── Items catalogue ─────────────
@@ -311,13 +322,15 @@ export async function saveItem(_: FormState, form: FormData): Promise<FormState>
   if (rate == null || rate < 0) return { error: "Rate must be zero or more." };
   const fields = { name, description: str(form, "description"), rate, unit: str(form, "unit"), tax_id: num(form, "tax_id") };
   const { error } = id ? await supabase.from("items").update(fields).eq("id", id) : await supabase.from("items").insert(fields);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   revalidatePath("/sales/items");
   return { ok: id ? "Item updated." : "Item added." };
 }
 
 export async function deleteItem(form: FormData) {
-  const { supabase } = await assertAccess("sales", "full");
-  await supabase.from("items").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/sales/items");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    must(await supabase.from("items").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/sales/items");
+  });
 }

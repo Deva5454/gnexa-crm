@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { str } from "@/lib/utils";
+import { friendlyError } from "@/lib/flash";
 
 export type ProfileState = { error?: string; ok?: string } | undefined;
 
@@ -14,7 +15,7 @@ export async function updateProfile(_: ProfileState, form: FormData): Promise<Pr
     .from("profiles")
     .update({ full_name: fullName, phone: str(form, "phone"), job_title: str(form, "job_title") })
     .eq("id", profile.id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   revalidatePath("/", "layout");
   return { ok: "Profile updated." };
 }

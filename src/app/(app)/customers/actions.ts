@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string } | undefined;
 
@@ -31,7 +32,7 @@ export async function createCustomer(_: FormState, form: FormData): Promise<Form
   if (!fields.company) return { error: "Company name is required." };
 
   const { data, error } = await supabase.from("customers").insert(fields).select("id").single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
 
   const first = str(form, "contact_first_name");
   if (first) {
@@ -56,38 +57,42 @@ export async function updateCustomer(id: number, _: FormState, form: FormData): 
   const fields = customerFields(form);
   if (!fields.company) return { error: "Company name is required." };
   const { error } = await supabase.from("customers").update(fields).eq("id", id);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   await logActivity(supabase, `updated customer "${fields.company}"`, { type: "customer", id });
   revalidatePath(`/customers/${id}`);
   redirect(`/customers/${id}`);
 }
 
 export async function toggleCustomerActive(form: FormData) {
-  const { supabase } = await assertAccess("customers", "edit");
-  const id = Number(str(form, "id"));
-  const active = str(form, "active") === "1";
-  await supabase.from("customers").update({ is_active: active }).eq("id", id);
-  await logActivity(supabase, `marked customer ${active ? "active" : "inactive"}`, { type: "customer", id });
-  revalidatePath(`/customers/${id}`);
-  revalidatePath("/customers");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("customers", "edit");
+    const id = Number(str(form, "id"));
+    const active = str(form, "active") === "1";
+    must(await supabase.from("customers").update({ is_active: active }).eq("id", id));
+    await logActivity(supabase, `marked customer ${active ? "active" : "inactive"}`, { type: "customer", id });
+    revalidatePath(`/customers/${id}`);
+    revalidatePath("/customers");
+  });
 }
 
 export async function deleteCustomer(form: FormData) {
-  const { supabase } = await assertAccess("customers", "full");
-  const id = Number(str(form, "id"));
-  const { count } = await supabase.from("sales_docs").select("id", { count: "exact", head: true }).eq("customer_id", id);
-  if (count) throw new Error("This customer has invoices or other sales documents. Mark them inactive instead of deleting.");
-  const [{ count: projects }, { count: contracts }] = await Promise.all([
-    supabase.from("projects").select("id", { count: "exact", head: true }).eq("customer_id", id),
-    supabase.from("contracts").select("id", { count: "exact", head: true }).eq("customer_id", id),
-  ]);
-  if (projects || contracts) throw new Error("This customer has projects or contracts. Mark them inactive instead of deleting.");
-  await supabase.from("tasks").delete().eq("rel_type", "customer").eq("rel_id", id);
-  await supabase.from("notes").delete().eq("rel_type", "customer").eq("rel_id", id);
-  const { error } = await supabase.from("customers").delete().eq("id", id);
-  if (error) throw new Error(error.message);
-  revalidatePath("/customers");
-  redirect("/customers");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("customers", "full");
+    const id = Number(str(form, "id"));
+    const { count } = await supabase.from("sales_docs").select("id", { count: "exact", head: true }).eq("customer_id", id);
+    if (count) throw new Error("This customer has invoices or other sales documents. Mark them inactive instead of deleting.");
+    const [{ count: projects }, { count: contracts }] = await Promise.all([
+      supabase.from("projects").select("id", { count: "exact", head: true }).eq("customer_id", id),
+      supabase.from("contracts").select("id", { count: "exact", head: true }).eq("customer_id", id),
+    ]);
+    if (projects || contracts) throw new Error("This customer has projects or contracts. Mark them inactive instead of deleting.");
+    must(await supabase.from("tasks").delete().eq("rel_type", "customer").eq("rel_id", id));
+    must(await supabase.from("notes").delete().eq("rel_type", "customer").eq("rel_id", id));
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    if (error) throw new Error(error.message);
+    revalidatePath("/customers");
+    redirect("/customers");
+  });
 }
 
 export async function addContact(_: FormState, form: FormData): Promise<FormState> {
@@ -107,25 +112,29 @@ export async function addContact(_: FormState, form: FormData): Promise<FormStat
     title: str(form, "title"),
     is_primary: isPrimary,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   await logActivity(supabase, `added contact ${first} ${str(form, "last_name") ?? ""}`.trim(), { type: "customer", id: customerId });
   revalidatePath(`/customers/${customerId}`);
   return {};
 }
 
 export async function makePrimaryContact(form: FormData) {
-  const { supabase } = await assertAccess("customers", "edit");
-  const id = Number(str(form, "id"));
-  const customerId = Number(str(form, "customer_id"));
-  await supabase.from("contacts").update({ is_primary: false }).eq("customer_id", customerId);
-  await supabase.from("contacts").update({ is_primary: true }).eq("id", id);
-  revalidatePath(`/customers/${customerId}`);
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("customers", "edit");
+    const id = Number(str(form, "id"));
+    const customerId = Number(str(form, "customer_id"));
+    must(await supabase.from("contacts").update({ is_primary: false }).eq("customer_id", customerId));
+    must(await supabase.from("contacts").update({ is_primary: true }).eq("id", id));
+    revalidatePath(`/customers/${customerId}`);
+  });
 }
 
 export async function deleteContact(form: FormData) {
-  const { supabase } = await assertAccess("customers", "full");
-  const id = Number(str(form, "id"));
-  const customerId = Number(str(form, "customer_id"));
-  await supabase.from("contacts").delete().eq("id", id);
-  revalidatePath(`/customers/${customerId}`);
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("customers", "full");
+    const id = Number(str(form, "id"));
+    const customerId = Number(str(form, "customer_id"));
+    must(await supabase.from("contacts").delete().eq("id", id));
+    revalidatePath(`/customers/${customerId}`);
+  });
 }

@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { contractNumber } from "@/lib/constants";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -29,10 +30,10 @@ export async function saveContract(id: number | null, _: FormState, form: FormDa
     const { data: cur } = await supabase.from("contracts").select("status").eq("id", id).single();
     if (cur?.status === "signed") return { error: "This contract is signed — reopen it as a draft (which clears the signature) before changing its terms." };
     const { error } = await supabase.from("contracts").update(fields).eq("id", id);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error.message) };
   } else {
     const { data, error } = await supabase.from("contracts").insert(fields).select("id").single();
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error.message) };
     contractId = data.id;
     await logActivity(supabase, `drafted contract ${contractNumber(data.id)} “${fields.subject}”`, { type: "customer", id: fields.customer_id });
   }
@@ -41,15 +42,17 @@ export async function saveContract(id: number | null, _: FormState, form: FormDa
 }
 
 export async function setContractStatus(form: FormData) {
-  const { supabase } = await assertAccess("contracts", "edit");
-  const id = Number(str(form, "id"));
-  const status = str(form, "status");
-  if (!status || !["draft", "sent", "cancelled"].includes(status)) return;
-  const { data } = await supabase.from("contracts").update({ status, ...(status === "draft" ? { signed_by: null, signed_at: null } : {}) }).eq("id", id).select("customer_id").single();
-  const verb = status === "sent" ? "sent for signature" : status === "cancelled" ? "cancelled" : "reopened as draft";
-  if (data) await logActivity(supabase, `${verb} contract ${contractNumber(id)}`, { type: "customer", id: data.customer_id });
-  revalidatePath(`/contracts/${id}`);
-  revalidatePath("/contracts");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("contracts", "edit");
+    const id = Number(str(form, "id"));
+    const status = str(form, "status");
+    if (!status || !["draft", "sent", "cancelled"].includes(status)) return;
+    const { data } = await supabase.from("contracts").update({ status, ...(status === "draft" ? { signed_by: null, signed_at: null } : {}) }).eq("id", id).select("customer_id").single();
+    const verb = status === "sent" ? "sent for signature" : status === "cancelled" ? "cancelled" : "reopened as draft";
+    if (data) await logActivity(supabase, `${verb} contract ${contractNumber(id)}`, { type: "customer", id: data.customer_id });
+    revalidatePath(`/contracts/${id}`);
+    revalidatePath("/contracts");
+  });
 }
 
 /** Record the customer's signature (name + date). Online customer signing comes with the client portal. */
@@ -67,7 +70,7 @@ export async function signContract(_: FormState, form: FormData): Promise<FormSt
     .eq("id", id)
     .select("customer_id")
     .single();
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   await logActivity(supabase, `recorded ${signer}'s signature on contract ${contractNumber(id)}`, { type: "customer", id: data.customer_id });
   revalidatePath(`/contracts/${id}`);
   revalidatePath("/contracts");
@@ -76,34 +79,38 @@ export async function signContract(_: FormState, form: FormData): Promise<FormSt
 
 /** Copy a contract into a new draft that starts the day after it ends. */
 export async function renewContract(form: FormData) {
-  const { supabase } = await assertAccess("contracts", "edit");
-  const id = Number(str(form, "id"));
-  const { data: c } = await supabase.from("contracts").select("*").eq("id", id).single();
-  if (!c) throw new Error("Contract not found.");
-  const start = c.end_date ? new Date(new Date(c.end_date).getTime() + 86400_000) : new Date();
-  const end = c.end_date ? new Date(start.getTime() + (new Date(c.end_date).getTime() - new Date(c.start_date).getTime())) : null;
-  const { data, error } = await supabase
-    .from("contracts")
-    .insert({
-      customer_id: c.customer_id,
-      type_id: c.type_id,
-      subject: `${c.subject} (renewal)`,
-      value: c.value,
-      start_date: start.toISOString().slice(0, 10),
-      end_date: end ? end.toISOString().slice(0, 10) : null,
-      content: c.content,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-  await logActivity(supabase, `drafted renewal ${contractNumber(data.id)} of ${contractNumber(id)}`, { type: "customer", id: c.customer_id });
-  revalidatePath("/contracts");
-  redirect(`/contracts/${data.id}`);
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("contracts", "edit");
+    const id = Number(str(form, "id"));
+    const { data: c } = await supabase.from("contracts").select("*").eq("id", id).single();
+    if (!c) throw new Error("Contract not found.");
+    const start = c.end_date ? new Date(new Date(c.end_date).getTime() + 86400_000) : new Date();
+    const end = c.end_date ? new Date(start.getTime() + (new Date(c.end_date).getTime() - new Date(c.start_date).getTime())) : null;
+    const { data, error } = await supabase
+      .from("contracts")
+      .insert({
+        customer_id: c.customer_id,
+        type_id: c.type_id,
+        subject: `${c.subject} (renewal)`,
+        value: c.value,
+        start_date: start.toISOString().slice(0, 10),
+        end_date: end ? end.toISOString().slice(0, 10) : null,
+        content: c.content,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    await logActivity(supabase, `drafted renewal ${contractNumber(data.id)} of ${contractNumber(id)}`, { type: "customer", id: c.customer_id });
+    revalidatePath("/contracts");
+    redirect(`/contracts/${data.id}`);
+  });
 }
 
 export async function deleteContract(form: FormData) {
-  const { supabase } = await assertAccess("contracts", "full");
-  await supabase.from("contracts").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/contracts");
-  redirect("/contracts");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("contracts", "full");
+    must(await supabase.from("contracts").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/contracts");
+    redirect("/contracts");
+  });
 }

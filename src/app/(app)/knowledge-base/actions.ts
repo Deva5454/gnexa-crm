@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string } | undefined;
 
@@ -34,24 +35,30 @@ export async function saveArticle(id: number | null, _: FormState, form: FormDat
   }
   const fields = { title, body, slug, group_id: num(form, "group_id"), is_published: form.get("is_published") === "on", updated_at: new Date().toISOString() };
   const { error } = id ? await supabase.from("kb_articles").update(fields).eq("id", id) : await supabase.from("kb_articles").insert(fields);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   revalidatePath("/knowledge-base");
   redirect(`/knowledge-base/${slug}`);
 }
 
 export async function deleteArticle(form: FormData) {
-  const { supabase } = await assertAccess("knowledge_base", "full");
-  await supabase.from("kb_articles").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/knowledge-base");
-  redirect("/knowledge-base");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("knowledge_base", "full");
+    must(await supabase.from("kb_articles").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/knowledge-base");
+    redirect("/knowledge-base");
+  });
 }
 
 export async function voteArticle(id: number, helpful: boolean) {
-  const { supabase } = await requireStaff();
-  await supabase.rpc("kb_track", { p_article: id, p_event: helpful ? "yes" : "no" });
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    await supabase.rpc("kb_track", { p_article: id, p_event: helpful ? "yes" : "no" });
+  });
 }
 
 export async function trackView(id: number) {
-  const { supabase } = await requireStaff();
-  await supabase.rpc("kb_track", { p_article: id, p_event: "view" });
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    await supabase.rpc("kb_track", { p_article: id, p_event: "view" });
+  });
 }

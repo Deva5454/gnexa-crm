@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -25,15 +26,17 @@ export async function addEvent(_: FormState, form: FormData): Promise<FormState>
     all_day: allDay,
     color: str(form, "color") ?? "#6d55f2",
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   revalidatePath("/calendar");
   return { ok: "Event added." };
 }
 
 export async function deleteEvent(form: FormData) {
-  const { supabase, profile } = await requireStaff();
-  const id = Number(str(form, "id"));
-  const { data } = await supabase.from("calendar_events").select("created_by").eq("id", id).single();
-  if (data && (data.created_by === profile.id || profile.is_admin)) await supabase.from("calendar_events").delete().eq("id", id);
-  revalidatePath("/calendar");
+  return withFlash(async () => {
+    const { supabase, profile } = await requireStaff();
+    const id = Number(str(form, "id"));
+    const { data } = await supabase.from("calendar_events").select("created_by").eq("id", id).single();
+    if (data && (data.created_by === profile.id || profile.is_admin)) must(await supabase.from("calendar_events").delete().eq("id", id));
+    revalidatePath("/calendar");
+  });
 }

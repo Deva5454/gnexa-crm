@@ -5,6 +5,7 @@ import { logActivity } from "@/lib/activity";
 import { denied, requireStaff } from "@/lib/auth";
 import { docHref, docNumber, KINDS } from "@/lib/sales";
 import { str } from "@/lib/utils";
+import { friendlyError } from "@/lib/flash";
 
 export type EmailState = { error?: string; ok?: string } | undefined;
 
@@ -33,7 +34,7 @@ export async function sendDocEmail(_: EmailState, form: FormData): Promise<Email
     rel_type: "sales_doc",
     rel_id: id,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   if (d.status === "draft") await supabase.from("sales_docs").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", id);
   if (kind === "overdue_reminder") await supabase.from("sales_docs").update({ last_reminder_at: new Date().toISOString() }).eq("id", id);
   const label = docNumber(d.kind, d.number);
@@ -56,7 +57,7 @@ export async function sendStatementEmail(_: EmailState, form: FormData): Promise
   if (!subject || !body) return { error: "Subject and message are required." };
   const [email, name] = to.split("|");
   const { error } = await supabase.from("email_log").insert({ customer_id: customerId, to_email: email, to_name: name || null, subject, body, kind: "statement", rel_type: "customer", rel_id: customerId });
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   await logActivity(supabase, `e-mailed an account statement to ${name || email}`, { type: "customer", id: customerId });
   revalidatePath(`/customers/${customerId}/statement`);
   return { ok: `Statement logged as sent to ${email}. (Demo — no real e-mail goes out.)` };

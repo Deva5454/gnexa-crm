@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { GOAL_METRICS } from "@/lib/goals";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -24,15 +25,17 @@ export async function addGoal(_: FormState, form: FormData): Promise<FormState> 
   if (!(fields.target > 0)) return { error: "Target must be more than zero." };
   if (!fields.start_date || !fields.end_date || fields.end_date < fields.start_date) return { error: "Choose a valid period." };
   const { error } = await supabase.from("goals").insert(fields);
-  if (error) return { error: error.message };
+  if (error) return { error: friendlyError(error.message) };
   revalidatePath("/goals");
   revalidatePath("/dashboard");
   return { ok: "Goal added." };
 }
 
 export async function deleteGoal(form: FormData) {
-  const { supabase } = await assertAccess("reports", "full");
-  await supabase.from("goals").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/goals");
-  revalidatePath("/dashboard");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("reports", "full");
+    must(await supabase.from("goals").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+  });
 }

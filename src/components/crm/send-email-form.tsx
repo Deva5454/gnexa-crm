@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { BellRing, Mail, Paperclip } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { EmailState } from "@/lib/actions/email";
+import { KeepValues } from "@/components/ui/keep-values";
 
 export type Recipient = { email: string; name: string | null };
 
@@ -66,6 +67,7 @@ export function SendEmailForm({
       <input name="subject" defaultValue={subject} required className="field" aria-label="Subject" />
       <textarea name="body" defaultValue={body} required rows={7} className="field resize-y" aria-label="Message" />
       {attachment && <p className="flex items-center gap-1.5 text-xs text-slate-500"><Paperclip className="h-3.5 w-3.5" /> {attachment}</p>}
+      <KeepValues active={!!state?.error} />
       {state?.error && <p className="text-xs text-rose-600">{state.error}</p>}
       {state?.ok && <p className="text-xs text-emerald-600">{state.ok}</p>}
       <div className="flex items-center justify-between gap-2">

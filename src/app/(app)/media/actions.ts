@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
 import { discardUpload, fileRow } from "@/lib/uploads";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 const BUCKET = "media";
 
@@ -14,21 +15,23 @@ export async function recordMedia(input: { folder: string; name: string; path: s
   const { error } = await supabase.from("media_files").insert({ ...row, folder });
   if (error) {
     await discardUpload(supabase, BUCKET, "media_files", row.path);
-    return { error: error.message };
+    return { error: friendlyError(error.message) };
   }
   revalidatePath("/media");
   return {};
 }
 
 export async function deleteMedia(form: FormData) {
-  const { supabase, profile } = await requireStaff();
-  const id = Number(form.get("id"));
-  const { data: f } = await supabase.from("media_files").select("path, uploaded_by").eq("id", id).single();
-  if (!f) return;
-  if (f.uploaded_by !== profile.id && !profile.is_admin) throw new Error("Only the uploader or an admin can delete this file.");
-  await supabase.storage.from(BUCKET).remove([f.path]);
-  await supabase.from("media_files").delete().eq("id", id);
-  revalidatePath("/media");
+  return withFlash(async () => {
+    const { supabase, profile } = await requireStaff();
+    const id = Number(form.get("id"));
+    const { data: f } = await supabase.from("media_files").select("path, uploaded_by").eq("id", id).single();
+    if (!f) return;
+    if (f.uploaded_by !== profile.id && !profile.is_admin) throw new Error("Only the uploader or an admin can delete this file.");
+    await supabase.storage.from(BUCKET).remove([f.path]);
+    must(await supabase.from("media_files").delete().eq("id", id));
+    revalidatePath("/media");
+  });
 }
 
 /** A link anyone can open for 7 days — for pasting into e-mails or chats. */

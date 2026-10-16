@@ -166,7 +166,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 <StatusButton id={id} status="declined" label="Declined" icon={X} />
               </>
             )}
-            {canEdit && (kind === "proposal" || kind === "estimate") && !converted && doc.status !== "declined" && doc.status !== "cancelled" && (
+            {canEdit && (kind === "proposal" || kind === "estimate") && !converted && !!doc.customer_id && doc.status !== "declined" && doc.status !== "cancelled" && (
               <>
                 {kind === "proposal" && (
                   <form action={convertDoc}>
@@ -185,9 +185,11 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
             {canEdit && (kind === "invoice" || kind === "credit_note") && doc.status !== "cancelled" && !hasMoney && (
               <StatusButton id={id} status="cancelled" label="Cancel" icon={Ban} />
             )}
-            {canEdit && doc.status === "cancelled" && <StatusButton id={id} status="draft" label="Reopen" icon={RotateCcw} />}
-            {canDelete && (
-              <ConfirmForm action={deleteDoc} message={`Delete ${docNumber(kind, doc.number)}?${hasMoney ? " Its payments and credits are deleted too." : ""}`}>
+            {/* A cancelled project invoice stays cancelled (its hours were released) — invoice the project again instead */}
+            {canEdit && doc.status === "cancelled" && !(kind === "invoice" && doc.project_id) && <StatusButton id={id} status="draft" label="Reopen" icon={RotateCcw} />}
+            {/* Documents with payments or applied credit can't be deleted (cancel them, or remove the money first) */}
+            {canDelete && !hasMoney && (
+              <ConfirmForm action={deleteDoc} message={`Delete ${docNumber(kind, doc.number)}? This can't be undone.`}>
                 <input type="hidden" name="id" value={id} />
                 <Button variant="ghost" size="sm" className="text-rose-600 hover:bg-rose-50" aria-label="Delete"><Trash2 className="h-3.5 w-3.5" /></Button>
               </ConfirmForm>

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { KeepValues } from "./keep-values";
 
 export function Field({
   label,
@@ -24,11 +25,16 @@ export function Field({
   );
 }
 
+/** The form's error message. Also keeps what was typed when a failed save makes React reset the form. */
 export function FormError({ message }: { message?: string | null }) {
-  if (!message) return null;
   return (
-    <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-      {message}
-    </div>
+    <>
+      <KeepValues active={!!message} />
+      {message && (
+        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {message}
+        </div>
+      )}
+    </>
   );
 }

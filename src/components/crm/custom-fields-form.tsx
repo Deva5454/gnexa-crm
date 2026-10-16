@@ -5,6 +5,7 @@ import { Pencil } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { CfState } from "@/lib/actions/custom-fields";
 import { displayValue, type CfField } from "@/lib/custom-fields";
+import { KeepValues } from "@/components/ui/keep-values";
 
 export function CustomFieldsForm({
   fields,
@@ -70,6 +71,7 @@ export function CustomFieldsForm({
           </div>
         );
       })}
+      <KeepValues active={!!state?.error} />
       {state?.error && <p className="text-xs text-rose-600">{state.error}</p>}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={() => setEditing(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100">Cancel</button>

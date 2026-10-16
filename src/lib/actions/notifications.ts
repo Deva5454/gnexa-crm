@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaff } from "@/lib/auth";
+import { must, withFlash } from "@/lib/flash";
 
 export type BellItem = { id: number; title: string; body: string | null; link: string | null; is_read: boolean; created_at: string; actor: string | null };
 
@@ -25,19 +26,25 @@ export async function loadBell(): Promise<{ items: BellItem[]; unread: number }>
 }
 
 export async function markRead(id: number) {
-  const { supabase } = await requireStaff();
-  await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-  revalidatePath("/notifications");
+  return withFlash(async () => {
+    const { supabase } = await requireStaff();
+    must(await supabase.from("notifications").update({ is_read: true }).eq("id", id));
+    revalidatePath("/notifications");
+  });
 }
 
 export async function markAllRead() {
-  const { supabase, profile } = await requireStaff();
-  await supabase.from("notifications").update({ is_read: true }).eq("user_id", profile.id).eq("is_read", false);
-  revalidatePath("/notifications");
+  return withFlash(async () => {
+    const { supabase, profile } = await requireStaff();
+    must(await supabase.from("notifications").update({ is_read: true }).eq("user_id", profile.id).eq("is_read", false));
+    revalidatePath("/notifications");
+  });
 }
 
 export async function clearRead() {
-  const { supabase, profile } = await requireStaff();
-  await supabase.from("notifications").delete().eq("user_id", profile.id).eq("is_read", true);
-  revalidatePath("/notifications");
+  return withFlash(async () => {
+    const { supabase, profile } = await requireStaff();
+    must(await supabase.from("notifications").delete().eq("user_id", profile.id).eq("is_read", true));
+    revalidatePath("/notifications");
+  });
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
+import { friendlyError, must, withFlash } from "@/lib/flash";
 
 export type FormState = { error?: string } | undefined;
 
@@ -36,11 +37,11 @@ export async function saveSubscription(id: number | null, _: FormState, form: Fo
   let subId = id;
   if (id) {
     const { error } = await supabase.from("subscriptions").update(f).eq("id", id);
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error.message) };
   } else {
     const start = str(form, "start_date") ?? today();
     const { data, error } = await supabase.from("subscriptions").insert({ ...f, start_date: start, next_billing_date: start }).select("id").single();
-    if (error) return { error: error.message };
+    if (error) return { error: friendlyError(error.message) };
     subId = data.id;
     await logActivity(supabase, `started subscription “${f.name}”`, { type: "customer", id: f.customer_id });
     await supabase.rpc("run_recurring"); // bills the first period if it starts today or earlier
@@ -50,41 +51,47 @@ export async function saveSubscription(id: number | null, _: FormState, form: Fo
 }
 
 export async function setSubscriptionStatus(form: FormData) {
-  const { supabase } = await assertAccess("sales", "edit");
-  const id = Number(str(form, "id"));
-  const to = str(form, "to");
-  const { data: s } = await supabase.from("subscriptions").select("name, customer_id, status, next_billing_date").eq("id", id).single();
-  if (!s) return;
-  if (to === "paused" && s.status === "active") await supabase.from("subscriptions").update({ status: "paused" }).eq("id", id);
-  else if (to === "active" && s.status === "paused") {
-    // Don't back-bill the paused period: resume from today
-    const next = s.next_billing_date && s.next_billing_date > today() ? s.next_billing_date : today();
-    await supabase.from("subscriptions").update({ status: "active", next_billing_date: next }).eq("id", id);
-    await supabase.rpc("run_recurring");
-  } else if (to === "cancelled" && (s.status === "active" || s.status === "paused"))
-    await supabase.from("subscriptions").update({ status: "cancelled", cancelled_at: new Date().toISOString(), next_billing_date: null }).eq("id", id);
-  else return;
-  const verb = to === "paused" ? "paused" : to === "active" ? "resumed" : "cancelled";
-  await logActivity(supabase, `${verb} subscription “${s.name}”`, { type: "customer", id: s.customer_id });
-  revalidatePath(`/subscriptions/${id}`);
-  revalidatePath("/subscriptions");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const to = str(form, "to");
+    const { data: s } = await supabase.from("subscriptions").select("name, customer_id, status, next_billing_date").eq("id", id).single();
+    if (!s) return;
+    if (to === "paused" && s.status === "active") must(await supabase.from("subscriptions").update({ status: "paused" }).eq("id", id));
+    else if (to === "active" && s.status === "paused") {
+      // Don't back-bill the paused period: resume from today
+      const next = s.next_billing_date && s.next_billing_date > today() ? s.next_billing_date : today();
+      must(await supabase.from("subscriptions").update({ status: "active", next_billing_date: next }).eq("id", id));
+      await supabase.rpc("run_recurring");
+    } else if (to === "cancelled" && (s.status === "active" || s.status === "paused"))
+      must(await supabase.from("subscriptions").update({ status: "cancelled", cancelled_at: new Date().toISOString(), next_billing_date: null }).eq("id", id));
+    else return;
+    const verb = to === "paused" ? "paused" : to === "active" ? "resumed" : "cancelled";
+    await logActivity(supabase, `${verb} subscription “${s.name}”`, { type: "customer", id: s.customer_id });
+    revalidatePath(`/subscriptions/${id}`);
+    revalidatePath("/subscriptions");
+  });
 }
 
 /** Raise the next period's invoice right away instead of waiting for the billing date. */
 export async function billNow(form: FormData) {
-  const { supabase } = await assertAccess("sales", "edit");
-  const id = Number(str(form, "id"));
-  const { data: s } = await supabase.from("subscriptions").select("status, next_billing_date").eq("id", id).single();
-  if (!s || s.status !== "active") return;
-  if (!s.next_billing_date || s.next_billing_date > today()) await supabase.from("subscriptions").update({ next_billing_date: today() }).eq("id", id);
-  await supabase.rpc("run_recurring");
-  revalidatePath(`/subscriptions/${id}`);
-  revalidatePath("/subscriptions");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const { data: s } = await supabase.from("subscriptions").select("status, next_billing_date").eq("id", id).single();
+    if (!s || s.status !== "active") return;
+    if (!s.next_billing_date || s.next_billing_date > today()) must(await supabase.from("subscriptions").update({ next_billing_date: today() }).eq("id", id));
+    await supabase.rpc("run_recurring");
+    revalidatePath(`/subscriptions/${id}`);
+    revalidatePath("/subscriptions");
+  });
 }
 
 export async function deleteSubscription(form: FormData) {
-  const { supabase } = await assertAccess("sales", "full");
-  await supabase.from("subscriptions").delete().eq("id", Number(str(form, "id")));
-  revalidatePath("/subscriptions");
-  redirect("/subscriptions");
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    must(await supabase.from("subscriptions").delete().eq("id", Number(str(form, "id"))));
+    revalidatePath("/subscriptions");
+    redirect("/subscriptions");
+  });
 }
