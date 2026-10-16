@@ -111,9 +111,9 @@ export type Database = {
         ];
       };
       profiles: {
-        Row: { created_at: string; email: string; full_name: string; id: string; is_active: boolean; is_admin: boolean; job_title: string | null; phone: string | null; role_id: number | null };
-        Insert: { created_at?: string; email: string; full_name?: string; id: string; is_active?: boolean; is_admin?: boolean; job_title?: string | null; phone?: string | null; role_id?: number | null };
-        Update: { created_at?: string; email?: string; full_name?: string; id?: string; is_active?: boolean; is_admin?: boolean; job_title?: string | null; phone?: string | null; role_id?: number | null };
+        Row: { created_at: string; dashboard_config: Json; email: string; full_name: string; id: string; is_active: boolean; is_admin: boolean; job_title: string | null; phone: string | null; role_id: number | null };
+        Insert: { created_at?: string; dashboard_config?: Json; email: string; full_name?: string; id: string; is_active?: boolean; is_admin?: boolean; job_title?: string | null; phone?: string | null; role_id?: number | null };
+        Update: { created_at?: string; dashboard_config?: Json; email?: string; full_name?: string; id?: string; is_active?: boolean; is_admin?: boolean; job_title?: string | null; phone?: string | null; role_id?: number | null };
         Relationships: [
           { foreignKeyName: "profiles_role_id_fkey"; columns: ["role_id"]; isOneToOne: false; referencedRelation: "roles"; referencedColumns: ["id"] },
         ];

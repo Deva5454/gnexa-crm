@@ -5,14 +5,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 
-export async function TodoWidget() {
+export async function TodoWidget({ className }: { className?: string }) {
   const { supabase, profile } = await requireStaff();
   const [{ data: todos }, { data: reminders }] = await Promise.all([
     supabase.from("todos").select("id, body, is_done").eq("staff_id", profile.id).order("is_done").order("position").limit(12),
     supabase.from("reminders").select("id, description, remind_at").eq("staff_id", profile.id).gt("remind_at", new Date().toISOString()).order("remind_at").limit(3),
   ]);
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader title="My to-do" action={<Link href="/todos" className="text-xs font-semibold text-brand-600 hover:text-brand-700">Open →</Link>} />
       <CardBody className="space-y-4">
         <TodoList todos={todos ?? []} compact />
