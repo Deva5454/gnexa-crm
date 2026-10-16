@@ -5,7 +5,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { saveItem } from "../actions";
 
-export type ItemRow = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null };
+export type ItemRow = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null; hsn_sac: string | null };
 
 export function ItemForm({ item, taxes, onDone }: { item?: ItemRow; taxes: { id: number; name: string }[]; onDone?: () => void }) {
   const [state, action] = useActionState(saveItem, undefined);
@@ -31,7 +31,8 @@ export function ItemForm({ item, taxes, onDone }: { item?: ItemRow; taxes: { id:
           {taxes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </Field>
-      <Field label="Description" className="sm:col-span-5"><input name="description" defaultValue={item?.description ?? ""} className="field" /></Field>
+      <Field label="Description" className="sm:col-span-4"><input name="description" defaultValue={item?.description ?? ""} className="field" /></Field>
+      <Field label="HSN / SAC"><input name="hsn_sac" inputMode="numeric" pattern="[0-9]{4,8}" title="4 to 8 digits" placeholder="998314" defaultValue={item?.hsn_sac ?? ""} className="field" /></Field>
       <div className="flex items-end sm:col-span-1">
         <SubmitButton className="w-full" pendingText="Saving…">{item ? "Save" : "Add item"}</SubmitButton>
       </div>

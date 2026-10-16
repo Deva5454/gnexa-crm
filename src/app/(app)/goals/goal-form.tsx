@@ -5,6 +5,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { GOAL_METRICS } from "@/lib/goals";
 import { addGoal } from "./actions";
+import { monthEndIST, monthStartIST } from "@/lib/dates";
 
 export function GoalForm({ staff }: { staff: { id: string; full_name: string }[] }) {
   const [state, action] = useActionState(addGoal, undefined);
@@ -12,9 +13,8 @@ export function GoalForm({ staff }: { staff: { id: string; full_name: string }[]
   useEffect(() => {
     if (state?.ok) ref.current?.reset();
   }, [state]);
-  const now = new Date();
-  const ms = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const me = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const ms = monthStartIST();
+  const me = monthEndIST();
   return (
     <form ref={ref} action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
       <div className="lg:col-span-6"><FormError message={state?.error} />{state?.ok && <p className="text-sm text-emerald-600">{state.ok}</p>}</div>

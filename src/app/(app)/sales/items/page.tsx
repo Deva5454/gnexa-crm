@@ -14,7 +14,7 @@ export default async function ItemsPage() {
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
   const [{ data: items }, { data: taxes }] = await Promise.all([
-    supabase.from("items").select("id, name, description, rate, unit, tax_id, tax:taxes(name)").order("name"),
+    supabase.from("items").select("id, name, description, rate, unit, tax_id, hsn_sac, tax:taxes(name)").order("name"),
     supabase.from("taxes").select("id, name").order("rate"),
   ]);
   const canEdit = can("sales", "edit");
@@ -32,7 +32,7 @@ export default async function ItemsPage() {
           <EmptyState icon={Package} title="No items yet" description="Add the products and services you sell most often." />
         ) : (
           <ItemsTable
-            items={items.map((i) => ({ id: i.id, name: i.name, description: i.description, rate: Number(i.rate), unit: i.unit, tax_id: i.tax_id, tax_name: i.tax?.name ?? null }))}
+            items={items.map((i) => ({ id: i.id, name: i.name, description: i.description, rate: Number(i.rate), unit: i.unit, tax_id: i.tax_id, hsn_sac: i.hsn_sac, tax_name: i.tax?.name ?? null }))}
             taxes={taxes ?? []}
             canEdit={canEdit}
             canDelete={can("sales", "full")}

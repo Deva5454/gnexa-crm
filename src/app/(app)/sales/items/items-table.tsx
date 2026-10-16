@@ -44,6 +44,7 @@ export function ItemsTable({
                 <td>
                   <div className="font-medium text-slate-900">{i.name}</div>
                   {i.description && <div className="text-xs text-slate-500">{i.description}</div>}
+                  {i.hsn_sac && <div className="font-mono text-[11px] text-slate-400">HSN/SAC {i.hsn_sac}</div>}
                 </td>
                 <td className="whitespace-nowrap text-right font-semibold">{formatMoney(Number(i.rate))}</td>
                 <td className="hidden text-slate-600 sm:table-cell">{i.unit ?? "—"}</td>

@@ -8,6 +8,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { Tables } from "@/lib/database.types";
 import type { FormState } from "./actions";
+import { daysFromToday, todayIST } from "@/lib/dates";
 
 const TEMPLATE = `1. Scope
 The provider will deliver the services described in the attached schedule.
@@ -41,8 +42,8 @@ export function ContractForm({
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const c = contract;
-  const today = new Date().toISOString().slice(0, 10);
-  const nextYear = new Date(Date.now() + 364 * 86400_000).toISOString().slice(0, 10);
+  const today = todayIST();
+  const nextYear = daysFromToday(364);
   return (
     <form action={formAction} className="space-y-6">
       <FormError message={state?.error} />

@@ -131,9 +131,9 @@ export type Database = {
         Relationships: [];
       };
       items: {
-        Row: { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null; created_at: string };
-        Insert: { id?: never; name: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string };
-        Update: { id?: never; name?: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string };
+        Row: { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null; created_at: string; hsn_sac: string | null };
+        Insert: { id?: never; name: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null };
+        Update: { id?: never; name?: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null };
         Relationships: [
           { foreignKeyName: "items_tax_id_fkey"; columns: ["tax_id"]; isOneToOne: false; referencedRelation: "taxes"; referencedColumns: ["id"] },
         ];
@@ -154,6 +154,7 @@ export type Database = {
         Row: {
           id: number; kind: Database["public"]["Enums"]["doc_kind"]; number: number; customer_id: number | null; lead_id: number | null;
           subject: string | null; content: string | null; date: string; due_date: string | null; status: string; currency: string;
+          supply_type: string; place_of_supply: string | null;
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
           project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;
@@ -184,9 +185,9 @@ export type Database = {
         ];
       };
       sales_doc_items: {
-        Row: { id: number; doc_id: number; expense_id: number | null; position: number; item_id: number | null; description: string; long_description: string | null; qty: number; unit: string | null; rate: number; tax_rate: number };
-        Insert: { id?: never; doc_id: number; expense_id?: number | null; position?: number; item_id?: number | null; description: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
-        Update: { id?: never; doc_id?: number; expense_id?: number | null; position?: number; item_id?: number | null; description?: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number };
+        Row: { id: number; doc_id: number; expense_id: number | null; position: number; item_id: number | null; description: string; long_description: string | null; qty: number; unit: string | null; rate: number; tax_rate: number; hsn_sac: string | null };
+        Insert: { id?: never; doc_id: number; expense_id?: number | null; position?: number; item_id?: number | null; description: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number; hsn_sac?: string | null };
+        Update: { id?: never; doc_id?: number; expense_id?: number | null; position?: number; item_id?: number | null; description?: string; long_description?: string | null; qty?: number; unit?: string | null; rate?: number; tax_rate?: number; hsn_sac?: string | null };
         Relationships: [
           { foreignKeyName: "sales_doc_items_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_doc_items_item_id_fkey"; columns: ["item_id"]; isOneToOne: false; referencedRelation: "items"; referencedColumns: ["id"] },

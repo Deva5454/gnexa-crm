@@ -1,3 +1,5 @@
+import { todayIST } from "./dates";
+
 // Shared by server and client: document kinds, numbering, totals and status rules.
 
 export type DocKind = "proposal" | "estimate" | "invoice" | "credit_note";
@@ -34,6 +36,8 @@ export type Line = {
   unit?: string | null;
   rate: number;
   tax_rate: number;
+  /** HSN (goods) or SAC (services) code, 4–8 digits */
+  hsn_sac?: string | null;
   /** Set when the line bills a customer expense */
   expense_id?: number | null;
 };
@@ -79,7 +83,7 @@ const C = {
 export function docStatus(
   doc: { kind: DocKind; status: string; due_date: string | null; total: number },
   bal?: { paid: number; credited: number; credit_used: number; balance: number } | null,
-  today = new Date().toISOString().slice(0, 10),
+  today = todayIST(),
 ): StatusView {
   if (doc.status === "cancelled") return { key: "cancelled", label: "Cancelled", color: C.dark };
   if (doc.status === "draft") return { key: "draft", label: "Draft", color: C.slate };

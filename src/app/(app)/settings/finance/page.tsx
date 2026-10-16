@@ -21,7 +21,7 @@ export default async function FinanceSettingsPage() {
   return (
     <>
       <Card>
-        <CardHeader title="Tax rates" description="Offered on line items and expenses. Invoices split GST into CGST + SGST." />
+        <CardHeader title="Tax rates" description="Offered on line items and expenses. Invoices print CGST + SGST for customers in your state (from your GSTIN) and IGST for other states and exports." />
         <ul className="divide-y divide-slate-100">
           {taxes?.map((t) => (
             <li key={t.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">

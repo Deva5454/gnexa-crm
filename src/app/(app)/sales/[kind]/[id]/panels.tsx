@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { applyCredit, recordPayment } from "../../actions";
+import { todayIST } from "@/lib/dates";
 
 /** Reset the form (and run `done`) once per successful submit. */
 function useResetOnOk(state: { ok?: string } | undefined, done: () => void) {
@@ -25,7 +26,7 @@ export function PaymentForm({ invoiceId, balance, modes }: { invoiceId: number; 
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(recordPayment, undefined);
   const ref = useResetOnOk(state, () => setOpen(false));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   if (!open)
     return (

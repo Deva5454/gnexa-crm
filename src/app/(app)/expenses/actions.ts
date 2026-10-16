@@ -7,6 +7,7 @@ import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { addInterval, computeTotals, docHref, docNumber } from "@/lib/sales";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { daysFromToday, todayIST } from "@/lib/dates";
 
 export type FormState = { error?: string } | undefined;
 
@@ -46,7 +47,7 @@ function fields(form: FormData) {
     category_id: num(form, "category_id"),
     amount: num(form, "amount") ?? -1,
     tax_rate: num(form, "tax_rate") ?? 0,
-    date: str(form, "date") ?? new Date().toISOString().slice(0, 10),
+    date: str(form, "date") ?? todayIST(),
     customer_id: num(form, "customer_id"),
     payment_mode_id: num(form, "payment_mode_id"),
     reference: str(form, "reference"),
@@ -120,8 +121,8 @@ export async function invoiceExpense(form: FormData) {
       p_doc: {
         customer_id: e.customer_id,
         subject: `Reimbursable expense — ${e.name}`,
-        date: new Date().toISOString().slice(0, 10),
-        due_date: new Date(Date.now() + 15 * 86400_000).toISOString().slice(0, 10),
+        date: todayIST(),
+        due_date: daysFromToday(15),
         currency: settings?.currency ?? "INR",
         ...t,
         terms: settings?.default_terms ?? null,

@@ -14,6 +14,7 @@ import { docHref, docNumber, docStatus, KINDS, kindFromSlug, STATUS_FILTERS, typ
 import { balancesFor } from "@/lib/sales-data";
 import { cn, formatDate, formatMoney, PAGE_SIZE } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
+import { todayIST } from "@/lib/dates";
 
 export async function generateMetadata({ params }: { params: Promise<{ kind: string }> }): Promise<Metadata> {
   const kind = kindFromSlug((await params).kind);
@@ -41,7 +42,7 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
       .range(from, to),
   );
   const bals = await balancesFor(supabase, (docs ?? []).map((d) => d.id));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   const all = (docs ?? []).map((d) => {
     const bal = bals.get(d.id);

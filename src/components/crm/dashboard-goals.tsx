@@ -2,11 +2,12 @@ import Link from "next/link";
 import { requireStaff } from "@/lib/auth";
 import { goalProgress } from "@/lib/goals";
 import { GoalCards } from "./goal-cards";
+import { todayIST } from "@/lib/dates";
 
 export async function DashboardGoals() {
   const { supabase, can } = await requireStaff();
   if (!can("reports", "view")) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const [{ data: goals }, { data: staff }] = await Promise.all([
     supabase.from("goals").select("*").lte("start_date", today).gte("end_date", today).order("end_date").limit(3),
     supabase.from("profiles").select("id, full_name"),

@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import type { Tables } from "@/lib/database.types";
 import { formatMoney } from "@/lib/utils";
 import type { FormState } from "./actions";
+import { todayIST } from "@/lib/dates";
 
 type Item = { id: number; name: string; description: string | null; rate: number; tax_rate: number };
 
@@ -111,7 +112,7 @@ export function SubscriptionForm({
           </Field>
           {!sub && (
             <Field label="First billing date" htmlFor="start_date" hint="Today or in the past bills right away">
-              <input id="start_date" name="start_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="field" />
+              <input id="start_date" name="start_date" type="date" defaultValue={todayIST()} className="field" />
             </Field>
           )}
           <Field label="End after" htmlFor="ends_after_cycles" hint="Number of invoices — blank for no end">

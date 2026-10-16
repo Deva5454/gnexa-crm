@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { docHref, docNumber } from "@/lib/sales";
+import { todayIST } from "@/lib/dates";
 
 export type StatementRow = { date: string; type: "invoice" | "payment" | "credit_note"; ref: string; href: string; detail: string; debit: number; credit: number; balance: number };
 export type Statement = { from: string; to: string; opening: number; rows: StatementRow[]; invoiced: number; received: number; closing: number; currency: string };
@@ -62,7 +63,8 @@ export async function buildStatement(supabase: SupabaseClient<Database>, custome
 }
 
 /** Default range: start of the financial year (1 April) to today. */
-export function defaultRange(today = new Date()) {
-  const y = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-  return { from: `${y}-04-01`, to: today.toISOString().slice(0, 10) };
+export function defaultRange(today = todayIST()) {
+  const [yy, mm] = today.split("-").map(Number);
+  const y = mm! >= 4 ? yy! : yy! - 1;
+  return { from: `${y}-04-01`, to: today };
 }

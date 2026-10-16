@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE } from "@/lib/utils";
+import { daysFromToday, monthStartIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -28,16 +29,14 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (sp.mode) q = q.eq("mode_id", Number(sp.mode));
 
-  const monthStart = new Date();
-  monthStart.setDate(1);
   const [{ data: rows, count }, { data: modes }, { data: recent }] = await Promise.all([
     q,
     supabase.from("payment_modes").select("id, name").order("id"),
-    supabase.from("payments").select("amount, date").gte("date", new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10)),
+    supabase.from("payments").select("amount, date").gte("date", daysFromToday(-365)),
   ]);
-  const ms = monthStart.toISOString().slice(0, 10);
+  const ms = monthStartIST();
   const thisMonth = (recent ?? []).filter((r) => r.date >= ms).reduce((s, r) => s + Number(r.amount), 0);
-  const last30 = (recent ?? []).filter((r) => r.date >= new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10)).reduce((s, r) => s + Number(r.amount), 0);
+  const last30 = (recent ?? []).filter((r) => r.date >= daysFromToday(-30)).reduce((s, r) => s + Number(r.amount), 0);
   const year = (recent ?? []).reduce((s, r) => s + Number(r.amount), 0);
 
   const pill = (active: boolean) =>

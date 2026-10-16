@@ -20,7 +20,7 @@ export async function editorOptions(supabase: SupabaseClient<Database>, docId?: 
   const [{ data: customers }, { data: leads }, { data: items }, { data: taxes }, { data: settings }, { data: currencies }] = await Promise.all([
     allRows((a, b) => supabase.from("customers").select("id, company, currency").order("company").order("id").range(a, b)),
     supabase.from("leads").select("id, name, company").is("converted_customer_id", null).eq("is_junk", false).eq("is_lost", false).order("name").limit(1000),
-    supabase.from("items").select("id, name, description, rate, unit, tax:taxes(rate)").order("name"),
+    supabase.from("items").select("id, name, description, rate, unit, hsn_sac, tax:taxes(rate)").order("name"),
     supabase.from("taxes").select("rate").order("rate"),
     supabase.from("company_settings").select("currency, default_terms").maybeSingle(),
     supabase.from("currencies").select("code").order("is_base", { ascending: false }).order("code"),
@@ -30,7 +30,7 @@ export async function editorOptions(supabase: SupabaseClient<Database>, docId?: 
     currencies: (currencies ?? []).map((c) => c.code),
     billableExpenses,
     leads: (leads ?? []).map<PartyOption>((l) => ({ value: `lead:${l.id}`, label: l.company ? `${l.name} · ${l.company}` : l.name })),
-    catalogue: (items ?? []).map<CatalogueItem>((i) => ({ id: i.id, name: i.name, description: i.description, rate: Number(i.rate), unit: i.unit, tax_rate: Number(i.tax?.rate ?? 0) })),
+    catalogue: (items ?? []).map<CatalogueItem>((i) => ({ id: i.id, name: i.name, description: i.description, rate: Number(i.rate), unit: i.unit, hsn_sac: i.hsn_sac, tax_rate: Number(i.tax?.rate ?? 0) })),
     taxRates: (taxes ?? []).map((t) => Number(t.rate)),
     currency: settings?.currency ?? "INR",
     defaultTerms: settings?.default_terms ?? "",

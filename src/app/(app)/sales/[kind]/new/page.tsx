@@ -6,6 +6,7 @@ import { addDays, expenseLine, KINDS, kindFromSlug } from "@/lib/sales";
 import { saveDoc } from "../../actions";
 import { DocEditor } from "../doc-editor";
 import { editorOptions } from "../editor-data";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "New document" };
 
@@ -22,7 +23,7 @@ export default async function NewDocPage({
   const k = KINDS[kind];
   const { supabase } = await requireAccess("sales", "edit", `/sales/${k.slug}`);
   const opts = await editorOptions(supabase);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const party = sp.customer ? `customer:${Number(sp.customer)}` : sp.lead && kind === "proposal" ? `lead:${Number(sp.lead)}` : "";
 
   return (

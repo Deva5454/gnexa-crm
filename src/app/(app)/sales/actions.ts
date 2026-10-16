@@ -6,8 +6,10 @@ import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
+import { HSN_RE } from "@/lib/gst";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { daysFromToday, todayIST } from "@/lib/dates";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -28,6 +30,8 @@ function parseLines(raw: string | null): Line[] | string {
     const tax = Number(r.tax_rate);
     if (!(qty > 0)) return `Quantity for “${description}” must be more than zero.`;
     if (!Number.isFinite(rate) || rate < 0) return `Rate for “${description}” must be zero or more.`;
+    const hsn = String(r.hsn_sac ?? "").replace(/\s/g, "");
+    if (hsn && !HSN_RE.test(hsn)) return `HSN / SAC for “${description}” must be 4 to 8 digits.`;
     lines.push({
       item_id: r.item_id ? Number(r.item_id) : null,
       description,
@@ -37,6 +41,7 @@ function parseLines(raw: string | null): Line[] | string {
       rate,
       tax_rate: Number.isFinite(tax) && tax >= 0 && tax <= 100 ? tax : 0,
       expense_id: r.expense_id ? Number(r.expense_id) : null,
+      hsn_sac: hsn || null,
     });
   }
   return lines;
@@ -57,7 +62,7 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
   const lead_id = ptype === "lead" && kind === "proposal" ? Number(pid) : null;
   if (!customer_id && !lead_id) return { error: kind === "proposal" ? "Choose a customer or lead." : "Choose a customer." };
 
-  const date = str(form, "date") ?? new Date().toISOString().slice(0, 10);
+  const date = str(form, "date") ?? todayIST();
   const due_date = KINDS[kind].dueLabel ? str(form, "due_date") : null;
   if (due_date && due_date < date) return { error: `${KINDS[kind].dueLabel} can't be before the date.` };
 
@@ -164,10 +169,11 @@ export async function convertDoc(form: FormData) {
     if (!lines?.length) throw new Error("This document has no line items to convert.");
     const { data: settings } = await supabase.from("company_settings").select("default_terms").maybeSingle();
 
-    const today = new Date().toISOString().slice(0, 10);
-    const due = new Date(Date.now() + (to === "invoice" ? 15 : 30) * 86400_000).toISOString().slice(0, 10);
+    const today = todayIST();
+    const due = daysFromToday(to === "invoice" ? 15 : 30);
     const copied: Line[] = lines.map((l) => ({
       item_id: l.item_id,
+      hsn_sac: l.hsn_sac,
       description: l.description,
       long_description: l.long_description,
       qty: Number(l.qty),
@@ -236,7 +242,7 @@ export async function recordPayment(_: FormState, form: FormData): Promise<FormS
   const { error } = await supabase.from("payments").insert({
     invoice_id: invoiceId,
     amount,
-    date: str(form, "date") ?? new Date().toISOString().slice(0, 10),
+    date: str(form, "date") ?? todayIST(),
     mode_id: num(form, "mode_id"),
     transaction_id: str(form, "transaction_id"),
     note: str(form, "note"),
@@ -320,7 +326,9 @@ export async function saveItem(_: FormState, form: FormData): Promise<FormState>
   const rate = num(form, "rate");
   if (!name) return { error: "Item name is required." };
   if (rate == null || rate < 0) return { error: "Rate must be zero or more." };
-  const fields = { name, description: str(form, "description"), rate, unit: str(form, "unit"), tax_id: num(form, "tax_id") };
+  const hsn = (str(form, "hsn_sac") ?? "").replace(/\s/g, "");
+  if (hsn && !HSN_RE.test(hsn)) return { error: "HSN / SAC must be 4 to 8 digits." };
+  const fields = { name, description: str(form, "description"), rate, unit: str(form, "unit"), tax_id: num(form, "tax_id"), hsn_sac: hsn || null };
   const { error } = id ? await supabase.from("items").update(fields).eq("id", id) : await supabase.from("items").insert(fields);
   if (error) return { error: friendlyError(error.message) };
   revalidatePath("/sales/items");

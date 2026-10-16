@@ -4,6 +4,7 @@ import type { Module } from "@/lib/permissions";
 import { docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { allRows } from "@/lib/fetch-all";
+import { daysFromToday, todayIST } from "@/lib/dates";
 
 type DB = SupabaseClient<Database>;
 
@@ -44,14 +45,14 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export async function salesReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const since = `${months[0]!.key}-01`;
-  const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
+  const yearAgo = daysFromToday(-365);
   const [{ data: invoices }, { data: payments }] = await Promise.all([
     allRows((a, b) => supabase.from("sales_docs").select("id, date, due_date, status, total, customer:customers(company)").eq("kind", "invoice").neq("status", "draft").neq("status", "cancelled").order("id").range(a, b)),
     allRows((a, b) => supabase.from("payments").select("amount, date, mode:payment_modes(name)").gte("date", yearAgo).order("id").range(a, b)),
   ]);
   const inv = invoices ?? [];
   const bals = await balancesFor(supabase, inv.map((i) => i.id));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   const monthly: ReportTable = {
     key: "sales-monthly",
@@ -219,7 +220,7 @@ export async function leadReports(supabase: DB): Promise<ReportTable[]> {
 
 export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
-  const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
+  const yearAgo = daysFromToday(-365);
   const [{ data: exps }, { data: cats }, { data: pays }] = await Promise.all([
     allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo).order("id").range(a, b)),
     supabase.from("expense_categories").select("id, name"),
@@ -273,7 +274,7 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
 }
 
 export async function timeReports(supabase: DB): Promise<ReportTable[]> {
-  const ninety = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10);
+  const ninety = daysFromToday(-90);
   const { data: rows } = await allRows((a, b) =>
     supabase
       .from("timesheets")

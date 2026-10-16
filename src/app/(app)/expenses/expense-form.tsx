@@ -8,6 +8,7 @@ import { Field, FormError } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { Tables } from "@/lib/database.types";
 import type { FormState } from "./actions";
+import { todayIST } from "@/lib/dates";
 
 type Opt = { id: number; name: string };
 
@@ -45,7 +46,7 @@ export function ExpenseForm({
             </select>
           </Field>
           <Field label="Date" htmlFor="date">
-            <input id="date" name="date" type="date" defaultValue={e?.date ?? new Date().toISOString().slice(0, 10)} className="field" />
+            <input id="date" name="date" type="date" defaultValue={e?.date ?? todayIST()} className="field" />
           </Field>
           <Field label="Amount *" htmlFor="amount">
             <input id="amount" name="amount" type="number" min="0" step="0.01" required defaultValue={e?.amount ?? ""} className="field" />

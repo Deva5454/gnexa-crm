@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { taskStatus } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
+import { todayIST } from "@/lib/dates";
 
 type GTask = { id: number; name: string; status: string; start_date: string | null; due_date: string | null; milestone_id: number | null };
 type GMilestone = { id: number; name: string; due_date: string | null; is_complete: boolean };
@@ -17,7 +18,7 @@ const iso = (d: number) => new Date(d * 86400_000).toISOString().slice(0, 10);
 
 /** Project timeline: one bar per task (start → due), milestones as diamonds, a line for today. */
 export function Gantt({ start, end, tasks, milestones }: { start: string; end: string | null; tasks: GTask[]; milestones: GMilestone[] }) {
-  const today = day(new Date().toISOString().slice(0, 10));
+  const today = day(todayIST());
   const dates = [
     day(start),
     ...(end ? [day(end)] : []),

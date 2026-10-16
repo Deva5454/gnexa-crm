@@ -1,4 +1,5 @@
 import type { Enums } from "@/lib/database.types";
+import { daysFromToday, todayIST } from "@/lib/dates";
 
 export const TASK_STATUSES: { value: Enums<"task_status">; label: string; color: string }[] = [
   { value: "not_started", label: "Not started", color: "bg-slate-100 text-slate-600 ring-slate-200" },
@@ -39,12 +40,12 @@ export const ticketNumber = (id: number) => `TKT-${String(id).padStart(5, "0")}`
 export const contractNumber = (id: number) => `CT-${String(id).padStart(5, "0")}`;
 
 /** Contract state from status + dates. "Expiring" = signed and ends within 30 days. */
-export function contractState(c: { status: string; start_date: string; end_date: string | null }, today = new Date().toISOString().slice(0, 10)) {
+export function contractState(c: { status: string; start_date: string; end_date: string | null }, today = todayIST()) {
   if (c.status === "cancelled") return { key: "cancelled", label: "Cancelled", color: "bg-slate-800 text-white ring-slate-800" };
   if (c.status === "draft") return { key: "draft", label: "Draft", color: "bg-slate-100 text-slate-600 ring-slate-200" };
   if (c.status === "sent") return { key: "sent", label: "Awaiting signature", color: "bg-sky-50 text-sky-700 ring-sky-200" };
   if (c.end_date && c.end_date < today) return { key: "expired", label: "Expired", color: "bg-rose-50 text-rose-700 ring-rose-200" };
-  const soon = new Date(Date.now() + 30 * 86400_000).toISOString().slice(0, 10);
+  const soon = daysFromToday(30);
   if (c.end_date && c.end_date <= soon) return { key: "expiring", label: "Expiring soon", color: "bg-amber-50 text-amber-700 ring-amber-200" };
   if (c.start_date > today) return { key: "upcoming", label: "Signed · starts soon", color: "bg-violet-50 text-violet-700 ring-violet-200" };
   return { key: "active", label: "Active", color: "bg-emerald-50 text-emerald-700 ring-emerald-200" };

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireStaff } from "@/lib/auth";
 import { REPORT_TABS, reportsFor, toCsv } from "@/lib/reports";
+import { todayIST } from "@/lib/dates";
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("report") ?? "";
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse("﻿" + toCsv(table), {
     headers: {
       "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="gnexa-${key}-${new Date().toISOString().slice(0, 10)}.csv"`,
+      "content-disposition": `attachment; filename="gnexa-${key}-${todayIST()}.csv"`,
     },
   });
 }

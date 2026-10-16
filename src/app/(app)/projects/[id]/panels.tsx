@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { createClient } from "@/lib/supabase/client";
 import { addComment, addMilestone, logTime, recordFile, setProjectStatus } from "../actions";
 import { PROJECT_STATUSES } from "@/lib/constants";
+import { todayIST } from "@/lib/dates";
 
 function useResetOnOk(state: { ok?: string } | undefined) {
   const ref = useRef<HTMLFormElement>(null);
@@ -55,7 +56,7 @@ export function TimeForm({ projectId, tasks, billableDefault }: { projectId: num
           {tasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </select>
       </Field>
-      <Field label="Date"><input name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="field" /></Field>
+      <Field label="Date"><input name="date" type="date" defaultValue={todayIST()} className="field" /></Field>
       <Field label="Hours"><input name="hours" type="number" min="0.25" max="24" step="0.25" required className="field" /></Field>
       <Field label="Note"><input name="note" className="field" /></Field>
       <label className="flex items-center gap-2 pb-2 text-sm text-slate-600">

@@ -8,6 +8,7 @@ import { docStatus, KINDS, type DocKind } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate } from "@/lib/utils";
 import { PrintToolbar } from "../[kind]/[id]/print-toolbar";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: { absolute: "Bulk export" } };
 
@@ -19,7 +20,7 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
   const from = iso(sp.from, "2000-01-01");
-  const to = iso(sp.to, new Date().toISOString().slice(0, 10));
+  const to = iso(sp.to, todayIST());
   let q = supabase.from("sales_docs").select("*").eq("kind", kind).gte("date", from).lte("date", to).order("date").order("number").limit(100);
   if (sp.status) q = q.eq("status", sp.status);
   else q = q.neq("status", "draft");

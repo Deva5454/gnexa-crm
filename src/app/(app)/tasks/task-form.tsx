@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import type { Tables } from "@/lib/database.types";
 import type { FormState } from "./actions";
+import { todayIST } from "@/lib/dates";
 
 export type RelOption = { value: string; label: string };
 
@@ -46,7 +47,7 @@ export function TaskForm({
   const [rel, setRel] = useState(initialRel);
   const projectMilestones = milestones.filter((m) => m.project === rel);
   const assigned = new Set(assigneeIds ?? (defaultAssignee ? [defaultAssignee] : []));
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   return (
     <form action={formAction} className="space-y-6">

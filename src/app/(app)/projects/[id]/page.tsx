@@ -22,6 +22,7 @@ import { balancesFor } from "@/lib/sales-data";
 import { cn, formatDate, formatMoney, timeAgo } from "@/lib/utils";
 import { deleteComment, deleteFile, deleteMilestone, deleteProject, deleteTimesheet, invoiceProject, toggleMilestone } from "../actions";
 import { CommentForm, FileUploader, MilestoneForm, StatusPicker, TimeForm } from "./panels";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Project" };
 
@@ -62,7 +63,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const unbilledHrs = entries.filter((t) => t.is_billable && !t.invoice_id).reduce((a, t) => a + Number(t.hours), 0);
   const invBals = await balancesFor(supabase, (invoices ?? []).map((i) => i.id));
   const invoiced = (invoices ?? []).filter((i) => i.status !== "cancelled").reduce((a, i) => a + Number(i.total), 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const daysLeft = p.deadline ? Math.round((new Date(p.deadline).getTime() - new Date(today).getTime()) / 86400_000) : null;
   const canEdit = can("projects", "edit");
   const canDelete = can("projects", "full");

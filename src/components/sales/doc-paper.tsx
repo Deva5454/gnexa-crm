@@ -1,6 +1,7 @@
 import { LogoMark } from "@/components/layout/logo";
 import { Fragment } from "react";
 import type { Tables } from "@/lib/database.types";
+import { placeOfSupply, taxComponents, type SupplyType } from "@/lib/gst";
 import { computeTotals, docNumber, KINDS, type DocKind, type StatusView } from "@/lib/sales";
 import type { Balance } from "@/lib/sales-data";
 import { cn, formatDate } from "@/lib/utils";
@@ -40,6 +41,9 @@ export function DocPaper({
     Number(doc.adjustment),
   );
   const isInvoice = kind === "invoice";
+  const supply = (doc.supply_type ?? "intra") as SupplyType;
+  const pos = placeOfSupply(doc.place_of_supply);
+  const showHsn = lines.some((l) => l.hsn_sac);
   const received = (balance?.paid ?? 0) + (balance?.credited ?? 0);
 
   return (
@@ -86,6 +90,12 @@ export function DocPaper({
                 <dd className="text-right font-medium">{formatDate(doc.due_date)}</dd>
               </>
             )}
+            {pos && (
+              <>
+                <dt className="text-slate-400">Place of supply</dt>
+                <dd className="text-right font-medium">{pos}</dd>
+              </>
+            )}
             {extra.map((x) => (
               <Fragment key={x.label}>
                 <dt className="text-slate-400">{x.label}</dt>
@@ -111,6 +121,7 @@ export function DocPaper({
               <tr className="border-b-2 border-slate-900 text-left text-[11px] uppercase tracking-wider text-slate-500">
                 <th className="w-8 py-2 pr-2">#</th>
                 <th className="py-2 pr-4">Item</th>
+                {showHsn && <th className="py-2 pr-4">HSN / SAC</th>}
                 <th className="py-2 pr-4 text-right">Qty</th>
                 <th className="py-2 pr-4 text-right">Rate</th>
                 <th className="py-2 pr-4 text-right">Tax</th>
@@ -125,6 +136,7 @@ export function DocPaper({
                     <div className="font-medium text-slate-900">{l.description}</div>
                     {l.long_description && <div className="whitespace-pre-wrap text-xs text-slate-500">{l.long_description}</div>}
                   </td>
+                  {showHsn && <td className="py-3 pr-4 font-mono text-xs text-slate-600">{l.hsn_sac ?? "—"}</td>}
                   <td className="whitespace-nowrap py-3 pr-4 text-right">
                     {Number(l.qty)} {l.unit && <span className="text-slate-400">{l.unit}</span>}
                   </td>
@@ -142,9 +154,12 @@ export function DocPaper({
           <dl className="w-full max-w-xs space-y-1.5 text-sm">
             <Row label="Sub total" value={money(totals.subtotal, cur)} />
             {totals.discount_total > 0 && <Row label={`Discount (${Number(doc.discount_percent)}%)`} value={`− ${money(totals.discount_total, cur)}`} />}
-            {totals.taxes.map((t) => (
-              <Row key={t.rate} label={`GST ${t.rate}%`} sub={`CGST ${t.rate / 2}% + SGST ${t.rate / 2}%`} value={money(t.amount, cur)} />
-            ))}
+            {totals.taxes.flatMap((t) =>
+              taxComponents(t.rate, t.amount, supply).map((c) => (
+                <Row key={`${t.rate}-${c.label}`} label={c.label} sub={`on ${money(t.taxable, cur)}`} value={money(c.amount, cur)} />
+              )),
+            )}
+            {supply === "export" && totals.taxes.length > 0 && <p className="text-[10px] text-slate-400">Export of goods or services.</p>}
             {Number(doc.adjustment) !== 0 && <Row label="Adjustment" value={money(Number(doc.adjustment), cur)} />}
             <div className="!mt-3 flex items-center justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-900">
               <span>Total</span>

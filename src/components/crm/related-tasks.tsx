@@ -6,6 +6,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { taskPriority, taskStatus } from "@/lib/constants";
 import { cn, formatDate } from "@/lib/utils";
+import { todayIST } from "@/lib/dates";
 
 export async function RelatedTasks({ relType, relId }: { relType: "customer" | "lead"; relId: number }) {
   const { supabase, can } = await requireStaff();
@@ -17,7 +18,7 @@ export async function RelatedTasks({ relType, relId }: { relType: "customer" | "
     .order("status")
     .order("due_date", { ascending: true, nullsFirst: false });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   return (
     <Card>
       <CardHeader

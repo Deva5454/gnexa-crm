@@ -7,6 +7,7 @@ import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { contractNumber } from "@/lib/constants";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { todayIST } from "@/lib/dates";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -18,7 +19,7 @@ export async function saveContract(id: number | null, _: FormState, form: FormDa
     type_id: num(form, "type_id"),
     subject: str(form, "subject") ?? "",
     value: num(form, "value"),
-    start_date: str(form, "start_date") ?? new Date().toISOString().slice(0, 10),
+    start_date: str(form, "start_date") ?? todayIST(),
     end_date: str(form, "end_date"),
     content: str(form, "content"),
   };
@@ -61,7 +62,7 @@ export async function signContract(_: FormState, form: FormData): Promise<FormSt
   if (!can("contracts", "edit")) return denied(roleName, "contracts", "edit");
   const id = Number(str(form, "id"));
   const signer = str(form, "signed_by");
-  const date = str(form, "signed_on") ?? new Date().toISOString().slice(0, 10);
+  const date = str(form, "signed_on") ?? todayIST();
   if (!signer) return { error: "Enter the name of the person who signed." };
   if (form.get("confirm") !== "on") return { error: "Confirm that you hold the signed copy." };
   const { data, error } = await supabase

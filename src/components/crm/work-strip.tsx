@@ -3,11 +3,12 @@ import { FileWarning, FolderKanban, LifeBuoy, Timer } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { contractState } from "@/lib/constants";
+import { daysFromToday } from "@/lib/dates";
 
 /** Delivery at a glance: projects, tickets, hours this week, contracts needing attention. */
 export async function WorkStrip() {
   const { supabase, can, profile } = await requireStaff();
-  const weekAgo = new Date(Date.now() - 6 * 86400_000).toISOString().slice(0, 10);
+  const weekAgo = daysFromToday(-6);
   const [{ data: projects }, { data: tickets }, { data: hours }, { data: contracts }] = await Promise.all([
     can("projects", "view") ? supabase.from("projects").select("status") : Promise.resolve({ data: null }),
     can("support", "view") ? supabase.from("tickets").select("status, assigned_to, priority").neq("status", "closed") : Promise.resolve({ data: null }),

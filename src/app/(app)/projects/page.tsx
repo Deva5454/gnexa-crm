@@ -12,6 +12,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { PROJECT_STATUSES, projectStatus } from "@/lib/constants";
 import { cn, formatDate, formatMoney, searchTerm } from "@/lib/utils";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Projects" };
 
@@ -44,7 +45,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     return { total: ts.length, done: ts.filter((t) => t.status === "complete").length };
   };
   const hrs = (id: number) => (hours ?? []).filter((h) => h.project_id === id).reduce((s, h) => s + Number(h.hours), 0);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
 
   const href = (patch: Partial<SP>) => {
     const next = new URLSearchParams();

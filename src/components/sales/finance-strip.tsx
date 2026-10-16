@@ -6,13 +6,14 @@ import { docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { formatMoney } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
+import { monthStartIST, todayIST } from "@/lib/dates";
 
 /** Money at a glance for the dashboard; hidden for roles without sales access. */
 export async function FinanceStrip() {
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  const ms = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const today = todayIST();
+  const ms = monthStartIST();
 
   const [{ data: invs }, { data: pays }, { data: exps }] = await Promise.all([
     allRows((a, b) => supabase.from("sales_docs").select("id, kind, status, due_date, total").eq("kind", "invoice").in("status", ["sent", "accepted"]).order("id").range(a, b)),

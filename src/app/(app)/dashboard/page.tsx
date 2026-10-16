@@ -13,6 +13,7 @@ import { taskPriority } from "@/lib/constants";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import { CompleteToggle } from "../tasks/status-select";
 import { allRows } from "@/lib/fetch-all";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -24,7 +25,7 @@ function greeting() {
 export default async function DashboardPage() {
   const { supabase, profile, can, roleName } = await requireStaff();
   // Recurring billing is raised by the scheduled job (see 0020_scheduling.sql), not on page loads
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const since = new Date(Date.now() - 13 * 86400_000);
   since.setHours(0, 0, 0, 0);
 

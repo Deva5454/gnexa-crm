@@ -18,6 +18,7 @@ import { companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { deleteContract, renewContract, setContractStatus } from "../actions";
 import { SignForm } from "./sign-form";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Contract" };
 
@@ -44,7 +45,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
   const party = await loadParty(supabase, { customer_id: c.customer_id, lead_id: null });
   const st = contractState(c);
   const canEdit = can("contracts", "edit");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const daysLeft = c.end_date ? Math.round((new Date(c.end_date).getTime() - new Date(today).getTime()) / 86400_000) : null;
 
   return (

@@ -14,6 +14,7 @@ import { requireStaff } from "@/lib/auth";
 import { companySettings } from "@/lib/sales-data";
 import { buildStatement, defaultRange } from "@/lib/statement";
 import { formatDate, formatMoney } from "@/lib/utils";
+import { daysFromToday } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Statement" };
 
@@ -47,7 +48,7 @@ export default async function StatementPage({ params, searchParams }: { params: 
   const qs = `from=${from}&to=${to}`;
   const presets = [
     ["This financial year", def.from, def.to],
-    ["Last 90 days", new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10), def.to],
+    ["Last 90 days", daysFromToday(-90), def.to],
     ["All time", "2000-01-01", def.to],
   ] as const;
 

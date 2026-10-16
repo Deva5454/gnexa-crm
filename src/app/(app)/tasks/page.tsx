@@ -18,6 +18,7 @@ import { CompleteToggle, StatusSelect } from "./status-select";
 import { TasksBoard, type BoardTask } from "./kanban";
 import { TagFilter } from "@/components/crm/tag-filter";
 import { allRows } from "@/lib/fetch-all";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -28,7 +29,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const page = Math.max(1, Number(sp.page) || 1);
   const { supabase, profile, can } = await requireStaff();
   const canEdit = can("tasks", "edit");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const mine = sp.scope !== "all";
   const board = sp.view === "board";
   const tagId = Number(sp.tag) || null;

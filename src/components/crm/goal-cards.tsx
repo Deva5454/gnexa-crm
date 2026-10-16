@@ -6,6 +6,7 @@ import { deleteGoal } from "@/app/(app)/goals/actions";
 import type { Tables } from "@/lib/database.types";
 import { goalMetric } from "@/lib/goals";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
+import { todayIST } from "@/lib/dates";
 
 export function GoalCards({
   goals,
@@ -20,7 +21,7 @@ export function GoalCards({
   canDelete?: boolean;
   compact?: boolean;
 }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   return (
     <div className={cn("grid gap-4", compact ? "sm:grid-cols-2 xl:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-3")}>
       {goals.map((g) => {

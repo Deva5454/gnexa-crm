@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireStaff } from "@/lib/auth";
 import { goalProgress } from "@/lib/goals";
 import { GoalForm } from "./goal-form";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Goals" };
 
@@ -19,7 +20,7 @@ export default async function GoalsPage() {
     supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
   ]);
   const progress = await goalProgress(supabase, goals ?? []);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const current = (goals ?? []).filter((g) => g.end_date >= today);
   const past = (goals ?? []).filter((g) => g.end_date < today);
   const names = new Map((staff ?? []).map((s) => [s.id, s.full_name]));

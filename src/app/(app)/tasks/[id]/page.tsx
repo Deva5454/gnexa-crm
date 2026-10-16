@@ -15,6 +15,7 @@ import { cn, formatDate, formatDateTime, timeAgo } from "@/lib/utils";
 import { deleteTask, deleteTaskComment, deleteTaskFile, deleteTimer, toggleFollow } from "../actions";
 import { StatusSelect } from "../status-select";
 import { Checklist, CommentBox, TaskFileUploader, TimerControl } from "./panels";
+import { todayIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Task" };
 
@@ -61,7 +62,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const following = (followers ?? []).some((f) => f.staff_id === profile.id);
   const assigned = (assignees ?? []).some((a) => a.staff_id === profile.id);
   const pr = taskPriority(t.priority);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIST();
   const late = t.status !== "complete" && t.due_date && t.due_date < today;
   const path = `/tasks/${id}`;
 

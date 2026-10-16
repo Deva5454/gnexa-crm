@@ -59,6 +59,7 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
           lines: (lines ?? []).map((l) => ({
             expense_id: l.expense_id,
             item_id: l.item_id,
+            hsn_sac: l.hsn_sac,
             description: l.description,
             long_description: l.long_description,
             qty: Number(l.qty),

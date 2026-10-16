@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { PROJECT_STATUSES } from "@/lib/constants";
 import type { Tables } from "@/lib/database.types";
 import type { FormState } from "./actions";
+import { todayIST } from "@/lib/dates";
 
 export function ProjectForm({
   action,
@@ -54,7 +55,7 @@ export function ProjectForm({
             </select>
           </Field>
           <Field label="Start date" htmlFor="start_date">
-            <input id="start_date" name="start_date" type="date" defaultValue={p?.start_date ?? new Date().toISOString().slice(0, 10)} className="field" />
+            <input id="start_date" name="start_date" type="date" defaultValue={p?.start_date ?? todayIST()} className="field" />
           </Field>
           <Field label="Deadline" htmlFor="deadline">
             <input id="deadline" name="deadline" type="date" defaultValue={p?.deadline ?? ""} className="field" />

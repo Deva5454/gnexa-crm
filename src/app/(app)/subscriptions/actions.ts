@@ -6,10 +6,11 @@ import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { todayIST } from "@/lib/dates";
 
 export type FormState = { error?: string } | undefined;
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => todayIST();
 
 export async function saveSubscription(id: number | null, _: FormState, form: FormData): Promise<FormState> {
   const { supabase, can, roleName } = await requireStaff();

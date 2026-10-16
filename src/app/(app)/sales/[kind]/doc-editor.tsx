@@ -12,7 +12,7 @@ import type { BillableExpense } from "./editor-data";
 import { formatMoney } from "@/lib/utils";
 import type { FormState } from "../actions";
 
-export type CatalogueItem = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_rate: number };
+export type CatalogueItem = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_rate: number; hsn_sac: string | null };
 export type PartyOption = { value: string; label: string; currency?: string | null };
 type Row = Line & { key: number };
 
@@ -93,7 +93,7 @@ export function DocEditor({
     const it = catalogue.find((c) => String(c.id) === id);
     setPick("");
     if (!it) return;
-    const row: Row = { key: ++seq, item_id: it.id, description: it.name, long_description: it.description ?? "", qty: 1, unit: it.unit ?? "", rate: Number(it.rate), tax_rate: Number(it.tax_rate) };
+    const row: Row = { key: ++seq, item_id: it.id, description: it.name, long_description: it.description ?? "", qty: 1, unit: it.unit ?? "", rate: Number(it.rate), tax_rate: Number(it.tax_rate), hsn_sac: it.hsn_sac ?? "" };
     // Replace a single untouched blank row instead of appending under it
     setRows((rs) => (rs.length === 1 && !rs[0]!.description && !rs[0]!.rate ? [row] : [...rs, row]));
   };
@@ -278,6 +278,14 @@ export function DocEditor({
                       rows={1}
                       className="field resize-y text-xs"
                       aria-label="Item description"
+                    />
+                    <input
+                      value={r.hsn_sac ?? ""}
+                      onChange={(e) => update(r.key, { hsn_sac: e.target.value.replace(/\D/g, "").slice(0, 8) })}
+                      inputMode="numeric"
+                      placeholder="HSN / SAC"
+                      className="field w-32 text-xs"
+                      aria-label="HSN or SAC code"
                     />
                   </td>
                   <td className="px-2 py-2">

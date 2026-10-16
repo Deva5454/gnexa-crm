@@ -13,6 +13,7 @@ import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE, searchTerm } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
+import { daysFromToday, monthStartIST } from "@/lib/dates";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -37,7 +38,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   if (sp.billable === "1" || sp.billable === "pending") q = q.eq("is_billable", true).is("invoice_id", null).not("customer_id", "is", null);
   if (sp.billable === "billed") q = q.not("invoice_id", "is", null);
 
-  const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
+  const yearAgo = daysFromToday(-365);
   const [{ data: rows, count }, { data: cats }, { data: recent }] = await Promise.all([
     q,
     supabase.from("expense_categories").select("id, name").order("name"),
@@ -45,7 +46,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   ]);
 
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
-  const ms = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const ms = monthStartIST();
   const all = recent ?? [];
   const thisMonth = all.filter((e) => e.date >= ms).reduce((s, e) => s + gross(e), 0);
   const unbilled = all.filter((e) => e.is_billable && !e.invoice_id && e.customer_id).reduce((s, e) => s + gross(e), 0);

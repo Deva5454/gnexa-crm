@@ -9,6 +9,7 @@ import { docHref, docNumber } from "@/lib/sales";
 import { discardUpload, fileRow } from "@/lib/uploads";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { todayIST } from "@/lib/dates";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -28,7 +29,7 @@ export async function saveProject(id: number | null, _: FormState, form: FormDat
     billing_type: billing,
     fixed_price: billing === "fixed" ? num(form, "fixed_price") : null,
     hourly_rate: billing === "hourly" ? num(form, "hourly_rate") : null,
-    start_date: str(form, "start_date") ?? new Date().toISOString().slice(0, 10),
+    start_date: str(form, "start_date") ?? todayIST(),
     deadline: str(form, "deadline"),
     description: str(form, "description"),
   };
@@ -132,7 +133,7 @@ export async function logTime(_: FormState, form: FormData): Promise<FormState> 
   const { error } = await supabase.from("timesheets").insert({
     project_id: projectId,
     task_id: taskId,
-    date: str(form, "date") ?? new Date().toISOString().slice(0, 10),
+    date: str(form, "date") ?? todayIST(),
     hours,
     note: str(form, "note"),
     is_billable: form.get("is_billable") === "on",
