@@ -17,15 +17,30 @@ export default async function SettingsPage() {
           <CompanyForm settings={data} />
         </CardBody>
       </Card>
-      <Card>
-        <CardHeader
-          title="Demo data"
-          description="Restore the sample customers, leads, tasks and notes before a pitch. Staff, roles and pipeline settings are kept."
-        />
-        <CardBody>
-          <ResetDemo />
-        </CardBody>
-      </Card>
+      {data?.demo_mode !== false && (
+        <>
+          <Card>
+            <CardHeader
+              title="Demo data"
+              description="Restore the sample customers, leads, tasks and notes before a pitch. Staff and pipeline settings are kept; the demo roles' permissions are restored."
+            />
+            <CardBody>
+              <ResetDemo />
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Going live" description="This install is running as a public demo. Only the owner can switch that off." />
+            <CardBody className="space-y-2 text-sm text-slate-600">
+              <p>1. In Supabase, open <b>Authentication → Users → Add user</b> and create your own account.</p>
+              <p>
+                2. In the Supabase <b>SQL editor</b>, run <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">select private.go_live(&apos;you@yourcompany.com&apos;);</code> —
+                or add <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">, true</code> to also clear the demo data.
+              </p>
+              <p>3. Sign in at <b>/login</b> with your account. The demo accounts are switched off and the role switcher disappears.</p>
+            </CardBody>
+          </Card>
+        </>
+      )}
     </>
   );
 }

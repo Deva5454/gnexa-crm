@@ -10,6 +10,7 @@ export function AppShell({
   roleName,
   personaKey,
   isAdmin,
+  demo,
   canCreate,
   visible,
   children,
@@ -19,6 +20,7 @@ export function AppShell({
   roleName: string;
   personaKey?: string;
   isAdmin: boolean;
+  demo: boolean;
   canCreate: CreateRights;
   children: React.ReactNode;
 }) {
@@ -27,7 +29,7 @@ export function AppShell({
     <div className="flex min-h-screen">
       <Sidebar isAdmin={isAdmin} visible={visible} mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar name={name} roleName={roleName} personaKey={personaKey} canCreate={canCreate} onMenu={() => setMobileOpen(true)} />
+        <Topbar name={name} roleName={roleName} personaKey={personaKey} demo={demo} canCreate={canCreate} onMenu={() => setMobileOpen(true)} />
         <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>

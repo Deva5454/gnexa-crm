@@ -3,13 +3,26 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { allows, resolveAccess, type Level, type Module } from "@/lib/permissions";
 
+/** Is this install the public demo? Only the owner can switch it off (private.go_live). Cached per request. */
+export const isDemoMode = cache(async () => {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("demo_mode");
+  return data !== false;
+});
+
+/** Where someone without a usable session goes: the demo picks a persona, a live CRM asks to sign in. */
+async function signInUrl(next?: string, as?: string) {
+  if (await isDemoMode()) return `/demo?${as ? `as=${as}&` : ""}${next ? `next=${encodeURIComponent(next)}` : ""}`;
+  return `/login${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+}
+
 /** Current signed-in, active staff member with their role's access. Cached per request. */
 export const requireStaff = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/demo");
+  if (!user) redirect(await signInUrl());
 
   const { data } = await supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).maybeSingle();
   if (!data) {
@@ -17,8 +30,11 @@ export const requireStaff = cache(async () => {
     const { data: portal } = await supabase.from("portal_users").select("user_id").eq("user_id", user.id).maybeSingle();
     if (portal) redirect("/portal");
   }
-  // Demo mode: a deactivated or unknown account falls back to the admin persona
-  if (!data || !data.is_active) redirect("/demo?as=admin");
+  // A deactivated or unknown account is signed out — never quietly swapped for another account
+  if (!data || !data.is_active) {
+    await supabase.auth.signOut();
+    redirect("/login?error=inactive");
+  }
   const { role, ...profile } = data;
   const access = resolveAccess(profile.is_admin, role?.permissions);
   const roleName = profile.is_admin ? "Administrator" : (role?.name ?? "Staff");
@@ -60,7 +76,7 @@ export const requirePortal = cache(async () => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/demo?as=client-tata");
+  if (!user) redirect(await signInUrl("/portal", "client-tata"));
   const { data: pu } = await supabase
     .from("portal_users")
     .select("customer_id, contact_id, customer:customers(id, company), contact:contacts(first_name, last_name, email)")

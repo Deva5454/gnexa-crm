@@ -24,15 +24,22 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Demo mode: visitors without a session are signed in automatically (as the admin persona).
-  // Public forms (/f/…) and surveys (/s/…) are for anyone and stay anonymous.
+  // Visitors without a session: in the demo they're signed in automatically (as the admin persona);
+  // in a live CRM they go to the sign-in page. Public forms (/f/…) and surveys (/s/…) stay anonymous.
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/f/") || path.startsWith("/s/");
+  const isPublic = path.startsWith("/f/") || path.startsWith("/s/") || path === "/login";
   if (!user && path !== "/demo" && !isPublic) {
+    const { data: demo } = await supabase.rpc("demo_mode");
     const url = request.nextUrl.clone();
-    url.pathname = "/demo";
-    const persona = path.startsWith("/portal") ? "as=client-tata&" : "";
-    url.search = path === "/" ? "" : `?${persona}next=${encodeURIComponent(path + request.nextUrl.search)}`;
+    const next = path === "/" ? "" : path + request.nextUrl.search;
+    if (demo !== false) {
+      url.pathname = "/demo";
+      const persona = path.startsWith("/portal") ? "as=client-tata&" : "";
+      url.search = next ? `?${persona}next=${encodeURIComponent(next)}` : "";
+    } else {
+      url.pathname = "/login";
+      url.search = next ? `?next=${encodeURIComponent(next)}` : "";
+    }
     return NextResponse.redirect(url);
   }
 

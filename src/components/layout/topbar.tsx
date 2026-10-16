@@ -12,12 +12,14 @@ export function Topbar({
   name,
   roleName,
   personaKey,
+  demo,
   canCreate,
   onMenu,
 }: {
   name: string;
   roleName: string;
   personaKey?: string;
+  demo: boolean;
   canCreate: CreateRights;
   onMenu: () => void;
 }) {
@@ -61,9 +63,11 @@ export function Topbar({
       </form>
 
       <div className="ml-auto flex items-center gap-2">
-        <span className="hidden rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-600 xl:inline">
-          Demo
-        </span>
+        {demo && (
+          <span className="hidden rounded-full bg-accent-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-600 xl:inline">
+            Demo
+          </span>
+        )}
         <NotificationBell />
         {createItems.length > 0 && (
           <div className="relative" ref={createRef}>
@@ -92,7 +96,7 @@ export function Topbar({
           </div>
         )}
         <Suspense>
-          <RoleSwitcher name={name} roleName={roleName} personaKey={personaKey} />
+          <RoleSwitcher name={name} roleName={roleName} personaKey={personaKey} demo={demo} />
         </Suspense>
       </div>
     </header>

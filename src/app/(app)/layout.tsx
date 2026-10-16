@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/layout/app-shell";
 import { Flash } from "@/components/layout/flash";
-import { requireStaff } from "@/lib/auth";
+import { isDemoMode, requireStaff } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
 import { FLASH_COOKIE } from "@/lib/flash";
 import { MODULES } from "@/lib/permissions";
@@ -24,6 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       roleName={roleName}
       personaKey={personaByEmail(profile.email)?.key}
       isAdmin={profile.is_admin}
+      demo={await isDemoMode()}
       canCreate={{ customers: can("customers", "edit"), leads: can("leads", "edit"), tasks: can("tasks", "edit"), sales: can("sales", "edit"), expenses: can("expenses", "edit"), projects: can("projects", "edit"), support: can("support", "edit") }}
       visible={MODULES.filter((m) => can(m, "view"))}
     >

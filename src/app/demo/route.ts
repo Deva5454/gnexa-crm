@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
   const next = persona.client ? (safe?.startsWith("/portal") ? safe : "/portal") : safe && !safe.startsWith("/portal") ? safe : "/dashboard";
 
   const supabase = await createClient();
+  // A live CRM has no demo: send people to the real sign-in page
+  const { data: demo } = await supabase.rpc("demo_mode");
+  if (demo === false) return NextResponse.redirect(`${origin}/login`);
   const { error } = await supabase.auth.signInWithPassword({ email: persona.email, password: DEMO_PASSWORD });
   if (error) {
     return new NextResponse(

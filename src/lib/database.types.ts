@@ -16,7 +16,7 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; demo_mode: boolean;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
@@ -628,6 +628,7 @@ export type Database = {
       run_recurring: { Args: Record<PropertyKey, never>; Returns: Json };
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
       invoice_project: { Args: { p_project: number }; Returns: Json };
+      demo_mode: { Args: Record<PropertyKey, never>; Returns: boolean };
       portal_pay: { Args: { p_invoice: number; p_amount: number; p_method: string }; Returns: string };
       web_form_info: { Args: { p_key: string }; Returns: Json };
       submit_web_form: { Args: { p_key: string; p_data: Json }; Returns: string };

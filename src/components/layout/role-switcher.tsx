@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Check, ChevronDown, Loader2, Repeat2, UserRound } from "lucide-react";
+import { Check, ChevronDown, Loader2, LogOut, Repeat2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
+import { signOut } from "@/lib/actions/auth";
 import { DEMO_PERSONAS } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,8 @@ const ROLE_TINT: Record<string, string> = {
   support: "bg-sky-100 text-sky-700",
 };
 
-export function RoleSwitcher({ name, roleName, personaKey }: { name: string; roleName: string; personaKey?: string }) {
+/** The signed-in person's menu. In the demo it also switches between the demo roles. */
+export function RoleSwitcher({ name, roleName, personaKey, demo }: { name: string; roleName: string; personaKey?: string; demo: boolean }) {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -52,14 +54,18 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
           <span className="block max-w-[140px] truncate text-sm font-semibold text-slate-800">{name}</span>
           <span className="block text-[11px] font-medium text-slate-500">{roleName}</span>
         </span>
-        <span className="ml-1 hidden items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:flex">
-          <Repeat2 className="h-3 w-3" /> Switch
-        </span>
+        {demo && (
+          <span className="ml-1 hidden items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:flex">
+            <Repeat2 className="h-3 w-3" /> Switch
+          </span>
+        )}
         <ChevronDown className="h-4 w-4 text-slate-400" />
       </button>
 
       {open && (
         <div className="absolute right-0 z-50 mt-2 max-h-[80vh] w-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-pop" role="menu">
+          {demo && (
+          <>
           <div className="bg-ink-900 px-4 py-3 text-white">
             <div className="text-xs font-semibold uppercase tracking-wider text-accent-400">Demo mode</div>
             <div className="mt-0.5 text-sm text-slate-300">Switch role to see what each team member can do.</div>
@@ -99,15 +105,24 @@ export function RoleSwitcher({ name, roleName, personaKey }: { name: string; rol
               );
             })}
           </ul>
-          {!inPortal && <div className="border-t border-slate-100 p-1.5">
-            <Link
-              href="/profile"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-            >
-              <UserRound className="h-4 w-4" /> My profile & permissions
-            </Link>
-          </div>}
+          </>
+          )}
+          <div className="border-t border-slate-100 p-1.5">
+            {!inPortal && (
+              <Link
+                href="/profile"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                <UserRound className="h-4 w-4" /> My profile & permissions
+              </Link>
+            )}
+            <form action={signOut}>
+              <button type="submit" className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                <LogOut className="h-4 w-4" /> Sign out
+              </button>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LogoMark } from "@/components/layout/logo";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
-import { requirePortal } from "@/lib/auth";
+import { isDemoMode, requirePortal } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
 import { PortalNav } from "./portal-nav";
 
@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: { default: "Client portal", template:
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, company, contactName } = await requirePortal();
   const { data: settings } = await supabase.from("company_settings").select("company_name").maybeSingle();
+  const demo = await isDemoMode();
   return (
     <div className="min-h-screen bg-canvas">
       <header className="bg-ink-900 print:hidden">
@@ -24,9 +25,9 @@ export default async function PortalLayout({ children }: { children: React.React
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="hidden rounded-full bg-accent-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-400 sm:inline">Demo</span>
+              {demo && <span className="hidden rounded-full bg-accent-500/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-accent-400 sm:inline">Demo</span>}
               <Suspense>
-                <RoleSwitcher name={contactName} roleName={company} personaKey={personaByEmail(user.email)?.key} />
+                <RoleSwitcher name={contactName} roleName={company} personaKey={personaByEmail(user.email)?.key} demo={demo} />
               </Suspense>
             </div>
           </div>
