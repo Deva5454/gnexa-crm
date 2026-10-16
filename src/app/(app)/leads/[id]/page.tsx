@@ -4,7 +4,8 @@ import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Ban, CheckCircle2, Mail, Pencil, Phone, Trash2, UserCheck, XCircle } from "lucide-react";
+import { AlertTriangle, Ban, CheckCircle2, Download, Mail, Paperclip, Pencil, Phone, PhoneCall, Trash2, UserCheck, XCircle } from "lucide-react";
+import { FileUploader } from "@/components/crm/file-uploader";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { NotesPanel } from "@/components/crm/notes-panel";
 import { RelatedTasks } from "@/components/crm/related-tasks";
@@ -18,7 +19,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireStaff } from "@/lib/auth";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
-import { convertLead, deleteLead, setLeadFlag } from "../actions";
+import { convertLead, deleteLead, deleteLeadFile, markContacted, recordLeadFile, setLeadFlag } from "../actions";
 
 export const metadata: Metadata = { title: "Lead" };
 
@@ -37,6 +38,21 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   ]);
   if (!l) notFound();
 
+  // Perfex warns when another lead or a customer contact already uses this e-mail or phone
+  // keep characters that are safe inside a PostgREST or() filter
+  const clean = (v: string | null) => (v ?? "").replace(/[,()"\\%*]/g, "").trim();
+  const email = clean(l.email);
+  const phone = clean(l.phone);
+  const match = [email && `email.ilike.${email}`, phone && `phone.eq.${phone}`].filter(Boolean).join(",");
+  const [{ data: files }, { data: dupLeads }, { data: dupContacts }] = await Promise.all([
+    supabase.from("lead_files").select("id, name, size, created_at, uploader:profiles!lead_files_uploaded_by_fkey(full_name)").eq("lead_id", id).order("created_at", { ascending: false }),
+    match ? supabase.from("leads").select("id, name").or(match).neq("id", id).limit(5) : Promise.resolve({ data: [] as { id: number; name: string }[] }),
+    match && can("customers", "view")
+      ? supabase.from("contacts").select("id, first_name, last_name, customer_id").or(match).limit(5)
+      : Promise.resolve({ data: [] as { id: number; first_name: string; last_name: string | null; customer_id: number }[] }),
+  ]);
+  const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
   const flagForm = (flag: "is_lost" | "is_junk", on: boolean, label: string, Icon: typeof Ban) => (
     <form action={setLeadFlag}>
       <input type="hidden" name="id" value={l.id} />
@@ -52,7 +68,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     ["Email", l.email && <a href={`mailto:${l.email}`} className="text-brand-700">{l.email}</a>],
     ["Phone", l.phone && <a href={`tel:${l.phone}`} className="text-brand-700">{l.phone}</a>],
     ["Website", l.website],
-    ["Address", [l.address, l.city, l.country].filter(Boolean).join(", ") || null],
+    ["Address", [l.address, l.city, l.state, l.zip, l.country].filter(Boolean).join(", ") || null],
     ["Source", l.source?.name],
     ["Created", formatDate(l.created_at)],
     ["Last contact", l.last_contact_at ? formatDateTime(l.last_contact_at) : null],
@@ -80,6 +96,12 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 </SubmitButton>
               </form>
             )}
+            {canEdit && (
+              <form action={markContacted}>
+                <input type="hidden" name="id" value={l.id} />
+                <SubmitButton variant="secondary" size="sm" pendingText="Saving…"><PhoneCall className="h-3.5 w-3.5" /> Contacted today</SubmitButton>
+              </form>
+            )}
             {canEdit && flagForm("is_lost", l.is_lost, "lost", XCircle)}
             {canEdit && flagForm("is_junk", l.is_junk, "junk", Ban)}
             {canEdit && (
@@ -105,6 +127,17 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         </div>
       )}
 
+      {((dupLeads?.length ?? 0) > 0 || (dupContacts?.length ?? 0) > 0) && (
+        <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900" role="status">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-hidden />
+          <span className="font-medium">Possible duplicate — same e-mail or phone as:</span>
+          {dupLeads?.map((d) => <Link key={`l${d.id}`} href={`/leads/${d.id}`} className="font-semibold underline">lead {d.name}</Link>)}
+          {dupContacts?.map((c) => (
+            <Link key={`c${c.id}`} href={`/customers/${c.customer_id}`} className="font-semibold underline">contact {[c.first_name, c.last_name].filter(Boolean).join(" ")}</Link>
+          ))}
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -127,6 +160,30 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           <NotesPanel relType="lead" relId={id} path={`/leads/${id}`} />
           <RelatedTasks relType="lead" relId={id} />
           <RelatedDocs leadId={id} />
+          <Card>
+            <CardHeader title="Attachments" description={files?.length ? `${files.length} file${files.length === 1 ? "" : "s"}` : undefined} />
+            <CardBody className="space-y-3">
+              {(files ?? []).length > 0 && (
+                <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+                  {files!.map((f) => (
+                    <li key={f.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                      <Paperclip className="h-4 w-4 shrink-0 text-slate-400" aria-hidden />
+                      <a href={`/leads/files/${f.id}`} className="min-w-0 flex-1 truncate font-medium text-slate-800 hover:text-brand-700">{f.name}</a>
+                      <span className="hidden text-xs text-slate-400 sm:inline">{kb(Number(f.size))} · {f.uploader?.full_name?.split(" ")[0] ?? "—"} · {formatDate(f.created_at)}</span>
+                      <a href={`/leads/files/${f.id}`} className="rounded p-1 text-slate-400 hover:text-brand-700" aria-label={`Download ${f.name}`}><Download className="h-4 w-4" /></a>
+                      {canEdit && (
+                        <ConfirmForm action={deleteLeadFile} message={`Delete ${f.name}?`}>
+                          <input type="hidden" name="id" value={f.id} />
+                          <button className="rounded p-1 text-slate-400 hover:text-rose-600" aria-label={`Delete ${f.name}`}><Trash2 className="h-4 w-4" /></button>
+                        </ConfirmForm>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canEdit ? <FileUploader bucket="lead-files" relId={id} record={recordLeadFile} /> : !files?.length && <p className="text-sm text-slate-400">No files.</p>}
+            </CardBody>
+          </Card>
         </div>
 
         <div className="space-y-6">

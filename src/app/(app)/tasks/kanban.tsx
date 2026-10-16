@@ -90,7 +90,7 @@ export function TasksBoard({ tasks, canEdit, today }: { tasks: BoardTask[]; canE
                     }}
                     onDragEnd={() => setDragging(null)}
                     className={cn(
-                      "rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md",
+                      "relative rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md",
                       canEdit && "cursor-grab active:cursor-grabbing",
                       dragging === t.id && "opacity-40",
                     )}
@@ -126,7 +126,7 @@ export function TasksBoard({ tasks, canEdit, today }: { tasks: BoardTask[]; canE
                         aria-label={`Move “${t.name}” to`}
                         value={t.status}
                         onChange={(e) => moveTask(t.id, e.target.value as Enums<"task_status">)}
-                        className="sr-only mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-brand-200"
+                        className="sr-only mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:w-full focus:outline-none focus:ring-2 focus:ring-brand-200"
                       >
                         {TASK_STATUSES.map((o) => <option key={o.value} value={o.value}>Move to: {o.label}</option>)}
                       </select>

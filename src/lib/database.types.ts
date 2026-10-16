@@ -75,24 +75,30 @@ export type Database = {
         Update: { color?: string; id?: never; is_won?: boolean; name?: string; sort_order?: number };
         Relationships: [];
       };
+      lead_files: {
+        Row: { id: number; lead_id: number; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; lead_id: number; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; lead_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "lead_files_lead_id_fkey"; columns: ["lead_id"]; isOneToOne: false; referencedRelation: "leads"; referencedColumns: ["id"] }, { foreignKeyName: "lead_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
       leads: {
         Row: {
           address: string | null; assigned_to: string | null; city: string | null; company: string | null; converted_at: string | null;
           converted_customer_id: number | null; country: string | null; created_at: string; created_by: string | null; description: string | null;
           email: string | null; id: number; is_junk: boolean; is_lost: boolean; last_contact_at: string | null; name: string; phone: string | null;
-          position: number; source_id: number | null; status_id: number | null; title: string | null; value: number | null; website: string | null;
+          position: number; source_id: number | null; status_id: number | null; title: string | null; state: string | null; zip: string | null; value: number | null; website: string | null;
         };
         Insert: {
           address?: string | null; assigned_to?: string | null; city?: string | null; company?: string | null; converted_at?: string | null;
           converted_customer_id?: number | null; country?: string | null; created_at?: string; created_by?: string | null; description?: string | null;
           email?: string | null; id?: never; is_junk?: boolean; is_lost?: boolean; last_contact_at?: string | null; name: string; phone?: string | null;
-          position?: number; source_id?: number | null; status_id?: number | null; title?: string | null; value?: number | null; website?: string | null;
+          position?: number; source_id?: number | null; status_id?: number | null; title?: string | null; state?: string | null; zip?: string | null; value?: number | null; website?: string | null;
         };
         Update: {
           address?: string | null; assigned_to?: string | null; city?: string | null; company?: string | null; converted_at?: string | null;
           converted_customer_id?: number | null; country?: string | null; created_at?: string; created_by?: string | null; description?: string | null;
           email?: string | null; id?: never; is_junk?: boolean; is_lost?: boolean; last_contact_at?: string | null; name?: string; phone?: string | null;
-          position?: number; source_id?: number | null; status_id?: number | null; title?: string | null; value?: number | null; website?: string | null;
+          position?: number; source_id?: number | null; status_id?: number | null; title?: string | null; state?: string | null; zip?: string | null; value?: number | null; website?: string | null;
         };
         Relationships: [
           { foreignKeyName: "leads_assigned_to_fkey"; columns: ["assigned_to"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },

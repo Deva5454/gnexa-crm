@@ -22,6 +22,15 @@ export type KanbanLead = {
   tags?: TagLite[];
 };
 export type KanbanStatus = { id: number; name: string; color: string };
+/** Perfex's kanban sort: the board's own order, or newest / last contacted / highest value first. */
+export type KanbanSort = "position" | "created" | "last_contact" | "value";
+
+const ORDER: Record<KanbanSort, (a: KanbanLead, b: KanbanLead) => number> = {
+  position: (a, b) => a.position - b.position,
+  created: (a, b) => b.created_at.localeCompare(a.created_at),
+  last_contact: (a, b) => (b.last_contact_at ?? "").localeCompare(a.last_contact_at ?? ""),
+  value: (a, b) => (b.value ?? 0) - (a.value ?? 0),
+};
 
 type Move = { id: number; statusId: number; position: number };
 
@@ -30,11 +39,13 @@ export function LeadsKanban({
   leads,
   currency,
   canEdit,
+  sortBy = "position",
 }: {
   statuses: KanbanStatus[];
   leads: KanbanLead[];
   currency: string;
   canEdit: boolean;
+  sortBy?: KanbanSort;
 }) {
   const [, startTransition] = useTransition();
   const [dragging, setDragging] = useState<number | null>(null);
@@ -46,7 +57,7 @@ export function LeadsKanban({
 
   const columns = statuses.map((s) => ({
     ...s,
-    items: optimistic.filter((l) => l.status_id === s.id).sort((a, b) => a.position - b.position),
+    items: optimistic.filter((l) => l.status_id === s.id).sort(ORDER[sortBy]),
   }));
 
   const drop = (statusId: number, beforeId: number | null, moving: number | null = dragging) => {
@@ -55,11 +66,16 @@ export function LeadsKanban({
     setOverCol(null);
     if (id == null || !canEdit) return;
     const col = columns.find((c) => c.id === statusId)!.items.filter((l) => l.id !== id);
-    const idx = beforeId == null ? col.length : col.findIndex((l) => l.id === beforeId);
-    const prev = col[idx - 1]?.position;
-    const next = col[idx]?.position;
-    const position =
-      prev == null && next == null ? 1 : prev == null ? next! - 1 : next == null ? prev + 1 : (prev + next) / 2;
+    let position: number;
+    if (sortBy !== "position") {
+      // Cards are shown in another order, so a drop only changes the stage: it goes to the end of the board order
+      position = Math.max(0, ...col.map((l) => l.position)) + 1;
+    } else {
+      const idx = beforeId == null ? col.length : col.findIndex((l) => l.id === beforeId);
+      const prev = col[idx - 1]?.position;
+      const next = col[idx]?.position;
+      position = prev == null && next == null ? 1 : prev == null ? next! - 1 : next == null ? prev + 1 : (prev + next) / 2;
+    }
     startTransition(async () => {
       applyMove({ id, statusId, position });
       const res = await moveLead(id, statusId, position);
@@ -116,7 +132,7 @@ export function LeadsKanban({
                       drop(col.id, l.id);
                     }}
                     className={cn(
-                      "rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md",
+                      "relative rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:border-brand-200 hover:shadow-md",
                       canEdit && "cursor-grab active:cursor-grabbing",
                       dragging === l.id && "opacity-40",
                     )}
@@ -147,7 +163,7 @@ export function LeadsKanban({
                         aria-label={`Move “${l.name}” to stage`}
                         value={l.status_id ?? ""}
                         onChange={(e) => drop(Number(e.target.value), null, l.id)}
-                        className="sr-only mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-brand-200"
+                        className="sr-only mt-2 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:w-full focus:outline-none focus:ring-2 focus:ring-brand-200"
                       >
                         {statuses.map((o) => <option key={o.id} value={o.id}>Move to: {o.name}</option>)}
                       </select>

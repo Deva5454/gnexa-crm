@@ -68,6 +68,8 @@ export function LeadForm({
           <Field label="Phone" htmlFor="phone"><input id="phone" name="phone" defaultValue={l?.phone ?? ""} className="field" /></Field>
           <Field label="Address" htmlFor="address" className="sm:col-span-2"><input id="address" name="address" defaultValue={l?.address ?? ""} className="field" /></Field>
           <Field label="City" htmlFor="city"><input id="city" name="city" defaultValue={l?.city ?? ""} className="field" /></Field>
+          <Field label="State" htmlFor="state"><input id="state" name="state" defaultValue={l?.state ?? ""} className="field" /></Field>
+          <Field label="ZIP / PIN code" htmlFor="zip"><input id="zip" name="zip" defaultValue={l?.zip ?? ""} className="field" /></Field>
           <Field label="Country" htmlFor="country"><input id="country" name="country" defaultValue={l?.country ?? ""} className="field" /></Field>
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
             <textarea id="description" name="description" rows={4} defaultValue={l?.description ?? ""} className="field" />
@@ -75,7 +77,11 @@ export function LeadForm({
         </CardBody>
       </Card>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <label className="mr-auto flex items-center gap-2 text-sm text-slate-700">
+          <input type="checkbox" name="contacted_today" className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+          Contacted today
+        </label>
         <Link href={cancelHref} className={buttonClass({ variant: "secondary" })}>Cancel</Link>
         <SubmitButton pendingText="Saving…">{l ? "Save changes" : "Create lead"}</SubmitButton>
       </div>
