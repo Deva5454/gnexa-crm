@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
+import { THEMES } from "@/lib/theme";
+import type { Json } from "@/lib/database.types";
+import { MODULES } from "@/lib/permissions";
+import { FEATURES, readMenuConfig } from "@/components/layout/nav";
 
 export type SettingsState = { error?: string; ok?: string } | undefined;
 
@@ -59,7 +63,7 @@ export async function savePredefinedReply(form: FormData) {
     if (!title || !body) return;
     if (id) must(await supabase.from("predefined_replies").update({ title, body }).eq("id", id));
     else await supabase.from("predefined_replies").insert({ title, body });
-    revalidatePath("/settings/delivery");
+    revalidatePath("/settings/support");
   });
 }
 
@@ -67,7 +71,7 @@ export async function deletePredefinedReply(form: FormData) {
   return withFlash(async () => {
     const { supabase } = await requireAdmin();
     must(await supabase.from("predefined_replies").delete().eq("id", Number(str(form, "id"))));
-    revalidatePath("/settings/delivery");
+    revalidatePath("/settings/support");
   });
 }
 
@@ -241,5 +245,80 @@ export async function anonymiseContact(form: FormData) {
     must(await supabase.from("activity_log").insert({ description: `anonymised a contact (GDPR erasure request)`, rel_type: "customer", rel_id: c.customer_id }));
     revalidatePath("/settings/gdpr");
     revalidatePath(`/customers/${c.customer_id}`);
+  });
+}
+
+// ───────────── Setup → Modules / Menu setup / Theme style / Estimate request statuses ─────────────
+export async function saveModules(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const all = [...MODULES, ...FEATURES] as string[];
+    const off = all.filter((m) => form.get(`on_${m}`) !== "on");
+    must(await supabase.from("company_settings").update({ disabled_modules: off }).eq("id", true));
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function saveMenu(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(String(form.get("menu") ?? "{}"));
+    } catch {
+      throw new Error("The menu layout could not be read.");
+    }
+    const cfg = readMenuConfig(parsed);
+    // never let the Setup link disappear, or there'd be no way back
+    cfg.hidden = (cfg.hidden ?? []).filter((h) => h !== "/settings");
+    must(await supabase.from("company_settings").update({ menu_config: cfg as Json }).eq("id", true));
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function resetMenu() {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    must(await supabase.from("company_settings").update({ menu_config: {} }).eq("id", true));
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function saveTheme(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const theme = str(form, "theme") ?? "violet";
+    if (!(theme in THEMES)) throw new Error("Pick one of the colour presets.");
+    must(await supabase.from("company_settings").update({ theme }).eq("id", true));
+    revalidatePath("/", "layout");
+  });
+}
+
+export async function saveReqStatus(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const name = (str(form, "name") ?? "").slice(0, 40);
+    if (!name) throw new Error("Give the status a name.");
+    const color = /^#[0-9a-fA-F]{6}$/.test(str(form, "color") ?? "") ? str(form, "color")! : "#64748b";
+    const fields = { name, color, is_open: form.get("is_open") === "on", sort_order: Math.round(num(form, "sort_order") ?? 0) };
+    const key = str(form, "key");
+    if (key) must(await supabase.from("estimate_request_statuses").update(fields).eq("key", key));
+    else {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "").slice(0, 40) || `status_${Date.now()}`;
+      must(await supabase.from("estimate_request_statuses").insert({ key: slug, ...fields }));
+    }
+    revalidatePath("/settings/estimate-statuses");
+    revalidatePath("/estimate-requests");
+  });
+}
+
+export async function deleteReqStatus(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const key = str(form, "key");
+    const { count } = await supabase.from("estimate_requests").select("id", { count: "exact", head: true }).eq("status", key ?? "");
+    if (count) throw new Error(`${count} request${count === 1 ? " uses" : "s use"} this status — move them to another status first.`);
+    must(await supabase.from("estimate_request_statuses").delete().eq("key", key ?? ""));
+    revalidatePath("/settings/estimate-statuses");
   });
 }

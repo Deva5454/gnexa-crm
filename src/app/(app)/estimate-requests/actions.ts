@@ -7,17 +7,14 @@ import { assertAccess } from "@/lib/auth";
 import { str } from "@/lib/utils";
 import { must, withFlash } from "@/lib/flash";
 
-const STATUSES = ["new", "in_review", "quoted", "declined"];
 
 export async function updateEstimateRequest(form: FormData) {
   return withFlash(async () => {
     const { supabase } = await assertAccess("sales", "edit");
     const id = Number(str(form, "id"));
     const status = str(form, "status");
-    await supabase
-      .from("estimate_requests")
-      .update({ ...(status && STATUSES.includes(status) ? { status } : {}), assigned_to: str(form, "assigned_to") })
-      .eq("id", id);
+    // the status must be one of Setup → Estimate request → Statuses (enforced by the database)
+    must(await supabase.from("estimate_requests").update({ ...(status ? { status } : {}), assigned_to: str(form, "assigned_to") }).eq("id", id));
     revalidatePath(`/estimate-requests/${id}`);
     revalidatePath("/estimate-requests");
   });

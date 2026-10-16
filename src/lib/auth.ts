@@ -1,7 +1,8 @@
 import { cache } from "react";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { allows, resolveAccess, type Level, type Module } from "@/lib/permissions";
+import { readMenuConfig } from "@/components/layout/nav";
+import { allows, MODULES, resolveAccess, type Level, type Module } from "@/lib/permissions";
 
 /** Is this install the public demo? Only the owner can switch it off (private.go_live). Cached per request. */
 export const isDemoMode = cache(async () => {
@@ -24,7 +25,10 @@ export const requireStaff = cache(async () => {
   } = await supabase.auth.getUser();
   if (!user) redirect(await signInUrl());
 
-  const { data } = await supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).maybeSingle();
+  const [{ data }, { data: cs }] = await Promise.all([
+    supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).maybeSingle(),
+    supabase.from("company_settings").select("theme, disabled_modules, menu_config").maybeSingle(),
+  ]);
   if (!data) {
     // Client-portal accounts have no staff profile
     const { data: portal } = await supabase.from("portal_users").select("user_id").eq("user_id", user.id).maybeSingle();
@@ -36,15 +40,21 @@ export const requireStaff = cache(async () => {
     redirect("/login?error=inactive");
   }
   const { role, ...profile } = data;
+  // Setup → Modules: a switched-off module is off for everyone, admins included
+  const disabled = cs?.disabled_modules ?? [];
   const access = resolveAccess(profile.is_admin, role?.permissions);
+  for (const m of MODULES) if (disabled.includes(m)) access[m] = "none";
+  const featureOn = (f: string) => !disabled.includes(f);
+  const settings = { theme: cs?.theme ?? "violet", disabled, menu: readMenuConfig(cs?.menu_config) };
   const roleName = profile.is_admin ? "Administrator" : (role?.name ?? "Staff");
   const can = (module: Module, level: Level) => allows(access, module, level);
-  return { supabase, user, profile, access, roleName, can };
+  return { supabase, user, profile, access, roleName, can, featureOn, settings };
 });
 
+/** Admin-only pages and actions. Others get the standard "Not found" page (a redirect here tripped React in production). */
 export async function requireAdmin() {
   const ctx = await requireStaff();
-  if (!ctx.profile.is_admin) redirect("/dashboard");
+  if (!ctx.profile.is_admin) notFound();
   return ctx;
 }
 
@@ -52,6 +62,13 @@ export async function requireAdmin() {
 export async function requireAccess(module: Module, level: Level, fallback: string) {
   const ctx = await requireStaff();
   if (!ctx.can(module, level)) redirect(fallback);
+  return ctx;
+}
+
+/** Page guard for features that can be switched off in Setup → Modules (newsfeed, surveys, media…). */
+export async function requireFeature(feature: string) {
+  const ctx = await requireStaff();
+  if (!ctx.featureOn(feature)) notFound();
   return ctx;
 }
 

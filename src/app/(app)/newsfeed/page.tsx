@@ -4,7 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card, CardBody } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { cn, timeAgo } from "@/lib/utils";
 import { deletePost, deletePostComment, togglePin } from "./actions";
 import { CommentInput, Composer, LikeButton } from "./parts";
@@ -12,6 +12,7 @@ import { CommentInput, Composer, LikeButton } from "./parts";
 export const metadata: Metadata = { title: "Newsfeed" };
 
 export default async function NewsfeedPage() {
+  await requireFeature("newsfeed"); // Setup → Modules
   const { supabase, profile } = await requireStaff();
   const { data: posts } = await supabase
     .from("posts")

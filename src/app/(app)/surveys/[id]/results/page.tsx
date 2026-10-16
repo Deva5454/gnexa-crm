@@ -5,13 +5,14 @@ import { Star } from "lucide-react";
 import { BarList } from "@/components/reports/charts";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 import { Q_TYPES } from "../../types";
 
 export const metadata: Metadata = { title: "Survey results" };
 
 export default async function SurveyResultsPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("surveys"); // Setup → Modules
   const id = Number((await params).id);
   const { supabase } = await requireStaff();
   const [{ data: s }, { data: questions }, { data: responses }] = await Promise.all([

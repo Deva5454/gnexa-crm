@@ -2,20 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileSignature, Mail, Magnet, Phone, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ColorBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 import { deleteEstimateRequest, requestToProposal, updateEstimateRequest } from "../actions";
-import { REQ_STATUS } from "../status";
+import { reqStatuses } from "../status";
 
 export const metadata: Metadata = { title: "Estimate request" };
 
 export default async function EstimateRequestPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("estimate_requests"); // Setup → Modules
   const id = Number((await params).id);
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
@@ -25,14 +26,15 @@ export default async function EstimateRequestPage({ params }: { params: Promise<
   ]);
   if (!r) notFound();
   const { data: proposals } = r.lead_id ? await supabase.from("sales_docs").select("id, number, status, total").eq("lead_id", r.lead_id).eq("kind", "proposal") : { data: [] };
-  const st = REQ_STATUS[r.status] ?? REQ_STATUS.new!;
+  const statuses = await reqStatuses(supabase);
+  const st = statuses.of(r.status);
   const canEdit = can("sales", "edit");
 
   return (
     <>
       <PageHeader
         eyebrow={<Link href="/estimate-requests" className="hover:text-brand-600">Estimate requests</Link>}
-        title={<span className="flex flex-wrap items-center gap-3">{r.name}{r.company && <span className="text-slate-400">· {r.company}</span>}<Badge className={st.color}>{st.label}</Badge></span>}
+        title={<span className="flex flex-wrap items-center gap-3">{r.name}{r.company && <span className="text-slate-400">· {r.company}</span>}<ColorBadge color={st.color}>{st.name}</ColorBadge></span>}
         description={`Received ${formatDateTime(r.created_at)} via ${r.form?.name ?? "web form"}`}
         actions={
           <>
@@ -89,7 +91,7 @@ export default async function EstimateRequestPage({ params }: { params: Promise<
                 <form action={updateEstimateRequest} className="space-y-3">
                   <input type="hidden" name="id" value={id} />
                   <select name="status" defaultValue={r.status} className="field" aria-label="Status">
-                    {Object.entries(REQ_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                    {statuses.list.map((v) => <option key={v.key} value={v.key}>{v.name}</option>)}
                   </select>
                   <select name="assigned_to" defaultValue={r.assigned_to ?? ""} className="field" aria-label="Assigned to">
                     <option value="">Unassigned</option>

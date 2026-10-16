@@ -6,13 +6,14 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { createSurvey } from "./actions";
 
 export const metadata: Metadata = { title: "Surveys" };
 
 export default async function SurveysPage() {
+  await requireFeature("surveys"); // Setup → Modules
   const { supabase } = await requireStaff();
   const { data: surveys } = await supabase
     .from("surveys")

@@ -1,26 +1,44 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { ChevronDown, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
-import { NAV } from "./nav";
+import { arrange, NAV, type MenuConfig, type NavItem } from "./nav";
 import type { Module } from "@/lib/permissions";
 
 export function Sidebar({
   isAdmin,
   visible,
+  disabled,
+  menu,
   mobileOpen,
   onClose,
 }: {
   isAdmin: boolean;
   visible: Module[];
+  /** features switched off in Setup → Modules */
+  disabled: string[];
+  /** Setup → Menu setup */
+  menu: MenuConfig;
   mobileOpen: boolean;
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const params = useSearchParams();
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const allowed = (i: NavItem) =>
+    (!i.adminOnly || isAdmin) && (!i.module || visible.includes(i.module)) && (!i.feature || !disabled.includes(i.feature));
+  const isActive = (i: NavItem) => {
+    const [path, qs] = i.href.split("?");
+    if (qs) {
+      const want = new URLSearchParams(qs);
+      return pathname === path && [...want].every(([k, v]) => (params.get(k) ?? (k === "tab" ? "sales" : null)) === v);
+    }
+    return pathname === path || pathname.startsWith(`${path}/`);
+  };
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -78,9 +96,11 @@ export function Sidebar({
         </div>
         <div className="mx-4 mb-2 h-px bg-gradient-to-r from-brand-500/40 via-accent-500/30 to-transparent" />
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-3">
+        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-3" aria-label="Main">
           {NAV.map((group) => {
-            const items = group.items.filter((i) => (!i.adminOnly || isAdmin) && (!i.module || visible.includes(i.module)));
+            const items = arrange(group.items, group.section, menu)
+              .map((i) => (i.children ? { ...i, children: arrange(i.children.filter(allowed), i.href, menu) } : i))
+              .filter((i) => allowed(i) && (!i.children || i.children.length > 0));
             if (!items.length) return null;
             return (
               <div key={group.section}>
@@ -91,36 +111,72 @@ export function Sidebar({
                 )}
                 <ul className="space-y-0.5">
                   {items.map((item) => {
-                    const active = !item.soon && (pathname === item.href || pathname.startsWith(`${item.href}/`));
                     const Icon = item.icon;
+                    if (item.children) {
+                      const childActive = item.children.some(isActive);
+                      const open = (openGroups[item.href] ?? childActive) && !collapsed;
+                      return (
+                        <li key={item.label}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (collapsed) toggle();
+                              setOpenGroups((g) => ({ ...g, [item.href]: !open }));
+                            }}
+                            aria-expanded={open}
+                            title={collapsed ? item.label : undefined}
+                            className={cn(
+                              "group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-ink-800 hover:text-white",
+                              collapsed && "lg:justify-center lg:px-0",
+                              childActive && !open && "text-white",
+                            )}
+                          >
+                            <Icon className={cn("h-[18px] w-[18px] shrink-0", childActive ? "text-white" : "text-slate-400 group-hover:text-slate-200")} />
+                            {!collapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                            {!collapsed && <ChevronDown className={cn("h-4 w-4 text-slate-500 transition-transform", open && "rotate-180")} />}
+                          </button>
+                          {open && (
+                            <ul className="mb-1 ml-5 mt-0.5 space-y-0.5 border-l border-ink-700 pl-3">
+                              {item.children.map((c) => {
+                                const active = isActive(c);
+                                return (
+                                  <li key={c.href}>
+                                    <Link
+                                      href={c.href}
+                                      onClick={onClose}
+                                      aria-current={active ? "page" : undefined}
+                                      className={cn(
+                                        "block truncate rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
+                                        active ? "bg-brand-600/80 font-medium text-white" : "text-slate-400 hover:bg-ink-800 hover:text-white",
+                                      )}
+                                    >
+                                      {c.label}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    }
+                    const active = !item.soon && isActive(item);
                     const inner = (
                       <>
                         <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-white" : "text-slate-400 group-hover:text-slate-200")} />
                         {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                        {!collapsed && item.soon && (
-                          <span className="rounded bg-ink-700 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                            Soon
-                          </span>
-                        )}
                       </>
                     );
                     const cls = cn(
                       "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                       collapsed && "lg:justify-center lg:px-0",
                       active ? "bg-gradient-to-r from-brand-600/90 to-brand-500/60 text-white shadow-pop" : "hover:bg-ink-800 hover:text-white",
-                      item.soon && "cursor-default opacity-60 hover:bg-transparent hover:text-slate-300",
                     );
                     return (
                       <li key={item.label}>
-                        {item.soon ? (
-                          <span className={cls} title={`${item.label} — coming soon`}>
-                            {inner}
-                          </span>
-                        ) : (
-                          <Link href={item.href} className={cls} onClick={onClose} title={collapsed ? item.label : undefined}>
-                            {inner}
-                          </Link>
-                        )}
+                        <Link href={item.href} className={cls} onClick={onClose} title={collapsed ? item.label : undefined} aria-current={active ? "page" : undefined}>
+                          {inner}
+                        </Link>
                       </li>
                     );
                   })}

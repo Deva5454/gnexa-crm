@@ -22,7 +22,9 @@ export const REPORT_TABS: { key: string; label: string; module: Module }[] = [
   { key: "sales", label: "Sales", module: "sales" },
   { key: "leads", label: "Leads", module: "leads" },
   { key: "expenses", label: "Expenses", module: "expenses" },
-  { key: "time", label: "Time", module: "projects" },
+  { key: "income", label: "Expenses vs income", module: "expenses" },
+  { key: "time", label: "Timesheets overview", module: "projects" },
+  { key: "kb", label: "KB articles", module: "knowledge_base" },
   { key: "support", label: "Support", module: "support" },
 ];
 
@@ -223,25 +225,13 @@ export async function leadReports(supabase: DB): Promise<ReportTable[]> {
 export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const yearAgo = daysFromToday(-365);
-  const [{ data: exps }, { data: cats }, { data: pays }] = await Promise.all([
+  const [{ data: exps }, { data: cats }] = await Promise.all([
     allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo).order("id").range(a, b)),
     supabase.from("expense_categories").select("id, name"),
-    allRows((a, b) => supabase.from("payments").select("amount, date, invoice:sales_docs(exchange_rate)").gte("date", `${months[0]!.key}-01`).order("id").range(a, b)),
   ]);
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const all = exps ?? [];
   return [
-    {
-      key: "expenses-vs-income",
-      title: "Money in vs money out",
-      description: "Payments collected vs expenses (incl. GST), last 6 months",
-      columns: [{ label: "Month" }, { label: "Collected", money: true }, { label: "Spent", money: true }, { label: "Net", money: true }],
-      rows: months.map((m) => {
-        const inn = (pays ?? []).filter((p) => monthOf(p.date) === m.key).reduce((s, p) => s + toBase(Number(p.amount), p.invoice?.exchange_rate), 0);
-        const out = all.filter((e) => monthOf(e.date) === m.key).reduce((s, e) => s + gross(e), 0);
-        return [m.label, r2(inn), r2(out), r2(inn - out)];
-      }),
-    },
     {
       key: "expenses-monthly",
       title: "Spend per month",
@@ -350,11 +340,77 @@ export async function supportReports(supabase: DB): Promise<ReportTable[]> {
   ];
 }
 
+/** Expenses vs income: money collected against money spent, month by month. */
+export async function incomeReports(supabase: DB): Promise<ReportTable[]> {
+  const months = lastMonths(12);
+  const since = `${months[0]!.key}-01`;
+  const [{ data: exps }, { data: pays }] = await Promise.all([
+    allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date").gte("date", since).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount, date, invoice:sales_docs(exchange_rate)").gte("date", since).order("id").range(a, b)),
+  ]);
+  const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
+  const inOf = (keys: string[]) => (pays ?? []).filter((p) => keys.includes(monthOf(p.date))).reduce((s, p) => s + toBase(Number(p.amount), p.invoice?.exchange_rate), 0);
+  const outOf = (keys: string[]) => (exps ?? []).filter((e) => keys.includes(monthOf(e.date))).reduce((s, e) => s + gross(e), 0);
+  const keys = months.map((m) => m.key);
+  const period = (label: string, ks: string[]) => {
+    const i = inOf(ks);
+    const o = outOf(ks);
+    return [label, r2(i), r2(o), r2(i - o), i ? Math.round(((i - o) / i) * 100) : 0];
+  };
+  return [
+    {
+      key: "income-monthly",
+      title: "Expenses vs income",
+      description: "Payments collected vs expenses (incl. GST), last 12 months",
+      columns: [{ label: "Month" }, { label: "Income", money: true }, { label: "Expenses", money: true }, { label: "Net", money: true }],
+      rows: months.map((m) => [m.label, r2(inOf([m.key])), r2(outOf([m.key])), r2(inOf([m.key]) - outOf([m.key]))]),
+    },
+    {
+      key: "income-summary",
+      title: "Net by period",
+      columns: [{ label: "Period" }, { label: "Income", money: true }, { label: "Expenses", money: true }, { label: "Net", money: true }, { label: "Margin %", numeric: true }],
+      rows: [period("This month", keys.slice(-1)), period("Last 3 months", keys.slice(-3)), period("Last 12 months", keys)],
+    },
+  ];
+}
+
+/** Knowledge base: which articles are read and whether they help. */
+export async function kbReports(supabase: DB): Promise<ReportTable[]> {
+  const { data: arts } = await allRows((a, b) =>
+    supabase.from("kb_articles").select("title, views, helpful, not_helpful, is_published, group:kb_groups(name)").order("id").range(a, b),
+  );
+  const all = arts ?? [];
+  const byGroup = new Map<string, number>();
+  for (const a of all) byGroup.set(a.group?.name ?? "Uncategorised", (byGroup.get(a.group?.name ?? "Uncategorised") ?? 0) + Number(a.views));
+  return [
+    {
+      key: "kb-articles",
+      title: "Articles",
+      description: "Views and “was this helpful?” votes from the client portal",
+      columns: [{ label: "Article" }, { label: "Category" }, { label: "Views", numeric: true }, { label: "Helpful", numeric: true }, { label: "Not helpful", numeric: true }, { label: "Helpful %", numeric: true }],
+      rows: [...all]
+        .sort((a, b) => Number(b.views) - Number(a.views))
+        .map((a) => {
+          const votes = Number(a.helpful) + Number(a.not_helpful);
+          return [`${a.title}${a.is_published ? "" : " (draft)"}`, a.group?.name ?? "—", Number(a.views), Number(a.helpful), Number(a.not_helpful), votes ? Math.round((Number(a.helpful) / votes) * 100) : 0];
+        }),
+    },
+    {
+      key: "kb-groups",
+      title: "Views by category",
+      columns: [{ label: "Category" }, { label: "Views", numeric: true }],
+      rows: [...byGroup.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, v]),
+    },
+  ];
+}
+
 export async function reportsFor(tab: string, supabase: DB) {
   switch (tab) {
     case "sales": return salesReports(supabase);
     case "leads": return leadReports(supabase);
     case "expenses": return expenseReports(supabase);
+    case "income": return incomeReports(supabase);
+    case "kb": return kbReports(supabase);
     case "time": return timeReports(supabase);
     case "support": return supportReports(supabase);
     default: return [];

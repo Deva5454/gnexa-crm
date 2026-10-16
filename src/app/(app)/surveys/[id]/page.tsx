@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { CopyBox } from "../../settings/web-forms/copy-box";
 import { deleteQuestion, deleteSurvey, saveQuestion, updateSurvey } from "../actions";
 import { Q_TYPES } from "../types";
@@ -29,6 +29,7 @@ function QuestionFields({ q }: { q?: { label: string; type: string; options: str
 }
 
 export default async function SurveyPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("surveys"); // Setup → Modules
   const id = Number((await params).id);
   const { supabase } = await requireStaff();
   const [{ data: s }, { data: questions }, { count }] = await Promise.all([

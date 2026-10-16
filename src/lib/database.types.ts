@@ -16,16 +16,16 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; demo_mode: boolean;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
-        };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number;
-        };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; };
         Relationships: [];
       };
       contacts: {
@@ -148,6 +148,12 @@ export type Database = {
         Row: { id: number; name: string };
         Insert: { id?: never; name: string };
         Update: { id?: never; name?: string };
+        Relationships: [];
+      };
+      estimate_request_statuses: {
+        Row: { key: string; name: string; color: string; sort_order: number; is_open: boolean };
+        Insert: { key: string; name: string; color?: string; sort_order?: number; is_open?: boolean };
+        Update: { key?: string; name?: string; color?: string; sort_order?: number; is_open?: boolean };
         Relationships: [];
       };
       sales_docs: {

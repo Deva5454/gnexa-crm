@@ -4,16 +4,18 @@ import { LogoMark } from "@/components/layout/logo";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
 import { isDemoMode, requirePortal } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
+import { themeCss } from "@/lib/theme";
 import { PortalNav } from "./portal-nav";
 
 export const metadata: Metadata = { title: { default: "Client portal", template: "%s · Client portal" } };
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, company, contactName } = await requirePortal();
-  const { data: settings } = await supabase.from("company_settings").select("company_name").maybeSingle();
+  const { data: settings } = await supabase.from("company_settings").select("company_name, theme").maybeSingle();
   const demo = await isDemoMode();
   return (
     <div className="min-h-screen bg-canvas">
+      <style>{themeCss(settings?.theme)}</style>
       <header className="bg-ink-900 print:hidden">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between gap-4">

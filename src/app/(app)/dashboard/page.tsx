@@ -23,7 +23,7 @@ function greeting() {
 }
 
 export default async function DashboardPage() {
-  const { supabase, profile, can, roleName } = await requireStaff();
+  const { supabase, profile, can, roleName, featureOn } = await requireStaff();
   // Recurring billing is raised by the scheduled job (see 0020_scheduling.sql), not on page loads
   const today = todayIST();
   const since = new Date(Date.now() - 13 * 86400_000);
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {news && <AnnouncementBanner id={news.id} title={news.title} body={news.body} />}
+      {news && featureOn("announcements") && <AnnouncementBanner id={news.id} title={news.title} body={news.body} />}
       <div className="relative mb-8 overflow-hidden rounded-3xl bg-ink-900 px-6 py-7 text-white sm:px-8">
         <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand-500/40 blur-3xl" />
         <div className="absolute -bottom-24 right-40 h-56 w-56 rounded-full bg-accent-500/30 blur-3xl" />
@@ -145,7 +145,7 @@ export default async function DashboardPage() {
 
       <FinanceStrip />
       <WorkStrip />
-      <DashboardGoals />
+      {featureOn("goals") && <DashboardGoals />}
 
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
@@ -229,7 +229,7 @@ export default async function DashboardPage() {
           <CardHeader title="Latest activity" description="Across the whole team" />
           <ActivityFeed limit={10} />
         </Card>
-        <TodoWidget />
+        {featureOn("todos") && <TodoWidget />}
       </div>
     </>
   );

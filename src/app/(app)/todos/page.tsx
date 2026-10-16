@@ -4,7 +4,7 @@ import { BellRing } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { clearDoneTodos } from "@/lib/actions/todos";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { recordPath, REL_LABEL, type ReminderType } from "@/lib/links";
 import type { DocKind } from "@/lib/sales";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { TodoList } from "./todo-list";
 export const metadata: Metadata = { title: "To-do" };
 
 export default async function TodosPage() {
+  await requireFeature("todos"); // Setup → Modules
   const { supabase, profile } = await requireStaff();
   const [{ data: todos }, { data: reminders }] = await Promise.all([
     supabase.from("todos").select("id, body, is_done").eq("staff_id", profile.id).order("is_done").order("position"),

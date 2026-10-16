@@ -5,6 +5,7 @@ import { isDemoMode, requireStaff } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
 import { FLASH_COOKIE } from "@/lib/flash";
 import { MODULES } from "@/lib/permissions";
+import { themeCss } from "@/lib/theme";
 
 function readFlash(raw: string | undefined) {
   try {
@@ -16,7 +17,7 @@ function readFlash(raw: string | undefined) {
 }
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { profile, roleName, can } = await requireStaff();
+  const { profile, roleName, can, settings } = await requireStaff();
   const flash = readFlash((await cookies()).get(FLASH_COOKIE)?.value);
   return (
     <AppShell
@@ -25,9 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       personaKey={personaByEmail(profile.email)?.key}
       isAdmin={profile.is_admin}
       demo={await isDemoMode()}
+      disabled={settings.disabled}
+      menu={settings.menu}
       canCreate={{ customers: can("customers", "edit"), leads: can("leads", "edit"), tasks: can("tasks", "edit"), sales: can("sales", "edit"), expenses: can("expenses", "edit"), projects: can("projects", "edit"), support: can("support", "edit") }}
       visible={MODULES.filter((m) => can(m, "view"))}
     >
+      {/* Setup → Theme style */}
+      <style>{themeCss(settings.theme)}</style>
       {children}
       <Flash flash={flash} />
     </AppShell>

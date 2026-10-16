@@ -5,7 +5,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { contractNumber } from "@/lib/constants";
 import { docHref, docNumber } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
@@ -30,6 +30,7 @@ const istDate = (ts: string) => new Date(new Date(ts).getTime() + 330 * 60_000).
 const istTime = (ts: string) => new Date(new Date(ts).getTime() + 330 * 60_000).toISOString().slice(11, 16);
 
 export default async function CalendarPage({ searchParams }: { searchParams: Promise<{ m?: string }> }) {
+  await requireFeature("calendar"); // Setup → Modules
   const m = (await searchParams).m;
   const { supabase, can, profile } = await requireStaff();
   const now = new Date();

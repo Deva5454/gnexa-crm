@@ -5,7 +5,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 import { deleteAnnouncement } from "./actions";
 import { AnnouncementForm } from "./announcement-form";
@@ -13,6 +13,7 @@ import { AnnouncementForm } from "./announcement-form";
 export const metadata: Metadata = { title: "Announcements" };
 
 export default async function AnnouncementsPage() {
+  await requireFeature("announcements"); // Setup → Modules
   const { supabase, profile } = await requireStaff();
   const { data } = await supabase.from("announcements").select("*, author:profiles(full_name)").order("created_at", { ascending: false });
   return (

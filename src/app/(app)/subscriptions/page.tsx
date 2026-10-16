@@ -7,7 +7,7 @@ import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { INTERVAL_LABEL } from "@/lib/sales";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import { monthly, SUB_STATUS, withTax } from "./status";
@@ -15,6 +15,7 @@ import { monthly, SUB_STATUS, withTax } from "./status";
 export const metadata: Metadata = { title: "Subscriptions" };
 
 export default async function SubscriptionsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  await requireFeature("subscriptions"); // Setup → Modules
   const sp = await searchParams;
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();

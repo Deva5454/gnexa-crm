@@ -5,7 +5,7 @@ import { GoalCards } from "@/components/crm/goal-cards";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { goalProgress } from "@/lib/goals";
 import { GoalForm } from "./goal-form";
 import { todayIST } from "@/lib/dates";
@@ -13,6 +13,7 @@ import { todayIST } from "@/lib/dates";
 export const metadata: Metadata = { title: "Goals" };
 
 export default async function GoalsPage() {
+  await requireFeature("goals"); // Setup → Modules
   const { supabase, can } = await requireStaff();
   if (!can("reports", "view")) notFound();
   const [{ data: goals }, { data: staff }] = await Promise.all([

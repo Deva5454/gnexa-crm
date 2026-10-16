@@ -6,8 +6,6 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/auth";
 import { formatDate } from "@/lib/utils";
 import { updateStaff } from "../actions";
-import { NamedList } from "../named-list";
-import { RoleMatrix } from "./role-matrix";
 
 export const metadata: Metadata = { title: "Staff" };
 
@@ -75,8 +73,6 @@ export default async function StaffPage() {
           })}
         </ul>
       </Card>
-      <RoleMatrix roles={roles ?? []} />
-      <NamedList table="roles" title="Roles" description="Add or remove roles. New roles start with create & edit access." items={roles ?? []} />
     </>
   );
 }

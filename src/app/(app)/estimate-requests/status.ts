@@ -1,6 +1,14 @@
-export const REQ_STATUS: Record<string, { label: string; color: string }> = {
-  new: { label: "New", color: "bg-sky-50 text-sky-700 ring-sky-200" },
-  in_review: { label: "In review", color: "bg-amber-50 text-amber-700 ring-amber-200" },
-  quoted: { label: "Quoted", color: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
-  declined: { label: "Declined", color: "bg-slate-100 text-slate-600 ring-slate-200" },
-};
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
+
+export type ReqStatus = { key: string; name: string; color: string; is_open: boolean };
+
+const FALLBACK: ReqStatus = { key: "new", name: "New", color: "#0ea5e9", is_open: true };
+
+/** Estimate request statuses (Setup → Estimate request → Statuses), in order, plus a lookup by key. */
+export async function reqStatuses(supabase: SupabaseClient<Database>) {
+  const { data } = await supabase.from("estimate_request_statuses").select("key, name, color, is_open").order("sort_order");
+  const list: ReqStatus[] = data?.length ? data : [FALLBACK];
+  const map = new Map(list.map((s) => [s.key, s]));
+  return { list, of: (key: string) => map.get(key) ?? { ...FALLBACK, key, name: key } };
+}

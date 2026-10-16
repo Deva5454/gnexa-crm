@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, INTERVAL_LABEL } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
@@ -18,6 +18,7 @@ import { monthly, SUB_STATUS, withTax } from "../status";
 export const metadata: Metadata = { title: "Subscription" };
 
 export default async function SubscriptionPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireFeature("subscriptions"); // Setup → Modules
   const id = Number((await params).id);
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();

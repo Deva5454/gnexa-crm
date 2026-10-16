@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { ConfirmForm } from "@/components/ui/confirm-form";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { requireStaff } from "@/lib/auth";
+import { requireFeature, requireStaff } from "@/lib/auth";
 import { cn, formatDate } from "@/lib/utils";
 import { deleteMedia } from "./actions";
 import { MediaUploader, ShareButton } from "./uploader";
@@ -16,6 +16,7 @@ const size = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} 
 const iconFor = (mime: string | null) => (mime?.startsWith("image/") ? FileImage : mime === "application/pdf" || mime?.startsWith("text/") ? FileText : File);
 
 export default async function MediaPage({ searchParams }: { searchParams: Promise<{ folder?: string }> }) {
+  await requireFeature("media"); // Setup → Modules
   const sp = await searchParams;
   const { supabase, profile } = await requireStaff();
   const { data: all } = await supabase

@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brand palette (violet). Setup → Theme style overrides these on :root — see lib/theme.ts */
+:root {
+  --brand-50: 241 239 255; --brand-100: 228 224 255; --brand-200: 203 195 255; --brand-300: 169 155 255; --brand-400: 138 117 251;
+  --brand-500: 109 85 242; --brand-600: 90 63 224; --brand-700: 74 50 189; --brand-800: 61 43 152; --brand-900: 51 40 119;
+}
+
 @layer base {
   html { @apply bg-canvas text-slate-800 antialiased; }
   body { @apply min-h-screen; }
