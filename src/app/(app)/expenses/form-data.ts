@@ -1,10 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { allRows } from "@/lib/fetch-all";
 
 export async function expenseOptions(supabase: SupabaseClient<Database>) {
   const [{ data: categories }, { data: customers }, { data: modes }, { data: taxes }] = await Promise.all([
     supabase.from("expense_categories").select("id, name").order("name"),
-    supabase.from("customers").select("id, company").order("company").limit(1000),
+    allRows((a, b) => supabase.from("customers").select("id, company").order("company").order("id").range(a, b)),
     supabase.from("payment_modes").select("id, name").eq("is_active", true).order("id"),
     supabase.from("taxes").select("rate").order("rate"),
   ]);

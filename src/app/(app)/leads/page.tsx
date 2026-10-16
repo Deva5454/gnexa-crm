@@ -14,6 +14,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { cn, formatDate, formatMoney, searchTerm } from "@/lib/utils";
 import { LeadsKanban } from "./kanban";
+import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "Leads" };
 
@@ -31,7 +32,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       "id, name, company, email, phone, value, status_id, position, created_at, last_contact_at, is_lost, is_junk, converted_customer_id, source:lead_sources(name), assignee:profiles!leads_assigned_to_fkey(full_name), status:lead_statuses(name, color)",
     )
     .order("position")
-    .limit(500);
+    .order("id");
   const term = sp.q ? searchTerm(sp.q) : "";
   if (term) query = query.or(`name.ilike.%${term}%,company.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`);
   if (sp.mine) query = query.eq("assigned_to", profile.id);
@@ -45,7 +46,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   }
 
   const [{ data: leads }, { data: statuses }, { data: sources }, { data: settings }, tagList] = await Promise.all([
-    query,
+    allRows((a, b) => query.range(a, b), 10_000), // the board and list show every lead (no silent cut-off at 500)
     supabase.from("lead_statuses").select("id, name, color").order("sort_order"),
     supabase.from("lead_sources").select("id, name").order("name"),
     supabase.from("company_settings").select("currency").maybeSingle(),

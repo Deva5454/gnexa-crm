@@ -13,6 +13,7 @@ import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, KINDS, kindFromSlug, STATUS_FILTERS, type DocKind } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { cn, formatDate, formatMoney, PAGE_SIZE } from "@/lib/utils";
+import { allRows } from "@/lib/fetch-all";
 
 export async function generateMetadata({ params }: { params: Promise<{ kind: string }> }): Promise<Metadata> {
   const kind = kindFromSlug((await params).kind);
@@ -29,15 +30,16 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
   const page = Math.max(1, Number(sp.page) || 1);
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
-  if (kind === "invoice") await supabase.rpc("run_recurring"); // raise any recurring/subscription invoices that fell due
-
-  const { data: docs } = await supabase
-    .from("sales_docs")
-    .select("id, kind, number, subject, date, due_date, status, total, currency, recurring_every, recurring_from, subscription_id, customer:customers(company), lead:leads(name, company)")
-    .eq("kind", kind)
-    .order("date", { ascending: false })
-    .order("number", { ascending: false })
-    .limit(2000);
+  // Recurring and subscription invoices are raised by the scheduled job (see 0020_scheduling.sql)
+  const { data: docs } = await allRows((from, to) =>
+    supabase
+      .from("sales_docs")
+      .select("id, kind, number, subject, date, due_date, status, total, currency, recurring_every, recurring_from, subscription_id, customer:customers(company), lead:leads(name, company)")
+      .eq("kind", kind)
+      .order("date", { ascending: false })
+      .order("number", { ascending: false })
+      .range(from, to),
+  );
   const bals = await balancesFor(supabase, (docs ?? []).map((d) => d.id));
   const today = new Date().toISOString().slice(0, 10);
 

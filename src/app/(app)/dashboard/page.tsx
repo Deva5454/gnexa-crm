@@ -12,6 +12,7 @@ import { requireStaff } from "@/lib/auth";
 import { taskPriority } from "@/lib/constants";
 import { cn, formatDate, formatMoney } from "@/lib/utils";
 import { CompleteToggle } from "../tasks/status-select";
+import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -22,13 +23,13 @@ function greeting() {
 
 export default async function DashboardPage() {
   const { supabase, profile, can, roleName } = await requireStaff();
-  if (can("sales", "view") || can("expenses", "view")) await supabase.rpc("run_recurring"); // catch up on recurring billing before the numbers below
+  // Recurring billing is raised by the scheduled job (see 0020_scheduling.sql), not on page loads
   const today = new Date().toISOString().slice(0, 10);
   const since = new Date(Date.now() - 13 * 86400_000);
   since.setHours(0, 0, 0, 0);
 
-  const [{ data: leads }, { data: statuses }, { data: sources }, customers, { data: myTasks }, overdue, { data: settings }, { data: news }] = await Promise.all([
-    supabase.from("leads").select("id, status_id, source_id, value, is_lost, is_junk, converted_customer_id, created_at").limit(5000),
+  const [{ data: leads }, { data: statuses }, { data: sources }, customers, { data: myTasks }, overdue, { data: settings }, { data: news }, { count: openCount }] = await Promise.all([
+    allRows((a, b) => supabase.from("leads").select("id, status_id, source_id, value, is_lost, is_junk, converted_customer_id, created_at").order("id").range(a, b)),
     supabase.from("lead_statuses").select("id, name, color").order("sort_order"),
     supabase.from("lead_sources").select("id, name"),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
@@ -47,6 +48,8 @@ export default async function DashboardPage() {
       .lt("due_date", today),
     supabase.from("company_settings").select("currency").maybeSingle(),
     supabase.from("announcements").select("id, title, body").eq("show_to_staff", true).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    // the list above shows 7; this counts them all
+    supabase.from("tasks").select("id, task_assignees!inner(staff_id)", { count: "exact", head: true }).eq("task_assignees.staff_id", profile.id).neq("status", "complete"),
   ]);
 
   const currency = settings?.currency ?? "INR";
@@ -105,7 +108,7 @@ export default async function DashboardPage() {
               {greeting()}, {profile.full_name.split(" ")[0] || "there"} 👋
             </h1>
             <p className="mt-1 text-sm text-slate-300">
-              {newThisFortnight} new leads in the last two weeks · {myTasks?.length ?? 0} open tasks on your plate
+              {newThisFortnight} new leads in the last two weeks · {openCount ?? myTasks?.length ?? 0} open tasks on your plate
             </p>
           </div>
           <div className="flex gap-2">

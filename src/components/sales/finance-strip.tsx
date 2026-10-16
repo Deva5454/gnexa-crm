@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/auth";
 import { docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { formatMoney } from "@/lib/utils";
+import { allRows } from "@/lib/fetch-all";
 
 /** Money at a glance for the dashboard; hidden for roles without sales access. */
 export async function FinanceStrip() {
@@ -14,9 +15,9 @@ export async function FinanceStrip() {
   const ms = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
   const [{ data: invs }, { data: pays }, { data: exps }] = await Promise.all([
-    supabase.from("sales_docs").select("id, kind, status, due_date, total").eq("kind", "invoice").in("status", ["sent", "accepted"]),
-    supabase.from("payments").select("amount").gte("date", ms),
-    can("expenses", "view") ? supabase.from("expenses").select("amount, tax_rate").gte("date", ms) : Promise.resolve({ data: null }),
+    allRows((a, b) => supabase.from("sales_docs").select("id, kind, status, due_date, total").eq("kind", "invoice").in("status", ["sent", "accepted"]).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount").gte("date", ms).order("id").range(a, b)),
+    can("expenses", "view") ? allRows((a, b) => supabase.from("expenses").select("amount, tax_rate").gte("date", ms).order("id").range(a, b)) : Promise.resolve({ data: null }),
   ]);
   const bals = await balancesFor(supabase, (invs ?? []).map((i) => i.id));
   let outstanding = 0;

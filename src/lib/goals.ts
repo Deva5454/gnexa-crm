@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/database.types";
+import { allRows } from "@/lib/fetch-all";
 
 export const GOAL_METRICS = [
   { value: "invoiced", label: "Amount invoiced", money: true, hint: "Invoices dated in the period (excl. drafts & cancelled)" },
@@ -18,13 +19,19 @@ export async function goalProgress(supabase: SupabaseClient<Database>, goals: Ta
     const to = `${g.end_date}T23:59:59.999Z`;
     let value = 0;
     if (g.metric === "invoiced") {
-      let q = supabase.from("sales_docs").select("total").eq("kind", "invoice").in("status", ["sent", "accepted"]).gte("date", from).lte("date", g.end_date);
-      if (g.staff_id) q = q.eq("created_by", g.staff_id);
-      value = ((await q).data ?? []).reduce((s, r) => s + Number(r.total), 0);
+      const { data } = await allRows((a, b) => {
+        let q = supabase.from("sales_docs").select("total").eq("kind", "invoice").in("status", ["sent", "accepted"]).gte("date", from).lte("date", g.end_date);
+        if (g.staff_id) q = q.eq("created_by", g.staff_id);
+        return q.order("id").range(a, b);
+      });
+      value = data.reduce((s, r) => s + Number(r.total), 0);
     } else if (g.metric === "collected") {
-      let q = supabase.from("payments").select("amount").gte("date", from).lte("date", g.end_date);
-      if (g.staff_id) q = q.eq("created_by", g.staff_id);
-      value = ((await q).data ?? []).reduce((s, r) => s + Number(r.amount), 0);
+      const { data } = await allRows((a, b) => {
+        let q = supabase.from("payments").select("amount").gte("date", from).lte("date", g.end_date);
+        if (g.staff_id) q = q.eq("created_by", g.staff_id);
+        return q.order("id").range(a, b);
+      });
+      value = data.reduce((s, r) => s + Number(r.amount), 0);
     } else if (g.metric === "leads_converted") {
       let q = supabase.from("leads").select("id", { count: "exact", head: true }).gte("converted_at", from).lte("converted_at", to);
       if (g.staff_id) q = q.eq("assigned_to", g.staff_id);

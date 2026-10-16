@@ -15,6 +15,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { TICKET_STATUSES, taskPriority, ticketNumber, ticketStatus } from "@/lib/constants";
 import { cn, searchTerm, timeAgo } from "@/lib/utils";
+import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "Support" };
 
@@ -48,7 +49,7 @@ export default async function SupportPage({ searchParams }: { searchParams: Prom
 
   const [{ data: tickets }, { data: all }, { data: depts }, tagList, { count: myDeptCount }] = await Promise.all([
     q,
-    supabase.from("tickets").select("status, priority, assigned_to"),
+    allRows((a, b) => supabase.from("tickets").select("status, priority, assigned_to").order("id").range(a, b)),
     supabase.from("ticket_departments").select("id, name").order("name"),
     allTags(supabase),
     supabase.from("staff_departments").select("department_id", { count: "exact", head: true }).eq("staff_id", profile.id),

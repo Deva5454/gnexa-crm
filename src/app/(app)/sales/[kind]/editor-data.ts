@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { CatalogueItem, PartyOption } from "./doc-editor";
+import { allRows } from "@/lib/fetch-all";
 
 export type BillableExpense = { id: number; customer_id: number; name: string; date: string; amount: number; tax_rate: number; category: string | null; invoice_id: number | null };
 
@@ -17,7 +18,7 @@ export async function editorOptions(supabase: SupabaseClient<Database>, docId?: 
     id: e.id, customer_id: e.customer_id!, name: e.name, date: e.date, amount: Number(e.amount), tax_rate: Number(e.tax_rate), category: e.category?.name ?? null, invoice_id: e.invoice_id,
   }));
   const [{ data: customers }, { data: leads }, { data: items }, { data: taxes }, { data: settings }, { data: currencies }] = await Promise.all([
-    supabase.from("customers").select("id, company, currency").order("company").limit(1000),
+    allRows((a, b) => supabase.from("customers").select("id, company, currency").order("company").order("id").range(a, b)),
     supabase.from("leads").select("id, name, company").is("converted_customer_id", null).eq("is_junk", false).eq("is_lost", false).order("name").limit(1000),
     supabase.from("items").select("id, name, description, rate, unit, tax:taxes(rate)").order("name"),
     supabase.from("taxes").select("rate").order("rate"),

@@ -21,7 +21,6 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
   const id = Number((await params).id);
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
-  await supabase.rpc("run_recurring");
   const [{ data: s }, { data: invoices }] = await Promise.all([
     supabase.from("subscriptions").select("*, customer:customers(id, company), creator:profiles!subscriptions_created_by_fkey(full_name)").eq("id", id).maybeSingle(),
     supabase.from("sales_docs").select("id, number, date, due_date, status, total").eq("subscription_id", id).order("date", { ascending: false }),

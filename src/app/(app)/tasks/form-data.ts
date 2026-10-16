@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { RelOption } from "./task-form";
+import { allRows } from "@/lib/fetch-all";
 
 export async function taskFormOptions(supabase: SupabaseClient<Database>) {
   const [{ data: staff }, { data: customers }, { data: leads }, { data: projects }, { data: milestones }] = await Promise.all([
     supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
-    supabase.from("customers").select("id, company").eq("is_active", true).order("company").limit(500),
+    allRows((a, b) => supabase.from("customers").select("id, company").eq("is_active", true).order("company").order("id").range(a, b)),
     supabase.from("leads").select("id, name, company").is("converted_customer_id", null).eq("is_junk", false).order("name").limit(500),
     supabase.from("projects").select("id, name").not("status", "in", "(cancelled,finished)").order("name").limit(500),
     supabase.from("milestones").select("id, name, project_id").order("position"),

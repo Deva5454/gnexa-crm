@@ -3,6 +3,7 @@ import type { Database } from "@/lib/database.types";
 import type { Module } from "@/lib/permissions";
 import { docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
+import { allRows } from "@/lib/fetch-all";
 
 type DB = SupabaseClient<Database>;
 
@@ -45,8 +46,8 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
   const since = `${months[0]!.key}-01`;
   const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
   const [{ data: invoices }, { data: payments }] = await Promise.all([
-    supabase.from("sales_docs").select("id, date, due_date, status, total, customer:customers(company)").eq("kind", "invoice").neq("status", "draft").neq("status", "cancelled"),
-    supabase.from("payments").select("amount, date, mode:payment_modes(name)").gte("date", yearAgo),
+    allRows((a, b) => supabase.from("sales_docs").select("id, date, due_date, status, total, customer:customers(company)").eq("kind", "invoice").neq("status", "draft").neq("status", "cancelled").order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount, date, mode:payment_modes(name)").gte("date", yearAgo).order("id").range(a, b)),
   ]);
   const inv = invoices ?? [];
   const bals = await balancesFor(supabase, inv.map((i) => i.id));
@@ -114,13 +115,17 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
 /** Revenue by item, and how proposals/estimates convert. */
 async function salesExtras(supabase: DB, yearAgo: string): Promise<ReportTable[]> {
   const [{ data: lines }, { data: quotes }] = await Promise.all([
-    supabase
-      .from("sales_doc_items")
-      .select("description, qty, rate, doc:sales_docs!inner(kind, status, date)")
-      .eq("doc.kind", "invoice")
-      .in("doc.status", ["sent", "accepted"])
-      .gte("doc.date", yearAgo),
-    supabase.from("sales_docs").select("kind, status, total").in("kind", ["proposal", "estimate"]).neq("status", "draft"),
+    allRows((a, b) =>
+      supabase
+        .from("sales_doc_items")
+        .select("description, qty, rate, doc:sales_docs!inner(kind, status, date)")
+        .eq("doc.kind", "invoice")
+        .in("doc.status", ["sent", "accepted"])
+        .gte("doc.date", yearAgo)
+        .order("id")
+        .range(a, b),
+    ),
+    allRows((a, b) => supabase.from("sales_docs").select("kind, status, total").in("kind", ["proposal", "estimate"]).neq("status", "draft").order("id").range(a, b)),
   ]);
   const byItem = new Map<string, { qty: number; amount: number }>();
   for (const l of lines ?? []) {
@@ -156,7 +161,7 @@ async function salesExtras(supabase: DB, yearAgo: string): Promise<ReportTable[]
 export async function leadReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const [{ data: leads }, { data: sources }, { data: statuses }] = await Promise.all([
-    supabase.from("leads").select("created_at, source_id, status_id, value, is_lost, is_junk, converted_customer_id, converted_at"),
+    allRows((a, b) => supabase.from("leads").select("created_at, source_id, status_id, value, is_lost, is_junk, converted_customer_id, converted_at").order("id").range(a, b)),
     supabase.from("lead_sources").select("id, name").order("name"),
     supabase.from("lead_statuses").select("id, name, sort_order").order("sort_order"),
   ]);
@@ -192,7 +197,7 @@ export async function leadReports(supabase: DB): Promise<ReportTable[]> {
     }),
   };
   // Win rate by lead owner
-  const { data: owned } = await supabase.from("leads").select("assigned_to, is_lost, converted_customer_id, value, owner:profiles!leads_assigned_to_fkey(full_name)");
+  const { data: owned } = await allRows((a, b) => supabase.from("leads").select("assigned_to, is_lost, converted_customer_id, value, owner:profiles!leads_assigned_to_fkey(full_name)").order("id").range(a, b));
   const byOwner = new Map<string, { leads: number; won: number; lost: number; wonValue: number }>();
   for (const l of owned ?? []) {
     const k = l.owner?.full_name ?? "Unassigned";
@@ -216,9 +221,9 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const yearAgo = new Date(Date.now() - 365 * 86400_000).toISOString().slice(0, 10);
   const [{ data: exps }, { data: cats }, { data: pays }] = await Promise.all([
-    supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo),
+    allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo).order("id").range(a, b)),
     supabase.from("expense_categories").select("id, name"),
-    supabase.from("payments").select("amount, date").gte("date", `${months[0]!.key}-01`),
+    allRows((a, b) => supabase.from("payments").select("amount, date").gte("date", `${months[0]!.key}-01`).order("id").range(a, b)),
   ]);
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const all = exps ?? [];
@@ -269,10 +274,14 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
 
 export async function timeReports(supabase: DB): Promise<ReportTable[]> {
   const ninety = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10);
-  const { data: rows } = await supabase
-    .from("timesheets")
-    .select("hours, is_billable, invoice_id, date, staff:profiles(full_name), project:projects(name, billing_type, hourly_rate)")
-    .gte("date", ninety);
+  const { data: rows } = await allRows((a, b) =>
+    supabase
+      .from("timesheets")
+      .select("hours, is_billable, invoice_id, date, staff:profiles(full_name), project:projects(name, billing_type, hourly_rate)")
+      .gte("date", ninety)
+      .order("id")
+      .range(a, b),
+  );
   const all = rows ?? [];
   const byStaff = new Map<string, { total: number; billable: number }>();
   const byProject = new Map<string, { total: number; billable: number; unbilled: number; value: number }>();
@@ -312,7 +321,7 @@ export async function timeReports(supabase: DB): Promise<ReportTable[]> {
 export async function supportReports(supabase: DB): Promise<ReportTable[]> {
   const months = lastMonths(6);
   const [{ data: tickets }, { data: depts }] = await Promise.all([
-    supabase.from("tickets").select("created_at, closed_at, status, department_id, priority, ticket_replies(count)"),
+    allRows((a, b) => supabase.from("tickets").select("created_at, closed_at, status, department_id, priority, ticket_replies(count)").order("id").range(a, b)),
     supabase.from("ticket_departments").select("id, name"),
   ]);
   const all = tickets ?? [];

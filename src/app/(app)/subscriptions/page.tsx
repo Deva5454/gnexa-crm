@@ -18,7 +18,6 @@ export default async function SubscriptionsPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
-  await supabase.rpc("run_recurring");
   const { data: all } = await supabase
     .from("subscriptions")
     .select("id, name, status, quantity, unit_price, tax_rate, currency, interval_count, interval_unit, next_billing_date, cycles_billed, ends_after_cycles, auto_charge, customer:customers(id, company)")

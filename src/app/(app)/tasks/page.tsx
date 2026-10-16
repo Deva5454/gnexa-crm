@@ -17,6 +17,7 @@ import { TagChip } from "@/components/crm/tag-editor";
 import { CompleteToggle, StatusSelect } from "./status-select";
 import { TasksBoard, type BoardTask } from "./kanban";
 import { TagFilter } from "@/components/crm/tag-filter";
+import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "Tasks" };
 
@@ -70,8 +71,8 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
 
   // Status summary for the current scope
   const { data: summaryRows } = mine
-    ? await supabase.from("tasks").select("status, task_assignees!inner(staff_id)").eq("task_assignees.staff_id", profile.id)
-    : await supabase.from("tasks").select("status");
+    ? await allRows((a, b) => supabase.from("tasks").select("status, task_assignees!inner(staff_id)").eq("task_assignees.staff_id", profile.id).order("id").range(a, b))
+    : await allRows((a, b) => supabase.from("tasks").select("status").order("id").range(a, b));
   const counts = new Map<string, number>();
   for (const r of summaryRows ?? []) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
 

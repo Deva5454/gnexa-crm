@@ -12,6 +12,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE, searchTerm } from "@/lib/utils";
+import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -22,7 +23,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   const page = Math.max(1, Number(sp.page) || 1);
   const { supabase, can } = await requireStaff();
   if (!can("expenses", "view")) notFound();
-  await supabase.rpc("run_recurring"); // add any recurring expenses that fell due
+  // Recurring expenses are added by the scheduled job (see 0020_scheduling.sql)
 
   let q = supabase
     .from("expenses")
@@ -40,14 +41,14 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   const [{ data: rows, count }, { data: cats }, { data: recent }] = await Promise.all([
     q,
     supabase.from("expense_categories").select("id, name").order("name"),
-    supabase.from("expenses").select("amount, tax_rate, date, is_billable, invoice_id, category_id").gte("date", yearAgo),
+    allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, is_billable, invoice_id, category_id, customer_id").gte("date", yearAgo).order("id").range(a, b)),
   ]);
 
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const ms = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const all = recent ?? [];
   const thisMonth = all.filter((e) => e.date >= ms).reduce((s, e) => s + gross(e), 0);
-  const unbilled = all.filter((e) => e.is_billable && !e.invoice_id).reduce((s, e) => s + gross(e), 0);
+  const unbilled = all.filter((e) => e.is_billable && !e.invoice_id && e.customer_id).reduce((s, e) => s + gross(e), 0);
   const total12 = all.reduce((s, e) => s + gross(e), 0);
   const byCat = (cats ?? [])
     .map((c) => ({ ...c, total: all.filter((e) => e.category_id === c.id).reduce((s, e) => s + gross(e), 0) }))

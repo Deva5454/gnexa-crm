@@ -31,7 +31,10 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
     ids.length ? supabase.from("sales_doc_items").select("*").in("doc_id", ids).order("position") : Promise.resolve({ data: [] }),
   ]);
   const items = await Promise.all(
-    (docs ?? []).map(async (d) => ({ d, party: await loadParty(supabase, d), extra: await pdfFields(supabase, d.id) })),
+    (docs ?? []).map(async (d) => {
+      const [party, extra] = await Promise.all([loadParty(supabase, d), pdfFields(supabase, d.id)]);
+      return { d, party, extra };
+    }),
   );
   const label = `${KINDS[kind].plural} ${formatDate(from)} – ${formatDate(to)}`;
 

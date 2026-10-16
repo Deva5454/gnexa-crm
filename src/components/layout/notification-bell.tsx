@@ -16,7 +16,9 @@ export function NotificationBell() {
   const pathname = usePathname();
   const router = useRouter();
 
+  const last = useRef(0);
   const refresh = useCallback(() => {
+    last.current = Date.now();
     loadBell()
       .then((r) => {
         setItems(r.items);
@@ -25,13 +27,23 @@ export function NotificationBell() {
       .catch(() => {});
   }, []);
 
-  // Refresh on every navigation, and every minute so due reminders show up
+  // Refresh when the page changes (at most every 30 s), and every minute while the tab is visible —
+  // a hidden tab doesn't poll at all, and catches up as soon as it's shown again
   useEffect(() => {
-    refresh();
+    if (Date.now() - last.current > 30_000) refresh();
   }, [pathname, refresh]);
   useEffect(() => {
-    const t = setInterval(refresh, 60_000);
-    return () => clearInterval(t);
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 60_000);
+    const onShow = () => {
+      if (document.visibilityState === "visible" && Date.now() - last.current > 30_000) refresh();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onShow);
+    };
   }, [refresh]);
   useEffect(() => {
     const h = (e: MouseEvent) => {
