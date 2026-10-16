@@ -57,7 +57,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <div className="mb-4 flex flex-wrap gap-4 text-xs text-slate-600">
         {Object.values(KIND).map((k) => <span key={k.label} className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: k.color }} />{k.label}</span>)}
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
         <Card className="overflow-hidden">
           <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-50/60 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <div key={d} className="py-2">{d}</div>)}

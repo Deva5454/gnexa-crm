@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logActivity } from "@/lib/activity";
 import { assertAccess, denied, requireStaff } from "@/lib/auth";
-import { addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
+import { addDays, addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { HSN_RE } from "@/lib/gst";
 import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
 import { daysFromToday, todayIST } from "@/lib/dates";
+import { discardUpload, fileRow } from "@/lib/uploads";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -49,7 +50,7 @@ function parseLines(raw: string | null): Line[] | string {
 
 /** Create or update any sales document. */
 export async function saveDoc(kind: DocKind, id: number | null, _: FormState, form: FormData): Promise<FormState> {
-  const { supabase, can, roleName } = await requireStaff();
+  const { supabase, can, roleName, profile } = await requireStaff();
   if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
 
   const lines = parseLines(str(form, "items"));
@@ -113,6 +114,13 @@ export async function saveDoc(kind: DocKind, id: number | null, _: FormState, fo
   });
   if (error) return { error: friendlyError(error.message) };
   const docId = (saved as { id: number; number: number }).id;
+  // Sale agent and the private admin note sit outside the document transaction (neither affects money)
+  const agent = str(form, "sale_agent");
+  await supabase.from("sales_docs").update({ sale_agent: agent && /^[0-9a-f-]{36}$/i.test(agent) ? agent : null }).eq("id", docId);
+  const adminNote = (str(form, "admin_note") ?? "").slice(0, 5000);
+  const { data: oldNote } = id ? await supabase.from("sales_doc_notes").select("note").eq("doc_id", docId).maybeSingle() : { data: null };
+  if (adminNote && adminNote !== oldNote?.note) await supabase.from("sales_doc_notes").upsert({ doc_id: docId, note: adminNote, updated_by: profile.id, updated_at: new Date().toISOString() });
+  else if (!adminNote && oldNote) await supabase.from("sales_doc_notes").delete().eq("doc_id", docId);
   if (!id) {
     const rel = customer_id ? ({ type: "customer", id: customer_id } as const) : ({ type: "lead", id: lead_id! } as const);
     await logActivity(supabase, `created ${KINDS[kind].label.toLowerCase()} ${docNumber(kind, (saved as { number: number }).number)}`, rel);
@@ -218,9 +226,11 @@ export async function deleteDoc(form: FormData) {
     const { supabase } = await assertAccess("sales", "full");
     const id = Number(str(form, "id"));
     const { data: doc } = await supabase.from("sales_docs").select("kind").eq("id", id).single();
+    const { data: files } = await supabase.from("sales_doc_files").select("path").eq("doc_id", id);
     // Billed expenses are released by the foreign key; documents with money on them are refused by the database
     const { error } = await supabase.from("sales_docs").delete().eq("id", id);
     if (error) throw new Error(error.message);
+    if (files?.length) await supabase.storage.from(SALES_BUCKET).remove(files.map((f) => f.path));
     const slug = KINDS[(doc?.kind ?? "invoice") as DocKind].slug;
     revalidatePath(`/sales/${slug}`);
     redirect(`/sales/${slug}`);
@@ -340,5 +350,189 @@ export async function deleteItem(form: FormData) {
     const { supabase } = await assertAccess("sales", "full");
     must(await supabase.from("items").delete().eq("id", Number(str(form, "id"))));
     revalidatePath("/sales/items");
+  });
+}
+
+// ───────────── Copy (Perfex "Copy invoice") ─────────────
+/** A new draft with the same customer, lines and terms, dated today (due date keeps the same gap). */
+export async function copyDoc(form: FormData) {
+  return withFlash(async () => {
+    const { supabase, profile } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const [{ data: src }, { data: lines }] = await Promise.all([
+      supabase.from("sales_docs").select("*").eq("id", id).single(),
+      supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
+    ]);
+    if (!src) throw new Error("Document not found.");
+    if (!lines?.length) throw new Error("This document has no line items to copy.");
+    const kind = src.kind as DocKind;
+    const today = todayIST();
+    const gap = src.due_date ? Math.round((Date.parse(src.due_date) - Date.parse(src.date)) / 86400_000) : null;
+    // Billed expenses and project hours belong to the original — the copy gets plain lines
+    const copied: Line[] = lines.map((l) => ({
+      item_id: l.item_id, hsn_sac: l.hsn_sac, description: l.description, long_description: l.long_description,
+      qty: Number(l.qty), unit: l.unit, rate: Number(l.rate), tax_rate: Number(l.tax_rate),
+    }));
+    const totals = computeTotals(copied, Number(src.discount_percent), Number(src.adjustment));
+    const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+      p_kind: kind,
+      p_id: null,
+      p_doc: {
+        customer_id: src.customer_id, lead_id: src.lead_id, subject: src.subject, content: src.content,
+        date: today, due_date: gap != null ? addDays(today, gap) : null, currency: src.currency,
+        discount_percent: Number(src.discount_percent), adjustment: Number(src.adjustment), ...totals,
+        notes: src.notes, terms: src.terms, status: "draft",
+      },
+      p_lines: copied,
+    });
+    if (error) throw new Error(error.message);
+    const created = saved as { id: number; number: number };
+    await supabase.from("sales_docs").update({ sale_agent: src.sale_agent ?? profile.id }).eq("id", created.id);
+    const rel = src.customer_id ? ({ type: "customer", id: src.customer_id } as const) : ({ type: "lead", id: src.lead_id! } as const);
+    await logActivity(supabase, `copied ${docNumber(kind, src.number)} to ${docNumber(kind, created.number)}`, rel);
+    revalidatePath(`/sales/${KINDS[kind].slug}`);
+    redirect(docHref(kind, created.id));
+  });
+}
+
+// ───────────── Bulk actions (list) ─────────────
+export async function bulkDocs(form: FormData) {
+  return withFlash(async () => {
+    const op = str(form, "op") ?? "";
+    const kind = str(form, "kind") as DocKind;
+    if (!(kind in KINDS)) throw new Error("Unknown document type.");
+    const ids = [...new Set(form.getAll("ids").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 200);
+    if (!ids.length) throw new Error("Tick at least one document first.");
+    if (op === "pdf") {
+      await assertAccess("sales", "view");
+      redirect(`/print/bulk?kind=${kind}&ids=${ids.join(",")}`);
+    }
+    const { supabase } = await assertAccess("sales", op === "delete" ? "full" : "edit");
+    const target = str(form, "target");
+    const label = KINDS[kind].label.toLowerCase();
+    const n = `${ids.length} ${label}${ids.length === 1 ? "" : "s"}`;
+    // Status changes go one by one: the database refuses some (money on them, project invoices…) and we report those
+    const setStatus = async (status: string, from: string[]) => {
+      const { data } = await supabase.from("sales_docs").select("id, status").in("id", ids).eq("kind", kind);
+      let done = 0;
+      const failed: string[] = [];
+      for (const d of data ?? []) {
+        if (!from.includes(d.status)) continue;
+        const { error } = await supabase.from("sales_docs").update({ status, ...(status === "sent" ? { sent_at: new Date().toISOString() } : {}) }).eq("id", d.id);
+        if (error) failed.push(error.message);
+        else done++;
+      }
+      return { done, failed };
+    };
+    let summary: { done: number; failed: string[] } | null = null;
+    switch (op) {
+      case "sent":
+        summary = await setStatus("sent", ["draft"]);
+        break;
+      case "cancelled":
+        summary = await setStatus("cancelled", ["draft", "sent"]);
+        break;
+      case "accepted":
+      case "declined":
+        summary = await setStatus(op, ["sent"]);
+        break;
+      case "agent":
+        must(await supabase.from("sales_docs").update({ sale_agent: target && target !== "none" ? target : null }).in("id", ids).eq("kind", kind));
+        break;
+      case "delete": {
+        const { data: files } = await supabase.from("sales_doc_files").select("path").in("doc_id", ids);
+        let done = 0;
+        const failed: string[] = [];
+        for (const id of ids) {
+          const { error } = await supabase.from("sales_docs").delete().eq("id", id).eq("kind", kind);
+          if (error) failed.push(error.message);
+          else done++;
+        }
+        if (files?.length) {
+          const { data: left } = await supabase.from("sales_doc_files").select("path").in("doc_id", ids);
+          const keep = new Set((left ?? []).map((f) => f.path));
+          const gone = files.map((f) => f.path).filter((p) => !keep.has(p));
+          if (gone.length) await supabase.storage.from(SALES_BUCKET).remove(gone);
+        }
+        summary = { done, failed };
+        break;
+      }
+      default:
+        throw new Error("Pick an action.");
+    }
+    await logActivity(supabase, `bulk ${op} on ${n}`);
+    if (kind === "invoice") revalidatePath("/expenses");
+    revalidatePath(`/sales/${KINDS[kind].slug}`);
+    if (summary && summary.failed.length) {
+      throw new Error(`${summary.done} done. ${summary.failed.length} skipped: ${[...new Set(summary.failed)].slice(0, 2).join(" ")}`);
+    }
+  });
+}
+
+// ───────────── Batch payments (Perfex 3) ─────────────
+/** Record payments on several invoices at once: amount_<invoiceId> fields, one shared date and mode. */
+export async function recordBatchPayments(_: FormState, form: FormData): Promise<FormState> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  const date = str(form, "date") ?? todayIST();
+  const mode = num(form, "mode_id");
+  const entries: { id: number; amount: number; ref: string | null }[] = [];
+  for (const [k, v] of form.entries()) {
+    const m = k.match(/^amount_(\d+)$/);
+    const amount = Number(String(v).replace(/,/g, ""));
+    if (m && amount > 0) entries.push({ id: Number(m[1]), amount: Math.round(amount * 100) / 100, ref: str(form, `ref_${m[1]}`) });
+  }
+  if (!entries.length) return { error: "Enter an amount for at least one invoice." };
+  if (entries.length > 100) return { error: "Record at most 100 payments at a time." };
+  const ids = entries.map((e) => e.id);
+  const [{ data: invs }, bals] = await Promise.all([
+    supabase.from("sales_docs").select("id, number, status, customer_id").in("id", ids).eq("kind", "invoice"),
+    balancesFor(supabase, ids),
+  ]);
+  for (const e of entries) {
+    const inv = invs?.find((i) => i.id === e.id);
+    if (!inv || inv.status === "cancelled") return { error: `Invoice #${e.id} can't take payments.` };
+    const balance = bals.get(e.id)?.balance ?? 0;
+    if (e.amount > balance + 0.005) return { error: `${docNumber("invoice", inv.number)}: amount is more than the balance due (${balance.toFixed(2)}).` };
+  }
+  const { error } = await supabase.from("payments").insert(entries.map((e) => ({ invoice_id: e.id, amount: e.amount, date, mode_id: mode, transaction_id: e.ref })));
+  if (error) return { error: friendlyError(error.message) };
+  const drafts = (invs ?? []).filter((i) => i.status === "draft").map((i) => i.id);
+  if (drafts.length) await supabase.from("sales_docs").update({ status: "sent", sent_at: new Date().toISOString() }).in("id", drafts);
+  const total = entries.reduce((s, e) => s + e.amount, 0);
+  await logActivity(supabase, `recorded ${entries.length} payments totalling ₹${total.toLocaleString("en-IN")} (batch)`);
+  revalidatePath("/sales/invoices");
+  revalidatePath("/sales/payments");
+  revalidatePath("/dashboard");
+  return { ok: `${entries.length} payment${entries.length === 1 ? "" : "s"} recorded.` };
+}
+
+// ───────────── Attachments (uploaded from the browser straight to storage) ─────────────
+const SALES_BUCKET = "sales-files";
+
+export async function recordDocFile(input: { rel_id: number; name: string; path: string; size: number; mime: string | null }): Promise<{ error?: string }> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  const row = fileRow(input);
+  const docId = Number(input.rel_id);
+  if (!row || !row.path.startsWith(`${docId}/`)) return { error: "Invalid file." };
+  const { data: doc } = await supabase.from("sales_docs").select("kind").eq("id", docId).maybeSingle();
+  if (!doc) return { error: "Document not found." };
+  const { error } = await supabase.from("sales_doc_files").insert({ doc_id: docId, ...row });
+  if (error) {
+    await discardUpload(supabase, SALES_BUCKET, "sales_doc_files", row.path);
+    return { error: friendlyError(error.message) };
+  }
+  revalidatePath(docHref(doc.kind as DocKind, docId));
+  return {};
+}
+
+export async function deleteDocFile(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const { data } = await supabase.from("sales_doc_files").delete().eq("id", Number(str(form, "id"))).select("path, doc:sales_docs(id, kind)").maybeSingle();
+    if (!data) throw new Error("Only the uploader, or someone with full sales access, can delete this file.");
+    await supabase.storage.from(SALES_BUCKET).remove([data.path]);
+    if (data.doc) revalidatePath(docHref(data.doc.kind as DocKind, data.doc.id));
   });
 }

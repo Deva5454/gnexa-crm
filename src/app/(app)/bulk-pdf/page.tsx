@@ -10,7 +10,8 @@ import { defaultRange } from "@/lib/statement";
 
 export const metadata: Metadata = { title: "Bulk PDF export" };
 
-export default async function BulkPdfPage() {
+export default async function BulkPdfPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
+  const pre = (await searchParams).kind;
   const { can } = await requireStaff();
   if (!can("sales", "view")) notFound();
   const r = defaultRange();
@@ -22,7 +23,7 @@ export default async function BulkPdfPage() {
         <CardBody>
           <form action="/print/bulk" target="_blank" className="grid gap-4 sm:grid-cols-2">
             <Field label="Documents" htmlFor="kind">
-              <select id="kind" name="kind" className="field">
+              <select id="kind" name="kind" defaultValue={pre && pre in KINDS ? pre : "invoice"} className="field">
                 {Object.entries(KINDS).map(([k, v]) => <option key={k} value={k}>{v.plural}</option>)}
               </select>
             </Field>

@@ -26,7 +26,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const votes = a.helpful + a.not_helpful;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
       <article>
         <div className="mb-2 text-xs font-medium text-slate-500">
           <Link href="/knowledge-base" className="hover:text-brand-600">Knowledge base</Link>

@@ -60,7 +60,7 @@ export default async function EstimateRequestPage({ params }: { params: Promise<
           </>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
         <Card>
           <CardHeader title="Request" />
           <CardBody className="space-y-4 text-sm">

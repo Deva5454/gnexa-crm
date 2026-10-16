@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { Printer, Wallet } from "lucide-react";
+import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -47,7 +48,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
   return (
     <>
-      <PageHeader title="Payments" description="Money received against invoices." />
+      <PageHeader
+        title="Payments"
+        description="Money received against invoices."
+        actions={can("sales", "edit") && <LinkButton href="/sales/payments/batch" variant="secondary"><Wallet className="h-4 w-4" /> Batch payments</LinkButton>}
+      />
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         {[
           ["This month", thisMonth],
@@ -81,6 +86,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                     <th className="hidden md:table-cell">Mode</th>
                     <th className="hidden lg:table-cell">Reference</th>
                     <th className="text-right">Amount</th>
+                    <th className="w-10"><span className="sr-only">Receipt</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -102,6 +108,11 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
                       <td className="hidden text-slate-600 md:table-cell">{r.mode?.name ?? "—"}</td>
                       <td className="hidden text-slate-500 lg:table-cell">{r.transaction_id ?? "—"}</td>
                       <td className="whitespace-nowrap text-right font-semibold text-emerald-700">{formatMoney(Number(r.amount), r.invoice?.currency ?? "INR")}</td>
+                      <td>
+                        <a href={`/print/receipt/${r.id}`} target="_blank" rel="noreferrer" className="inline-flex rounded p-1 text-slate-400 hover:text-brand-700" aria-label={`Payment receipt ${r.id}`} title="Payment receipt (PDF)">
+                          <Printer className="h-4 w-4" />
+                        </a>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

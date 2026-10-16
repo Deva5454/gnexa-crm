@@ -64,7 +64,7 @@ export default async function StatementPage({ params, searchParams }: { params: 
           </a>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
         <StatementPaper s={s} company={company} party={party} />
         <aside className="space-y-6">
           <Card>

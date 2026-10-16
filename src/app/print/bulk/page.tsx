@@ -14,16 +14,22 @@ export const metadata: Metadata = { title: { absolute: "Bulk export" } };
 
 const iso = (v: string | undefined, d: string) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : d);
 
-export default async function BulkPrintPage({ searchParams }: { searchParams: Promise<{ kind?: string; from?: string; to?: string; status?: string }> }) {
+export default async function BulkPrintPage({ searchParams }: { searchParams: Promise<{ kind?: string; from?: string; to?: string; status?: string; ids?: string }> }) {
   const sp = await searchParams;
   const kind = (sp.kind && sp.kind in KINDS ? sp.kind : "invoice") as DocKind;
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
   const from = iso(sp.from, "2000-01-01");
   const to = iso(sp.to, todayIST());
-  let q = supabase.from("sales_docs").select("*").eq("kind", kind).gte("date", from).lte("date", to).order("date").order("number").limit(100);
-  if (sp.status) q = q.eq("status", sp.status);
-  else q = q.neq("status", "draft");
+  // ?ids=1,2,3 — the documents ticked on a list page (any status); otherwise a date range
+  const picked = (sp.ids ?? "").split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+  let q = supabase.from("sales_docs").select("*").eq("kind", kind).order("date").order("number").limit(100);
+  if (picked.length) q = q.in("id", picked);
+  else {
+    q = q.gte("date", from).lte("date", to);
+    if (sp.status) q = q.eq("status", sp.status);
+    else q = q.neq("status", "draft");
+  }
   const { data: docs } = await q;
   const ids = (docs ?? []).map((d) => d.id);
   const [company, bals, { data: lines }] = await Promise.all([
@@ -37,11 +43,11 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
       return { d, party, extra };
     }),
   );
-  const label = `${KINDS[kind].plural} ${formatDate(from)} – ${formatDate(to)}`;
+  const label = picked.length ? `${KINDS[kind].plural} · ${items.length} selected` : `${KINDS[kind].plural} ${formatDate(from)} – ${formatDate(to)}`;
 
   return (
     <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
-      <PrintToolbar backHref="/bulk-pdf" name={label} />
+      <PrintToolbar backHref={picked.length ? `/sales/${KINDS[kind].slug}` : "/bulk-pdf"} name={label} />
       <p className="mx-auto mb-4 max-w-[860px] px-4 text-sm text-slate-500 print:hidden">{items.length} document{items.length === 1 ? "" : "s"} · {label}{items.length === 100 ? " · limited to the first 100 — narrow the dates for the rest" : ""}</p>
       {!items.length && <p className="mx-auto max-w-[860px] px-4 text-sm text-slate-500">Nothing matches — try a wider date range.</p>}
       <div className="space-y-6 px-4 print:space-y-0 print:px-0">

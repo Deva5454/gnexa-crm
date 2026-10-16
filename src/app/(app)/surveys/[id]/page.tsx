@@ -54,7 +54,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
           </>
         }
       />
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           {(questions ?? []).map((q, i) => (
             <Card key={q.id}>

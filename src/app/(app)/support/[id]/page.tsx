@@ -73,7 +73,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
         }
       />
       <div className="-mt-3 mb-5"><RecordTags relType="ticket" relId={id} path={`/support/${id}`} canEdit={can("support", "edit")} /></div>
-      <div className="grid gap-6 xl:grid-cols-[1fr_300px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_300px]">
         <div className="space-y-4">
           <ol className="space-y-4">
             {(replies ?? []).map((r) => {

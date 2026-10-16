@@ -23,7 +23,7 @@ export function fileRow(input: UploadInput) {
 export async function discardUpload(
   supabase: SupabaseClient<Database>,
   bucket: string,
-  table: "media_files" | "project_files" | "task_files" | "lead_files" | "customer_files",
+  table: "media_files" | "project_files" | "task_files" | "lead_files" | "customer_files" | "sales_doc_files",
   path: string,
 ) {
   const { data } = await supabase.from(table).select("id").eq("path", path).maybeSingle();

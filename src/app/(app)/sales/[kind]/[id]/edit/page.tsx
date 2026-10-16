@@ -15,10 +15,11 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
   const id = Number(p.id);
   if (!kind) notFound();
   const { supabase } = await requireAccess("sales", "edit", docHref(kind, id));
-  const [{ data: doc }, { data: lines }, opts] = await Promise.all([
+  const [{ data: doc }, { data: lines }, opts, { data: note }] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).eq("kind", kind).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     editorOptions(supabase, kind === "invoice" ? id : undefined),
+    supabase.from("sales_doc_notes").select("note").eq("doc_id", id).maybeSingle(),
   ]);
   if (!doc) notFound();
   const party = doc.customer_id ? `customer:${doc.customer_id}` : `lead:${doc.lead_id}`;
@@ -42,6 +43,7 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
         taxRates={opts.taxRates}
         currencies={opts.currencies}
         billableExpenses={kind === "invoice" ? opts.billableExpenses : []}
+        staff={opts.staff}
         draft={{
           party,
           subject: doc.subject ?? "",
@@ -56,6 +58,8 @@ export default async function EditDocPage({ params }: { params: Promise<{ kind: 
           recurring_every: doc.recurring_every,
           recurring_unit: doc.recurring_unit,
           recurring_cycles: doc.recurring_cycles,
+          sale_agent: doc.sale_agent ?? "",
+          admin_note: note?.note ?? "",
           lines: (lines ?? []).map((l) => ({
             expense_id: l.expense_id,
             item_id: l.item_id,

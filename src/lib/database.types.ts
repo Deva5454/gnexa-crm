@@ -177,6 +177,18 @@ export type Database = {
         Update: { key?: string; name?: string; color?: string; sort_order?: number; is_open?: boolean };
         Relationships: [];
       };
+      sales_doc_notes: {
+        Row: { doc_id: number; note: string; updated_by: string | null; updated_at: string };
+        Insert: { doc_id: number; note: string; updated_by?: string | null; updated_at?: string };
+        Update: { doc_id?: number; note?: string; updated_by?: string | null; updated_at?: string };
+        Relationships: [{ foreignKeyName: "sales_doc_notes_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: true; referencedRelation: "sales_docs"; referencedColumns: ["id"] }, { foreignKeyName: "sales_doc_notes_updated_by_fkey"; columns: ["updated_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      sales_doc_files: {
+        Row: { id: number; doc_id: number; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; doc_id: number; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; doc_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "sales_doc_files_doc_id_fkey"; columns: ["doc_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] }, { foreignKeyName: "sales_doc_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
       sales_docs: {
         Row: {
           id: number; kind: Database["public"]["Enums"]["doc_kind"]; number: number; customer_id: number | null; lead_id: number | null;
@@ -185,7 +197,7 @@ export type Database = {
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
           project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;
-          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null;
+          next_recurring_date: string | null; recurring_from: number | null; last_reminder_at: string | null; subscription_id: number | null; sale_agent: string | null;
         };
         Insert: {
           id?: never; kind: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -193,7 +205,7 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null;
         };
         Update: {
           id?: never; kind?: Database["public"]["Enums"]["doc_kind"]; number?: number; customer_id?: number | null; lead_id?: number | null;
@@ -201,9 +213,11 @@ export type Database = {
           discount_percent?: number; adjustment?: number; subtotal?: number; discount_total?: number; tax_total?: number; total?: number;
           notes?: string | null; terms?: string | null; source_id?: number | null; sent_at?: string | null; created_by?: string | null; created_at?: string;
           project_id?: number | null; recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number;
-          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null;
+          next_recurring_date?: string | null; recurring_from?: number | null; last_reminder_at?: string | null; subscription_id?: number | null; sale_agent?: string | null;
         };
         Relationships: [
+          { foreignKeyName: "sales_docs_sale_agent_fkey"; columns: ["sale_agent"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "sales_docs_project_id_fkey"; columns: ["project_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_subscription_id_fkey"; columns: ["subscription_id"]; isOneToOne: false; referencedRelation: "subscriptions"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
           { foreignKeyName: "sales_docs_lead_id_fkey"; columns: ["lead_id"]; isOneToOne: false; referencedRelation: "leads"; referencedColumns: ["id"] },

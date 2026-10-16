@@ -21,7 +21,7 @@ export default async function NewDocPage({
   if (!kind) notFound();
   const sp = await searchParams;
   const k = KINDS[kind];
-  const { supabase } = await requireAccess("sales", "edit", `/sales/${k.slug}`);
+  const { supabase, profile } = await requireAccess("sales", "edit", `/sales/${k.slug}`);
   const opts = await editorOptions(supabase);
   const today = todayIST();
   const party = sp.customer ? `customer:${Number(sp.customer)}` : sp.lead && kind === "proposal" ? `lead:${Number(sp.lead)}` : "";
@@ -40,6 +40,7 @@ export default async function NewDocPage({
         taxRates={opts.taxRates}
         currencies={opts.currencies}
         billableExpenses={kind === "invoice" ? opts.billableExpenses : []}
+        staff={opts.staff}
         draft={{
           party,
           subject: "",
@@ -49,6 +50,7 @@ export default async function NewDocPage({
           currency: opts.customers.find((c) => c.value === party)?.currency || opts.currency,
           discount_percent: 0,
           adjustment: 0,
+          sale_agent: profile.id, // Perfex defaults the sale agent to whoever creates it
           notes: kind === "invoice" ? "Thank you for your business." : "",
           terms: kind === "invoice" ? opts.defaultTerms : kind === "estimate" ? "Prices valid until the expiry date. Taxes as applicable." : "",
           // "Add to an invoice" from an expense pre-fills that expense as the first line

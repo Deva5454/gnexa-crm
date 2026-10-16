@@ -31,6 +31,8 @@ export type DocDraft = {
   recurring_every?: number | null;
   recurring_unit?: string;
   recurring_cycles?: number | null;
+  sale_agent?: string;
+  admin_note?: string;
 };
 
 let seq = 0;
@@ -46,6 +48,7 @@ export function DocEditor({
   taxRates,
   currencies = ["INR"],
   billableExpenses = [],
+  staff = [],
   isNew,
   cancelHref,
 }: {
@@ -58,6 +61,7 @@ export function DocEditor({
   taxRates: number[];
   currencies?: string[];
   billableExpenses?: BillableExpense[];
+  staff?: { value: string; label: string }[];
   isNew: boolean;
   cancelHref: string;
 }) {
@@ -390,6 +394,15 @@ export function DocEditor({
           </Field>
           <Field label="Terms & conditions" htmlFor="terms">
             <textarea id="terms" name="terms" rows={3} defaultValue={draft.terms} className="field" />
+          </Field>
+          <Field label="Sale agent" htmlFor="sale_agent" hint="The staff member credited with this sale">
+            <select id="sale_agent" name="sale_agent" defaultValue={draft.sale_agent ?? ""} className="field">
+              <option value="">— None —</option>
+              {staff.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Admin note" htmlFor="admin_note" hint="Private — never printed or shown to the customer">
+            <textarea id="admin_note" name="admin_note" rows={3} maxLength={5000} defaultValue={draft.admin_note ?? ""} className="field" />
           </Field>
         </CardBody>
       </Card>
