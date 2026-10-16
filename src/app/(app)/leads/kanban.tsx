@@ -49,8 +49,8 @@ export function LeadsKanban({
     items: optimistic.filter((l) => l.status_id === s.id).sort((a, b) => a.position - b.position),
   }));
 
-  const drop = (statusId: number, beforeId: number | null) => {
-    const id = dragging;
+  const drop = (statusId: number, beforeId: number | null, moving: number | null = dragging) => {
+    const id = moving;
     setDragging(null);
     setOverCol(null);
     if (id == null || !canEdit) return;
@@ -141,6 +141,17 @@ export function LeadsKanban({
                         {timeAgo(l.last_contact_at ?? l.created_at)}
                       </span>
                     </div>
+                    {canEdit && (
+                      // Keyboard and screen-reader alternative to dragging: appears when focused
+                      <select
+                        aria-label={`Move “${l.name}” to stage`}
+                        value={l.status_id ?? ""}
+                        onChange={(e) => drop(Number(e.target.value), null, l.id)}
+                        className="sr-only mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      >
+                        {statuses.map((o) => <option key={o.id} value={o.id}>Move to: {o.name}</option>)}
+                      </select>
+                    )}
                   </article>
                 ))}
                 {!col.items.length && (

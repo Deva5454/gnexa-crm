@@ -129,11 +129,11 @@ export function FileUploader({ projectId }: { projectId: number }) {
           e.preventDefault();
           upload(e.dataTransfer.files);
         }}
-        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-6 py-8 text-center text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40"
+        className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-6 py-8 text-center text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100"
       >
         {busy ? <Loader2 className="h-6 w-6 animate-spin text-brand-500" /> : <Upload className="h-6 w-6 text-brand-500" />}
         <span><b className="text-slate-700">Click to upload</b> or drag files here · max 10 MB each</span>
-        <input ref={input} type="file" multiple className="hidden" onChange={(e) => upload(e.target.files)} disabled={busy} />
+        <input ref={input} type="file" multiple className="sr-only" onChange={(e) => upload(e.target.files)} disabled={busy} />
       </label>
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
     </div>

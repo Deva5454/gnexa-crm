@@ -19,3 +19,14 @@ export async function companySettings(supabase: DB) {
   const { data } = await supabase.from("company_settings").select("*").maybeSingle();
   return data;
 }
+
+/** The base currency all cross-document totals are shown in (Setup → Currencies), e.g. "INR". */
+export async function baseCurrency(supabase: DB) {
+  const { data } = await supabase.from("currencies").select("code").eq("is_base", true).maybeSingle();
+  if (data?.code) return data.code;
+  const { data: cs } = await supabase.from("company_settings").select("currency").maybeSingle();
+  return cs?.currency ?? "INR";
+}
+
+/** An amount in a document's currency, in the base currency (rate frozen on the document). */
+export const toBase = (amount: number, rate: number | null | undefined) => Math.round(amount * Number(rate ?? 1) * 100) / 100;

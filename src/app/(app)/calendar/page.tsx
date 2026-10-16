@@ -150,7 +150,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
                   {it.eventId && it.mine && (
                     <ConfirmForm action={deleteEvent} message={`Delete “${it.title}”?`}>
                       <input type="hidden" name="id" value={it.eventId} />
-                      <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete event"><Trash2 className="h-3.5 w-3.5" /></button>
+                      <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete event"><Trash2 className="h-3.5 w-3.5" /></button>
                     </ConfirmForm>
                   )}
                 </li>

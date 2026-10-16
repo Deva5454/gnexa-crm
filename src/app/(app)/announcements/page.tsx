@@ -40,7 +40,7 @@ export default async function AnnouncementsPage() {
                     {profile.is_admin && (
                       <ConfirmForm action={deleteAnnouncement} message={`Delete “${a.title}”?`}>
                         <input type="hidden" name="id" value={a.id} />
-                        <button className="rounded p-1 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete announcement"><Trash2 className="h-4 w-4" /></button>
+                        <button className="rounded p-1 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete announcement"><Trash2 className="h-4 w-4" /></button>
                       </ConfirmForm>
                     )}
                   </div>

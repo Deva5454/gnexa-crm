@@ -14,6 +14,7 @@ import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE, searchTerm } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
 import { daysFromToday, monthStartIST } from "@/lib/dates";
+import { baseCurrency } from "@/lib/sales-data";
 
 export const metadata: Metadata = { title: "Expenses" };
 
@@ -45,6 +46,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
     allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, is_billable, invoice_id, category_id, customer_id").gte("date", yearAgo).order("id").range(a, b)),
   ]);
 
+  const base = await baseCurrency(supabase); // expenses are recorded in the base currency
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const ms = monthStartIST();
   const all = recent ?? [];
@@ -81,7 +83,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
         ].map(([l, v, tone]) => (
           <Card key={l as string} className="px-5 py-4">
             <div className="text-xs font-medium text-slate-500">{l}</div>
-            <div className={cn("mt-1 text-xl font-bold", tone as string)}>{formatMoney(v as number)}</div>
+            <div className={cn("mt-1 text-xl font-bold", tone as string)}>{formatMoney(v as number, base)}</div>
           </Card>
         ))}
         <Card>
@@ -89,7 +91,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
           <CardBody className="space-y-2 py-3">
             {byCat.slice(0, 4).map((c) => (
               <div key={c.id} className="text-xs">
-                <div className="mb-0.5 flex justify-between"><span className="text-slate-600">{c.name}</span><span className="font-medium">{formatMoney(c.total)}</span></div>
+                <div className="mb-0.5 flex justify-between"><span className="text-slate-600">{c.name}</span><span className="font-medium">{formatMoney(c.total, base)}</span></div>
                 <div className="h-1.5 rounded-full bg-slate-100"><div className="h-1.5 rounded-full bg-brand-500" style={{ width: `${(c.total / maxCat) * 100}%` }} /></div>
               </div>
             ))}
@@ -140,7 +142,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
                       <td className="hidden whitespace-nowrap text-slate-600 md:table-cell">{formatDate(e.date)}</td>
                       <td className="hidden lg:table-cell">{e.customer ? <Link href={`/customers/${e.customer.id}`} className="text-slate-700 hover:text-brand-700">{e.customer.company}</Link> : <span className="text-slate-400">Internal</span>}</td>
                       <td className="whitespace-nowrap text-right">
-                        <div className="font-semibold">{formatMoney(gross(e))}</div>
+                        <div className="font-semibold">{formatMoney(gross(e), base)}</div>
                         {Number(e.tax_rate) > 0 && <div className="text-[11px] text-slate-400">incl. GST {Number(e.tax_rate)}%</div>}
                       </td>
                       <td>

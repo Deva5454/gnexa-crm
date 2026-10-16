@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
-import { GripVertical, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, PackagePlus, Plus, Receipt, Trash2 } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormError } from "@/components/ui/field";
@@ -99,6 +99,17 @@ export function DocEditor({
   };
 
   const [drag, setDrag] = useState<number | null>(null);
+  // Keyboard alternative to dragging: move a line one place up or down
+  const shift = (key: number, by: -1 | 1) =>
+    setRows((rs) => {
+      const i = rs.findIndex((r) => r.key === key);
+      const j = i + by;
+      if (i < 0 || j < 0 || j >= rs.length) return rs;
+      const next = [...rs];
+      [next[i], next[j]] = [next[j]!, next[i]!];
+      return next;
+    });
+
   const moveTo = (target: number) => {
     if (drag == null || drag === target) return;
     setRows((rs) => {
@@ -266,6 +277,14 @@ export function DocEditor({
                       aria-label="Drag to reorder"
                     >
                       <GripVertical className="h-4 w-4" />
+                    </span>
+                    <span className="mt-1 flex flex-col">
+                      <button type="button" onClick={() => shift(r.key, -1)} className="rounded text-slate-300 hover:text-slate-600 focus:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-200" aria-label="Move line up">
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" onClick={() => shift(r.key, 1)} className="rounded text-slate-300 hover:text-slate-600 focus:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-200" aria-label="Move line down">
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
                     </span>
                   </td>
                   <td className="space-y-1.5 px-2 py-2">

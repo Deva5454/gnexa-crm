@@ -46,6 +46,13 @@ export function NotificationBell() {
     };
   }, [refresh]);
   useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, []);
+  useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -72,6 +79,8 @@ export function NotificationBell() {
         }}
         className="relative grid h-9 w-9 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800"
         aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
+        aria-haspopup="dialog"
+        aria-expanded={open}
       >
         <Bell className="h-5 w-5" />
         {unread > 0 && (

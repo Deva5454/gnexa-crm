@@ -28,8 +28,15 @@ export function RoleSwitcher({ name, roleName, personaKey, demo }: { name: strin
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
+    document.addEventListener("keydown", k);
+    return () => {
+      document.removeEventListener("mousedown", h);
+      document.removeEventListener("keydown", k);
+    };
   }, []);
 
   // Stay on the same page after switching, unless it's an admin-only area or the other side (CRM ↔ portal)

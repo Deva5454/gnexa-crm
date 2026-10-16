@@ -167,7 +167,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                           {(c.created_by === profile.id || profile.is_admin) && (
                             <ConfirmForm action={deleteTaskComment} message="Delete this comment?">
                               <input type="hidden" name="id" value={c.id} />
-                              <button className="text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
+                              <button className="text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
                             </ConfirmForm>
                           )}
                         </div>
@@ -205,7 +205,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                       {(x.staff_id === profile.id || profile.is_admin) && (
                         <ConfirmForm action={deleteTimer} message="Delete this time entry? (Project timesheet entries stay — remove them on the project.)">
                           <input type="hidden" name="id" value={x.id} />
-                          <button className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100" aria-label="Delete time entry"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete time entry"><Trash2 className="h-3.5 w-3.5" /></button>
                         </ConfirmForm>
                       )}
                     </li>

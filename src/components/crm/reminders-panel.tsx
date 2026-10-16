@@ -42,7 +42,7 @@ export async function RemindersPanel({ relType, relId, path }: { relType: Remind
                     <ConfirmForm action={deleteReminder} message="Delete this reminder?">
                       <input type="hidden" name="id" value={r.id} />
                       <input type="hidden" name="path" value={path} />
-                      <button className="rounded p-1 text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100" aria-label="Delete reminder">
+                      <button className="rounded p-1 text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete reminder">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </ConfirmForm>

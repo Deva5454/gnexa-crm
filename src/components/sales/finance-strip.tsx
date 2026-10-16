@@ -3,7 +3,7 @@ import { AlertTriangle, Banknote, Receipt, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { docStatus } from "@/lib/sales";
-import { balancesFor } from "@/lib/sales-data";
+import { balancesFor, baseCurrency, toBase } from "@/lib/sales-data";
 import { formatMoney } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
 import { monthStartIST, todayIST } from "@/lib/dates";
@@ -16,8 +16,8 @@ export async function FinanceStrip() {
   const ms = monthStartIST();
 
   const [{ data: invs }, { data: pays }, { data: exps }] = await Promise.all([
-    allRows((a, b) => supabase.from("sales_docs").select("id, kind, status, due_date, total").eq("kind", "invoice").in("status", ["sent", "accepted"]).order("id").range(a, b)),
-    allRows((a, b) => supabase.from("payments").select("amount").gte("date", ms).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("sales_docs").select("id, kind, status, due_date, total, exchange_rate").eq("kind", "invoice").in("status", ["sent", "accepted"]).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount, invoice:sales_docs(exchange_rate)").gte("date", ms).order("id").range(a, b)),
     can("expenses", "view") ? allRows((a, b) => supabase.from("expenses").select("amount, tax_rate").gte("date", ms).order("id").range(a, b)) : Promise.resolve({ data: null }),
   ]);
   const bals = await balancesFor(supabase, (invs ?? []).map((i) => i.id));
@@ -27,21 +27,22 @@ export async function FinanceStrip() {
   for (const i of invs ?? []) {
     const b = bals.get(i.id);
     const st = docStatus({ kind: "invoice", status: i.status, due_date: i.due_date, total: Number(i.total) }, b, today);
-    const left = Math.max(0, b?.balance ?? Number(i.total));
+    const left = toBase(Math.max(0, b?.balance ?? Number(i.total)), i.exchange_rate);
     outstanding += left;
     if (st.key === "overdue") {
       overdue += left;
       overdueCount++;
     }
   }
-  const collected = (pays ?? []).reduce((s, p) => s + Number(p.amount), 0);
+  const collected = (pays ?? []).reduce((s, p) => s + toBase(Number(p.amount), p.invoice?.exchange_rate), 0);
+  const base = await baseCurrency(supabase);
   const spent = exps ? exps.reduce((s, e) => s + Number(e.amount) * (1 + Number(e.tax_rate) / 100), 0) : null;
 
   const tiles = [
-    { label: "Invoices outstanding", value: formatMoney(outstanding), icon: Banknote, tone: "text-slate-900", href: "/sales/invoices?status=unpaid" },
-    { label: `Overdue · ${overdueCount} invoice${overdueCount === 1 ? "" : "s"}`, value: formatMoney(overdue), icon: AlertTriangle, tone: "text-rose-600", href: "/sales/invoices?status=overdue" },
-    { label: "Collected this month", value: formatMoney(collected), icon: Wallet, tone: "text-emerald-600", href: "/sales/payments" },
-    ...(spent != null ? [{ label: "Spent this month", value: formatMoney(spent), icon: Receipt, tone: "text-amber-600", href: "/expenses" }] : []),
+    { label: "Invoices outstanding", value: formatMoney(outstanding, base), icon: Banknote, tone: "text-slate-900", href: "/sales/invoices?status=unpaid" },
+    { label: `Overdue · ${overdueCount} invoice${overdueCount === 1 ? "" : "s"}`, value: formatMoney(overdue, base), icon: AlertTriangle, tone: "text-rose-600", href: "/sales/invoices?status=overdue" },
+    { label: "Collected this month", value: formatMoney(collected, base), icon: Wallet, tone: "text-emerald-600", href: "/sales/payments" },
+    ...(spent != null ? [{ label: "Spent this month", value: formatMoney(spent, base), icon: Receipt, tone: "text-amber-600", href: "/expenses" }] : []),
   ];
   return (
     <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -76,7 +76,7 @@ export default async function NewsfeedPage() {
                             {(c.created_by === profile.id || profile.is_admin) && (
                               <ConfirmForm action={deletePostComment} message="Delete this comment?">
                                 <input type="hidden" name="id" value={c.id} />
-                                <button className="text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
+                                <button className="text-slate-400 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
                               </ConfirmForm>
                             )}
                           </div>

@@ -51,7 +51,7 @@ export function TimerControl({
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-400" /> Recording
             </div>
           </div>
-          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you work on? (optional)" className="field" maxLength={200} />
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What did you work on? (optional)" aria-label="Timer note" className="field" maxLength={200} />
           <button
             type="button"
             disabled={pending}
@@ -129,7 +129,7 @@ export function Checklist({ taskId, items, canEdit }: { taskId: number; items: I
               <button
                 type="button"
                 onClick={() => start(() => deleteChecklistItem(i.id))}
-                className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100"
+                className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
                 aria-label={`Delete ${i.description}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -151,7 +151,7 @@ export function Checklist({ taskId, items, canEdit }: { taskId: number; items: I
           }}
           className="flex gap-2"
         >
-          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add an item…" className="field" maxLength={300} />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add an item…" aria-label="New checklist item" className="field" maxLength={300} />
           <button disabled={pending || !text.trim()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50">
             <Plus className="h-4 w-4" /> Add
           </button>
@@ -171,7 +171,7 @@ export function CommentBox({ taskId }: { taskId: number }) {
   return (
     <form ref={ref} action={action} className="space-y-2">
       <input type="hidden" name="task_id" value={taskId} />
-      <textarea name="body" required rows={3} placeholder="Write a comment — assignees and followers get notified" className="field resize-y" />
+      <textarea name="body" required rows={3} placeholder="Write a comment — assignees and followers get notified" aria-label="Comment" className="field resize-y" />
       <KeepValues active={!!state?.error} />
       {state?.error && <p className="text-xs text-rose-600">{state.error}</p>}
       <div className="flex justify-end">
@@ -219,11 +219,11 @@ export function TaskFileUploader({ taskId }: { taskId: number }) {
           e.preventDefault();
           upload(e.dataTransfer.files);
         }}
-        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40"
+        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin text-brand-500" /> : <Upload className="h-4 w-4 text-brand-500" />}
         <span><b className="text-slate-700">Attach files</b> · drag here or click · max 10 MB</span>
-        <input ref={input} type="file" multiple className="hidden" onChange={(e) => upload(e.target.files)} disabled={busy} />
+        <input ref={input} type="file" multiple className="sr-only" onChange={(e) => upload(e.target.files)} disabled={busy} />
       </label>
       {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
     </div>

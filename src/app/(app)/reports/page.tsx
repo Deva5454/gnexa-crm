@@ -8,6 +8,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { requireStaff } from "@/lib/auth";
 import { REPORT_TABS, reportsFor, type ReportTable } from "@/lib/reports";
 import { formatMoney } from "@/lib/utils";
+import { baseCurrency } from "@/lib/sales-data";
 
 export const metadata: Metadata = { title: "Reports" };
 
@@ -33,19 +34,19 @@ const CHART: Record<string, { kind: "columns" | "bars" | "table"; series?: numbe
   "support-departments": { kind: "table", wide: true },
 };
 
-function cell(t: ReportTable, ci: number, v: string | number) {
+function cell(t: ReportTable, ci: number, v: string | number, currency: string) {
   if (typeof v !== "number") return v;
-  return t.columns[ci]!.money ? formatMoney(v) : new Intl.NumberFormat("en-IN").format(v);
+  return t.columns[ci]!.money ? formatMoney(v, currency) : new Intl.NumberFormat("en-IN").format(v);
 }
 
-function DataTable({ t }: { t: ReportTable }) {
+function DataTable({ t, currency }: { t: ReportTable; currency: string }) {
   return (
     <div className="overflow-x-auto">
       <table className="table-base">
         <thead><tr>{t.columns.map((c) => <th key={c.label} className={c.money || c.numeric ? "text-right" : ""}>{c.label}</th>)}</tr></thead>
         <tbody>
           {t.rows.map((r, ri) => (
-            <tr key={ri}>{r.map((v, ci) => <td key={ci} className={typeof v === "number" ? "text-right tabular-nums" : "font-medium text-slate-700"}>{cell(t, ci, v)}</td>)}</tr>
+            <tr key={ri}>{r.map((v, ci) => <td key={ci} className={typeof v === "number" ? "text-right tabular-nums" : "font-medium text-slate-700"}>{cell(t, ci, v, currency)}</td>)}</tr>
           ))}
           {!t.rows.length && <tr><td colSpan={t.columns.length} className="py-6 text-center text-slate-400">No data yet.</td></tr>}
         </tbody>
@@ -61,7 +62,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const tabs = REPORT_TABS.filter((t) => can(t.module, "view"));
   if (!tabs.length) notFound();
   const tab = tabs.find((t) => t.key === requested)?.key ?? tabs[0]!.key;
-  const tables = await reportsFor(tab, supabase);
+  const [tables, base] = await Promise.all([reportsFor(tab, supabase), baseCurrency(supabase)]);
 
   return (
     <>
@@ -103,11 +104,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 </CardBody>
               )}
               {cfg.kind === "table" ? (
-                <DataTable t={t} />
+                <DataTable t={t} currency={base} />
               ) : (
                 <details className="border-t border-slate-100">
                   <summary className="cursor-pointer px-5 py-2.5 text-xs font-medium text-slate-500 hover:text-brand-700">Show table</summary>
-                  <DataTable t={t} />
+                  <DataTable t={t} currency={base} />
                 </details>
               )}
             </Card>

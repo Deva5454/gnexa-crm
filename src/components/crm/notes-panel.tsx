@@ -39,7 +39,7 @@ export async function NotesPanel({ relType, relId, path }: { relType: "customer"
                       <ConfirmForm action={deleteNote} message="Delete this note?">
                         <input type="hidden" name="id" value={n.id} />
                         <input type="hidden" name="path" value={path} />
-                        <button className="text-slate-400 opacity-0 transition hover:text-rose-600 group-hover:opacity-100" aria-label="Delete note">
+                        <button className="text-slate-400 opacity-0 transition hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete note">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </ConfirmForm>

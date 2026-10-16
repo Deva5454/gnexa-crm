@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { docHref, docNumber } from "@/lib/sales";
 import { todayIST } from "@/lib/dates";
+import { baseCurrency, toBase } from "@/lib/sales-data";
 
 export type StatementRow = { date: string; type: "invoice" | "payment" | "credit_note"; ref: string; href: string; detail: string; debit: number; credit: number; balance: number };
 export type Statement = { from: string; to: string; opening: number; rows: StatementRow[]; invoiced: number; received: number; closing: number; currency: string };
@@ -10,7 +11,7 @@ export type Statement = { from: string; to: string; opening: number; rows: State
 export async function buildStatement(supabase: SupabaseClient<Database>, customerId: number, from: string, to: string): Promise<Statement> {
   const { data: docs } = await supabase
     .from("sales_docs")
-    .select("id, kind, number, date, subject, total, currency, status")
+    .select("id, kind, number, date, subject, total, currency, exchange_rate, status")
     .eq("customer_id", customerId)
     .in("kind", ["invoice", "credit_note"])
     .not("status", "in", "(draft,cancelled)")
@@ -20,11 +21,14 @@ export async function buildStatement(supabase: SupabaseClient<Database>, custome
     ? await supabase.from("payments").select("id, invoice_id, amount, date, transaction_id, mode:payment_modes(name)").in("invoice_id", invIds).lte("date", to)
     : { data: [] };
 
+  // One currency: show it as is. Mixed currencies: convert everything to the base currency with each document's rate.
+  const mixed = new Set((docs ?? []).map((d) => d.currency)).size > 1;
+  const conv = (amount: number, d: { exchange_rate: number } | undefined) => (mixed ? toBase(amount, d?.exchange_rate) : amount);
   const entries: Omit<StatementRow, "balance">[] = [];
   for (const d of docs ?? []) {
     const label = docNumber(d.kind, d.number);
-    if (d.kind === "invoice") entries.push({ date: d.date, type: "invoice", ref: label, href: docHref("invoice", d.id), detail: d.subject ?? "Invoice", debit: Number(d.total), credit: 0 });
-    else entries.push({ date: d.date, type: "credit_note", ref: label, href: docHref("credit_note", d.id), detail: d.subject ?? "Credit note", debit: 0, credit: Number(d.total) });
+    if (d.kind === "invoice") entries.push({ date: d.date, type: "invoice", ref: label, href: docHref("invoice", d.id), detail: d.subject ?? "Invoice", debit: conv(Number(d.total), d), credit: 0 });
+    else entries.push({ date: d.date, type: "credit_note", ref: label, href: docHref("credit_note", d.id), detail: d.subject ?? "Credit note", debit: 0, credit: conv(Number(d.total), d) });
   }
   for (const p of pays ?? []) {
     const inv = docs?.find((d) => d.id === p.invoice_id);
@@ -35,7 +39,7 @@ export async function buildStatement(supabase: SupabaseClient<Database>, custome
       href: docHref("invoice", p.invoice_id),
       detail: `Payment${p.mode?.name ? ` · ${p.mode.name}` : ""}${inv ? ` for ${docNumber("invoice", inv.number)}` : ""}`,
       debit: 0,
-      credit: Number(p.amount),
+      credit: conv(Number(p.amount), inv),
     });
   }
   const order = { invoice: 0, credit_note: 1, payment: 2 } as const;
@@ -58,7 +62,7 @@ export async function buildStatement(supabase: SupabaseClient<Database>, custome
     invoiced: rows.reduce((s, r) => s + r.debit, 0),
     received: rows.reduce((s, r) => s + r.credit, 0),
     closing: Math.round(running * 100) / 100,
-    currency: docs?.[0]?.currency ?? "INR",
+    currency: mixed ? await baseCurrency(supabase) : (docs?.[0]?.currency ?? "INR"),
   };
 }
 

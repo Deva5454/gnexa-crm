@@ -10,6 +10,7 @@ import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE } from "@/lib/utils";
 import { daysFromToday, monthStartIST } from "@/lib/dates";
+import { baseCurrency, toBase } from "@/lib/sales-data";
 
 export const metadata: Metadata = { title: "Payments" };
 
@@ -29,15 +30,17 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
   if (sp.mode) q = q.eq("mode_id", Number(sp.mode));
 
-  const [{ data: rows, count }, { data: modes }, { data: recent }] = await Promise.all([
+  const [{ data: rows, count }, { data: modes }, { data: recent }, base] = await Promise.all([
     q,
     supabase.from("payment_modes").select("id, name").order("id"),
-    supabase.from("payments").select("amount, date").gte("date", daysFromToday(-365)),
+    supabase.from("payments").select("amount, date, invoice:sales_docs(exchange_rate)").gte("date", daysFromToday(-365)),
+    baseCurrency(supabase),
   ]);
   const ms = monthStartIST();
-  const thisMonth = (recent ?? []).filter((r) => r.date >= ms).reduce((s, r) => s + Number(r.amount), 0);
-  const last30 = (recent ?? []).filter((r) => r.date >= daysFromToday(-30)).reduce((s, r) => s + Number(r.amount), 0);
-  const year = (recent ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const inBase = (r: { amount: number; invoice: { exchange_rate: number } | null }) => toBase(Number(r.amount), r.invoice?.exchange_rate);
+  const thisMonth = (recent ?? []).filter((r) => r.date >= ms).reduce((s, r) => s + inBase(r), 0);
+  const last30 = (recent ?? []).filter((r) => r.date >= daysFromToday(-30)).reduce((s, r) => s + inBase(r), 0);
+  const year = (recent ?? []).reduce((s, r) => s + inBase(r), 0);
 
   const pill = (active: boolean) =>
     cn("rounded-full px-3 py-1 text-xs font-medium", active ? "bg-ink-900 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50");
@@ -53,7 +56,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
         ].map(([l, v]) => (
           <Card key={l as string} className="px-5 py-4">
             <div className="text-xs font-medium text-slate-500">{l}</div>
-            <div className="mt-1 text-xl font-bold text-emerald-600">{formatMoney(v as number)}</div>
+            <div className="mt-1 text-xl font-bold text-emerald-600">{formatMoney(v as number, base)}</div>
           </Card>
         ))}
       </div>

@@ -48,11 +48,11 @@ export function MediaUploader({ folder, folders }: { folder: string; folders: st
           e.preventDefault();
           upload(e.dataTransfer.files);
         }}
-        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40"
+        className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500 hover:border-brand-300 hover:bg-brand-50/40 focus-within:border-brand-400 focus-within:ring-4 focus-within:ring-brand-100"
       >
         {busy ? <Loader2 className="h-5 w-5 animate-spin text-brand-500" /> : <Upload className="h-5 w-5 text-brand-500" />}
         <span><b className="text-slate-700">Upload files</b> · drag here or click · max 20 MB each</span>
-        <input ref={input} type="file" multiple className="hidden" onChange={(e) => upload(e.target.files)} disabled={busy} />
+        <input ref={input} type="file" multiple className="sr-only" onChange={(e) => upload(e.target.files)} disabled={busy} />
       </label>
       {error && <p className="text-sm text-rose-600">{error}</p>}
     </div>

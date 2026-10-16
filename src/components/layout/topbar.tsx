@@ -27,6 +27,13 @@ export function Topbar({
   const createRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCreateOpen(false);
+    };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, []);
+  useEffect(() => {
     const h = (e: MouseEvent) => {
       if (createRef.current && !createRef.current.contains(e.target as Node)) setCreateOpen(false);
     };
@@ -58,6 +65,7 @@ export function Topbar({
           name="q"
           type="search"
           placeholder="Search customers, leads, tasks…"
+          aria-label="Search customers, leads and tasks"
           className="h-10 w-full rounded-xl border border-transparent bg-slate-100/80 pl-9 pr-3 text-sm placeholder:text-slate-400 focus:border-brand-300 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-100"
         />
       </form>
@@ -73,6 +81,9 @@ export function Topbar({
           <div className="relative" ref={createRef}>
             <button
               onClick={() => setCreateOpen((o) => !o)}
+              aria-label="Create"
+              aria-haspopup="menu"
+              aria-expanded={createOpen}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-aurora px-3 text-sm font-semibold text-white shadow-sm hover:opacity-95"
             >
               <Plus className="h-4 w-4" />

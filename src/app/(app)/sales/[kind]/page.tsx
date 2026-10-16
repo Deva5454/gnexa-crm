@@ -11,7 +11,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, KINDS, kindFromSlug, STATUS_FILTERS, type DocKind } from "@/lib/sales";
-import { balancesFor } from "@/lib/sales-data";
+import { balancesFor, baseCurrency, toBase } from "@/lib/sales-data";
 import { cn, formatDate, formatMoney, PAGE_SIZE } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
 import { todayIST } from "@/lib/dates";
@@ -35,7 +35,7 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
   const { data: docs } = await allRows((from, to) =>
     supabase
       .from("sales_docs")
-      .select("id, kind, number, subject, date, due_date, status, total, currency, recurring_every, recurring_from, subscription_id, customer:customers(company), lead:leads(name, company)")
+      .select("id, kind, number, subject, date, due_date, status, total, currency, exchange_rate, recurring_every, recurring_from, subscription_id, customer:customers(company), lead:leads(name, company)")
       .eq("kind", kind)
       .order("date", { ascending: false })
       .order("number", { ascending: false })
@@ -56,26 +56,29 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
   });
 
   // Summary tiles
-  const sum = (xs: typeof all, f: (x: (typeof all)[number]) => number) => xs.reduce((s, x) => s + f(x), 0);
+  // Totals add documents in different currencies, so each amount is converted with its document's rate
+  const base = await baseCurrency(supabase);
+  const sum = (xs: typeof all, f: (x: (typeof all)[number]) => number) => xs.reduce((s, x) => s + toBase(f(x), x.exchange_rate), 0);
+  const fm = (v: number) => formatMoney(v, base);
   const live = all.filter((d) => d.status !== "cancelled" && d.status !== "draft");
   const tiles =
     kind === "invoice"
       ? [
-          { label: "Outstanding", value: formatMoney(sum(live, (d) => Math.max(0, d.bal?.balance ?? d.total))), tone: "text-slate-900" },
-          { label: "Overdue", value: formatMoney(sum(all.filter((d) => d.st.key === "overdue"), (d) => d.bal?.balance ?? d.total)), tone: "text-rose-600" },
-          { label: "Collected", value: formatMoney(sum(all, (d) => (d.bal?.paid ?? 0))), tone: "text-emerald-600" },
+          { label: "Outstanding", value: fm(sum(live, (d) => Math.max(0, d.bal?.balance ?? d.total))), tone: "text-slate-900" },
+          { label: "Overdue", value: fm(sum(all.filter((d) => d.st.key === "overdue"), (d) => d.bal?.balance ?? d.total)), tone: "text-rose-600" },
+          { label: "Collected", value: fm(sum(all, (d) => (d.bal?.paid ?? 0))), tone: "text-emerald-600" },
           { label: "Drafts", value: String(all.filter((d) => d.status === "draft").length), tone: "text-slate-400" },
         ]
       : kind === "credit_note"
         ? [
-            { label: "Credit issued", value: formatMoney(sum(live, (d) => d.total)), tone: "text-slate-900" },
-            { label: "Credit remaining", value: formatMoney(sum(live, (d) => Math.max(0, d.bal?.balance ?? d.total))), tone: "text-violet-600" },
+            { label: "Credit issued", value: fm(sum(live, (d) => d.total)), tone: "text-slate-900" },
+            { label: "Credit remaining", value: fm(sum(live, (d) => Math.max(0, d.bal?.balance ?? d.total))), tone: "text-violet-600" },
             { label: "Open notes", value: String(all.filter((d) => d.st.key === "open").length), tone: "text-slate-900" },
             { label: "Drafts", value: String(all.filter((d) => d.status === "draft").length), tone: "text-slate-400" },
           ]
         : [
-            { label: "Sent & awaiting", value: formatMoney(sum(all.filter((d) => d.st.key === "sent"), (d) => d.total)), tone: "text-sky-600" },
-            { label: "Accepted", value: formatMoney(sum(all.filter((d) => d.st.key === "accepted"), (d) => d.total)), tone: "text-emerald-600" },
+            { label: "Sent & awaiting", value: fm(sum(all.filter((d) => d.st.key === "sent"), (d) => d.total)), tone: "text-sky-600" },
+            { label: "Accepted", value: fm(sum(all.filter((d) => d.st.key === "accepted"), (d) => d.total)), tone: "text-emerald-600" },
             { label: "Declined / expired", value: String(all.filter((d) => d.st.key === "declined" || d.st.key === "expired").length), tone: "text-rose-600" },
             { label: "Drafts", value: String(all.filter((d) => d.status === "draft").length), tone: "text-slate-400" },
           ];

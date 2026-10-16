@@ -18,7 +18,7 @@ export function ColorBadge({ color, children }: { color: string; children: React
   return (
     <span
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: `${color}1a`, color }}
+      style={{ backgroundColor: `${color}1a`, color: `color-mix(in srgb, ${color} 55%, #0f172a)` }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
       {children}

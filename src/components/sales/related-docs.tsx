@@ -5,14 +5,14 @@ import { LinkButton } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, KINDS, type DocKind } from "@/lib/sales";
-import { balancesFor } from "@/lib/sales-data";
+import { balancesFor, baseCurrency, toBase } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 
 /** Sales documents for one customer (billing tab) or one lead (proposals). */
 export async function RelatedDocs({ customerId, leadId }: { customerId?: number; leadId?: number }) {
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) return null;
-  let q = supabase.from("sales_docs").select("id, kind, number, subject, date, due_date, status, total, currency").order("date", { ascending: false }).limit(200);
+  let q = supabase.from("sales_docs").select("id, kind, number, subject, date, due_date, status, total, currency, exchange_rate").order("date", { ascending: false }).limit(200);
   q = customerId ? q.eq("customer_id", customerId) : q.eq("lead_id", leadId!);
   const { data: docs } = await q;
   const bals = await balancesFor(supabase, (docs ?? []).map((d) => d.id));
@@ -22,9 +22,10 @@ export async function RelatedDocs({ customerId, leadId }: { customerId?: number;
     st: docStatus({ kind: d.kind as DocKind, status: d.status, due_date: d.due_date, total: Number(d.total) }, bals.get(d.id)),
   }));
   const invoices = rows.filter((r) => r.kind === "invoice" && r.status !== "cancelled" && r.status !== "draft");
-  const outstanding = invoices.reduce((s, r) => s + Math.max(0, r.bal?.balance ?? Number(r.total)), 0);
-  const paid = invoices.reduce((s, r) => s + (r.bal?.paid ?? 0), 0);
-  const overdue = invoices.filter((r) => r.st.key === "overdue").reduce((s, r) => s + (r.bal?.balance ?? 0), 0);
+  const outstanding = invoices.reduce((s, r) => s + toBase(Math.max(0, r.bal?.balance ?? Number(r.total)), r.exchange_rate), 0);
+  const paid = invoices.reduce((s, r) => s + toBase(r.bal?.paid ?? 0, r.exchange_rate), 0);
+  const overdue = invoices.filter((r) => r.st.key === "overdue").reduce((s, r) => s + toBase(r.bal?.balance ?? 0, r.exchange_rate), 0);
+  const base = await baseCurrency(supabase);
   const canEdit = can("sales", "edit");
   const query = customerId ? `customer=${customerId}` : `lead=${leadId}`;
 
@@ -39,7 +40,7 @@ export async function RelatedDocs({ customerId, leadId }: { customerId?: number;
           ].map(([l, v, t]) => (
             <Card key={l as string} className="px-5 py-4">
               <div className="text-xs font-medium text-slate-500">{l}</div>
-              <div className={`mt-1 text-xl font-bold ${t}`}>{formatMoney(v as number)}</div>
+              <div className={`mt-1 text-xl font-bold ${t}`}>{formatMoney(v as number, base)}</div>
             </Card>
           ))}
         </div>

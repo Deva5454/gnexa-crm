@@ -57,7 +57,7 @@ export function TodoList({ todos, compact = false }: { todos: Todo[]; compact?: 
               <button
                 type="button"
                 onClick={() => start(async () => { apply({ type: "delete", id: t.id }); await deleteTodo(t.id); })}
-                className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100"
+                className="rounded p-0.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
                 aria-label={`Delete ${t.body}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />

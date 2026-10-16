@@ -5,6 +5,7 @@ import { docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { allRows } from "@/lib/fetch-all";
 import { daysFromToday, todayIST } from "@/lib/dates";
+import { toBase } from "@/lib/sales-data";
 
 type DB = SupabaseClient<Database>;
 
@@ -47,8 +48,8 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
   const since = `${months[0]!.key}-01`;
   const yearAgo = daysFromToday(-365);
   const [{ data: invoices }, { data: payments }] = await Promise.all([
-    allRows((a, b) => supabase.from("sales_docs").select("id, date, due_date, status, total, customer:customers(company)").eq("kind", "invoice").neq("status", "draft").neq("status", "cancelled").order("id").range(a, b)),
-    allRows((a, b) => supabase.from("payments").select("amount, date, mode:payment_modes(name)").gte("date", yearAgo).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("sales_docs").select("id, date, due_date, status, total, exchange_rate, customer:customers(company)").eq("kind", "invoice").neq("status", "draft").neq("status", "cancelled").order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount, date, mode:payment_modes(name), invoice:sales_docs(exchange_rate)").gte("date", yearAgo).order("id").range(a, b)),
   ]);
   const inv = invoices ?? [];
   const bals = await balancesFor(supabase, inv.map((i) => i.id));
@@ -61,8 +62,8 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
     columns: [{ label: "Month" }, { label: "Invoiced", money: true }, { label: "Collected", money: true }],
     rows: months.map((m) => [
       m.label,
-      r2(inv.filter((i) => monthOf(i.date) === m.key).reduce((s, i) => s + Number(i.total), 0)),
-      r2((payments ?? []).filter((p) => p.date >= since && monthOf(p.date) === m.key).reduce((s, p) => s + Number(p.amount), 0)),
+      r2(inv.filter((i) => monthOf(i.date) === m.key).reduce((s, i) => s + toBase(Number(i.total), i.exchange_rate), 0)),
+      r2((payments ?? []).filter((p) => p.date >= since && monthOf(p.date) === m.key).reduce((s, p) => s + toBase(Number(p.amount), p.invoice?.exchange_rate), 0)),
     ]),
   };
 
@@ -74,7 +75,7 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
     if (st.key === "paid") continue;
     const days = i.due_date ? Math.floor((new Date(today).getTime() - new Date(i.due_date).getTime()) / 86400_000) : 0;
     const idx = days <= 0 ? 0 : days <= 30 ? 1 : days <= 60 ? 2 : days <= 90 ? 3 : 4;
-    aging[idx]!.amount += b?.balance ?? Number(i.total);
+    aging[idx]!.amount += toBase(b?.balance ?? Number(i.total), i.exchange_rate);
     aging[idx]!.count++;
   }
   const agingTable: ReportTable = {
@@ -89,8 +90,8 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
   for (const i of inv.filter((x) => x.date >= yearAgo)) {
     const k = i.customer?.company ?? "—";
     const cur = byCustomer.get(k) ?? { invoiced: 0, outstanding: 0 };
-    cur.invoiced += Number(i.total);
-    cur.outstanding += Math.max(0, bals.get(i.id)?.balance ?? 0);
+    cur.invoiced += toBase(Number(i.total), i.exchange_rate);
+    cur.outstanding += toBase(Math.max(0, bals.get(i.id)?.balance ?? 0), i.exchange_rate);
     byCustomer.set(k, cur);
   }
   const top: ReportTable = {
@@ -102,7 +103,7 @@ export async function salesReports(supabase: DB): Promise<ReportTable[]> {
   };
 
   const byMode = new Map<string, number>();
-  for (const p of payments ?? []) byMode.set(p.mode?.name ?? "Other", (byMode.get(p.mode?.name ?? "Other") ?? 0) + Number(p.amount));
+  for (const p of payments ?? []) byMode.set(p.mode?.name ?? "Other", (byMode.get(p.mode?.name ?? "Other") ?? 0) + toBase(Number(p.amount), p.invoice?.exchange_rate));
   const modes: ReportTable = {
     key: "sales-modes",
     title: "Collections by payment mode",
@@ -119,20 +120,21 @@ async function salesExtras(supabase: DB, yearAgo: string): Promise<ReportTable[]
     allRows((a, b) =>
       supabase
         .from("sales_doc_items")
-        .select("description, qty, rate, doc:sales_docs!inner(kind, status, date)")
+        .select("description, qty, rate, doc:sales_docs!inner(kind, status, date, exchange_rate, discount_percent)")
         .eq("doc.kind", "invoice")
         .in("doc.status", ["sent", "accepted"])
         .gte("doc.date", yearAgo)
         .order("id")
         .range(a, b),
     ),
-    allRows((a, b) => supabase.from("sales_docs").select("kind, status, total").in("kind", ["proposal", "estimate"]).neq("status", "draft").order("id").range(a, b)),
+    allRows((a, b) => supabase.from("sales_docs").select("kind, status, total, exchange_rate").in("kind", ["proposal", "estimate"]).neq("status", "draft").order("id").range(a, b)),
   ]);
   const byItem = new Map<string, { qty: number; amount: number }>();
   for (const l of lines ?? []) {
     const cur = byItem.get(l.description) ?? { qty: 0, amount: 0 };
     cur.qty += Number(l.qty);
-    cur.amount += Number(l.qty) * Number(l.rate);
+    // after the document discount, in the base currency
+    cur.amount += toBase(Number(l.qty) * Number(l.rate) * (1 - Number(l.doc?.discount_percent ?? 0) / 100), l.doc?.exchange_rate);
     byItem.set(l.description, cur);
   }
   const items: ReportTable = {
@@ -147,7 +149,7 @@ async function salesExtras(supabase: DB, yearAgo: string): Promise<ReportTable[]
     const won = qs.filter((q) => q.status === "accepted");
     const lost = qs.filter((q) => q.status === "declined");
     return [k === "proposal" ? "Proposals" : "Estimates", qs.length, won.length, lost.length, qs.length - won.length - lost.length,
-      won.length + lost.length ? Math.round((won.length / (won.length + lost.length)) * 100) : 0, r2(won.reduce((s, q) => s + Number(q.total), 0))] as (string | number)[];
+      won.length + lost.length ? Math.round((won.length / (won.length + lost.length)) * 100) : 0, r2(won.reduce((s, q) => s + toBase(Number(q.total), q.exchange_rate), 0))] as (string | number)[];
   });
   const quotesTable: ReportTable = {
     key: "sales-quotes",
@@ -224,7 +226,7 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
   const [{ data: exps }, { data: cats }, { data: pays }] = await Promise.all([
     allRows((a, b) => supabase.from("expenses").select("amount, tax_rate, date, category_id, is_billable, invoice_id").gte("date", yearAgo).order("id").range(a, b)),
     supabase.from("expense_categories").select("id, name"),
-    allRows((a, b) => supabase.from("payments").select("amount, date").gte("date", `${months[0]!.key}-01`).order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("amount, date, invoice:sales_docs(exchange_rate)").gte("date", `${months[0]!.key}-01`).order("id").range(a, b)),
   ]);
   const gross = (e: { amount: number; tax_rate: number }) => Number(e.amount) * (1 + Number(e.tax_rate) / 100);
   const all = exps ?? [];
@@ -235,7 +237,7 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
       description: "Payments collected vs expenses (incl. GST), last 6 months",
       columns: [{ label: "Month" }, { label: "Collected", money: true }, { label: "Spent", money: true }, { label: "Net", money: true }],
       rows: months.map((m) => {
-        const inn = (pays ?? []).filter((p) => monthOf(p.date) === m.key).reduce((s, p) => s + Number(p.amount), 0);
+        const inn = (pays ?? []).filter((p) => monthOf(p.date) === m.key).reduce((s, p) => s + toBase(Number(p.amount), p.invoice?.exchange_rate), 0);
         const out = all.filter((e) => monthOf(e.date) === m.key).reduce((s, e) => s + gross(e), 0);
         return [m.label, r2(inn), r2(out), r2(inn - out)];
       }),

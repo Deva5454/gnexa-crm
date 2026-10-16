@@ -298,7 +298,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                       <ConfirmForm action={deletePayment} message="Delete this payment?">
                         <input type="hidden" name="id" value={pm.id} />
                         <input type="hidden" name="invoice_id" value={id} />
-                        <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete payment"><Trash2 className="h-3.5 w-3.5" /></button>
+                        <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete payment"><Trash2 className="h-3.5 w-3.5" /></button>
                       </ConfirmForm>
                     )}
                   </div>
@@ -336,7 +336,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                       {canDelete && (
                         <ConfirmForm action={removeCredit} message="Remove this credit from the invoice?">
                           <input type="hidden" name="id" value={c.id} />
-                          <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Remove credit"><X className="h-3.5 w-3.5" /></button>
+                          <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Remove credit"><X className="h-3.5 w-3.5" /></button>
                         </ConfirmForm>
                       )}
                     </span>

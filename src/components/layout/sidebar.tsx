@@ -38,10 +38,29 @@ export function Sidebar({
     });
   };
 
+  // On phones the closed menu is off-screen: keep it out of the tab order (inert) and close it with Escape
+  const [desktop, setDesktop] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setDesktop(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const k = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", k);
+    return () => document.removeEventListener("keydown", k);
+  }, [mobileOpen, onClose]);
+
   return (
     <>
       {mobileOpen && <div className="fixed inset-0 z-30 bg-ink-950/50 lg:hidden" onClick={onClose} />}
       <aside
+        inert={!desktop && !mobileOpen}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex flex-col bg-ink-900 text-slate-300 transition-all duration-200",
           "lg:sticky lg:top-0 lg:h-screen lg:translate-x-0",
@@ -113,6 +132,7 @@ export function Sidebar({
 
         <button
           onClick={toggle}
+          aria-label={collapsed ? "Expand menu" : "Collapse menu"}
           className="mx-3 mb-4 hidden items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-slate-400 hover:bg-ink-800 hover:text-white lg:flex"
         >
           {collapsed ? <PanelLeftOpen className="mx-auto h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}

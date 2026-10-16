@@ -154,7 +154,7 @@ export type Database = {
         Row: {
           id: number; kind: Database["public"]["Enums"]["doc_kind"]; number: number; customer_id: number | null; lead_id: number | null;
           subject: string | null; content: string | null; date: string; due_date: string | null; status: string; currency: string;
-          supply_type: string; place_of_supply: string | null;
+          exchange_rate: number; supply_type: string; place_of_supply: string | null;
           discount_percent: number; adjustment: number; subtotal: number; discount_total: number; tax_total: number; total: number;
           notes: string | null; terms: string | null; source_id: number | null; sent_at: string | null; created_by: string | null; created_at: string;
           project_id: number | null; recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number;

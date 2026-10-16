@@ -250,7 +250,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                   {canDelete && (
                     <ConfirmForm action={deleteMilestone} message={`Delete milestone “${m.name}”? Its tasks stay on the project.`}>
                       <input type="hidden" name="id" value={m.id} />
-                      <button className="rounded p-1 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete milestone"><Trash2 className="h-4 w-4" /></button>
+                      <button className="rounded p-1 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete milestone"><Trash2 className="h-4 w-4" /></button>
                     </ConfirmForm>
                   )}
                 </li>
@@ -296,7 +296,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                         {!t.invoice_id && (t.staff_id === profile.id || canDelete) && (
                           <ConfirmForm action={deleteTimesheet} message="Delete this time entry?">
                             <input type="hidden" name="id" value={t.id} />
-                            <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete entry"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete entry"><Trash2 className="h-3.5 w-3.5" /></button>
                           </ConfirmForm>
                         )}
                       </td>
@@ -337,7 +337,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 {canDelete && (
                   <ConfirmForm action={deleteFile} message={`Delete “${f.name}”?`}>
                     <input type="hidden" name="id" value={f.id} />
-                    <button className="rounded p-1.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete file"><Trash2 className="h-4 w-4" /></button>
+                    <button className="rounded p-1.5 text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete file"><Trash2 className="h-4 w-4" /></button>
                   </ConfirmForm>
                 )}
               </li>
@@ -362,7 +362,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                       {(c.created_by === profile.id || profile.is_admin) && (
                         <ConfirmForm action={deleteComment} message="Delete this comment?">
                           <input type="hidden" name="id" value={c.id} />
-                          <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete comment"><Trash2 className="h-3.5 w-3.5" /></button>
                         </ConfirmForm>
                       )}
                     </div>

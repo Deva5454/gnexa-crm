@@ -37,6 +37,7 @@ export function SearchInput({ placeholder = "Search…" }: { placeholder?: strin
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder ?? "Search"}
         className="field pl-9"
       />
     </div>

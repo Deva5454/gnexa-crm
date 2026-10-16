@@ -12,7 +12,8 @@ export function TagChip({ tag, onRemove, className }: { tag: TagLite; onRemove?:
   return (
     <span
       className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-semibold", className)}
-      style={{ backgroundColor: `${tag.color}1f`, color: tag.color }}
+      // text darkened from the tag colour so light colours (amber, yellow) stay readable
+      style={{ backgroundColor: `${tag.color}1f`, color: `color-mix(in srgb, ${tag.color} 55%, #0f172a)` }}
     >
       {tag.name}
       {onRemove && (

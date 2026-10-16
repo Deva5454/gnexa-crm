@@ -39,15 +39,18 @@ export function TasksBoard({ tasks, canEdit, today }: { tasks: BoardTask[]; canE
     state.map((t) => (t.id === m.id ? { ...t, status: m.status } : t)),
   );
 
-  const drop = (status: Enums<"task_status">) => {
-    const id = dragging;
-    setDragging(null);
-    setOver(null);
+  const moveTask = (id: number | null, status: Enums<"task_status">) => {
     if (id == null || !canEdit || optimistic.find((t) => t.id === id)?.status === status) return;
     start(async () => {
       move({ id, status });
       await setTaskStatus(id, status);
     });
+  };
+  const drop = (status: Enums<"task_status">) => {
+    const id = dragging;
+    setDragging(null);
+    setOver(null);
+    moveTask(id, status);
   };
 
   return (
@@ -104,6 +107,7 @@ export function TasksBoard({ tasks, canEdit, today }: { tasks: BoardTask[]; canE
                       {t.due_date && (
                         <span className={cn("inline-flex items-center gap-1", late && "font-semibold text-rose-600")}>
                           <CalendarDays className="h-3 w-3" />{formatDate(t.due_date).replace(/ \d{4}$/, "")}
+                          {late && <span className="sr-only">(overdue)</span>}
                         </span>
                       )}
                       {t.checklist[1] > 0 && (
@@ -116,6 +120,17 @@ export function TasksBoard({ tasks, canEdit, today }: { tasks: BoardTask[]; canE
                         {t.assignees.slice(0, 3).map((a) => <Avatar key={a} name={a} className="h-6 w-6 text-[9px] ring-2 ring-white" />)}
                       </span>
                     </div>
+                    {canEdit && (
+                      // Keyboard and screen-reader alternative to dragging: appears when focused
+                      <select
+                        aria-label={`Move “${t.name}” to`}
+                        value={t.status}
+                        onChange={(e) => moveTask(t.id, e.target.value as Enums<"task_status">)}
+                        className="sr-only mt-2 w-full rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700 focus:not-sr-only focus:outline-none focus:ring-2 focus:ring-brand-200"
+                      >
+                        {TASK_STATUSES.map((o) => <option key={o.value} value={o.value}>Move to: {o.label}</option>)}
+                      </select>
+                    )}
                   </article>
                 );
               })}
