@@ -270,21 +270,22 @@ export type Database = {
           id: number; name: string; category_id: number | null; amount: number; tax_rate: number; date: string; customer_id: number | null;
           payment_mode_id: number | null; reference: string | null; note: string | null; is_billable: boolean; invoice_id: number | null; created_by: string | null; created_at: string;
           recurring_every: number | null; recurring_unit: string; recurring_cycles: number | null; recurring_done: number; next_recurring_date: string | null;
-          recurring_from: number | null; receipt_path: string | null; receipt_name: string | null;
+          recurring_from: number | null; receipt_path: string | null; receipt_name: string | null; project_id: number | null;
         };
         Insert: {
           id?: never; name: string; category_id?: number | null; amount: number; tax_rate?: number; date?: string; customer_id?: number | null;
           payment_mode_id?: number | null; reference?: string | null; note?: string | null; is_billable?: boolean; invoice_id?: number | null; created_by?: string | null; created_at?: string;
           recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number; next_recurring_date?: string | null;
-          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null;
+          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null; project_id?: number | null;
         };
         Update: {
           id?: never; name?: string; category_id?: number | null; amount?: number; tax_rate?: number; date?: string; customer_id?: number | null;
           payment_mode_id?: number | null; reference?: string | null; note?: string | null; is_billable?: boolean; invoice_id?: number | null; created_by?: string | null; created_at?: string;
           recurring_every?: number | null; recurring_unit?: string; recurring_cycles?: number | null; recurring_done?: number; next_recurring_date?: string | null;
-          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null;
+          recurring_from?: number | null; receipt_path?: string | null; receipt_name?: string | null; project_id?: number | null;
         };
         Relationships: [
+          { foreignKeyName: "expenses_project_id_fkey"; columns: ["project_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id"] },
           { foreignKeyName: "expenses_category_id_fkey"; columns: ["category_id"]; isOneToOne: false; referencedRelation: "expense_categories"; referencedColumns: ["id"] },
           { foreignKeyName: "expenses_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
           { foreignKeyName: "expenses_payment_mode_id_fkey"; columns: ["payment_mode_id"]; isOneToOne: false; referencedRelation: "payment_modes"; referencedColumns: ["id"] },
@@ -293,9 +294,9 @@ export type Database = {
         ];
       };
       projects: {
-        Row: { id: number; name: string; customer_id: number; status: string; billing_type: string; fixed_price: number | null; hourly_rate: number | null; start_date: string; deadline: string | null; description: string | null; created_by: string | null; created_at: string };
-        Insert: { id?: never; name: string; customer_id: number; status?: string; billing_type?: string; fixed_price?: number | null; hourly_rate?: number | null; start_date?: string; deadline?: string | null; description?: string | null; created_by?: string | null; created_at?: string };
-        Update: { id?: never; name?: string; customer_id?: number; status?: string; billing_type?: string; fixed_price?: number | null; hourly_rate?: number | null; start_date?: string; deadline?: string | null; description?: string | null; created_by?: string | null; created_at?: string };
+        Row: { id: number; name: string; customer_id: number; status: string; billing_type: string; fixed_price: number | null; hourly_rate: number | null; start_date: string; deadline: string | null; description: string | null; estimated_hours: number | null; progress_manual: number | null; portal_visible: boolean; portal_show_tasks: boolean; portal_show_timesheets: boolean; created_by: string | null; created_at: string };
+        Insert: { id?: never; name: string; customer_id: number; status?: string; billing_type?: string; fixed_price?: number | null; hourly_rate?: number | null; start_date?: string; deadline?: string | null; description?: string | null; estimated_hours?: number | null; progress_manual?: number | null; portal_visible?: boolean; portal_show_tasks?: boolean; portal_show_timesheets?: boolean; created_by?: string | null; created_at?: string };
+        Update: { id?: never; name?: string; customer_id?: number; status?: string; billing_type?: string; fixed_price?: number | null; hourly_rate?: number | null; start_date?: string; deadline?: string | null; description?: string | null; estimated_hours?: number | null; progress_manual?: number | null; portal_visible?: boolean; portal_show_tasks?: boolean; portal_show_timesheets?: boolean; created_by?: string | null; created_at?: string };
         Relationships: [{ foreignKeyName: "projects_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "projects_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
       project_members: {

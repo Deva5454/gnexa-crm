@@ -13,14 +13,17 @@ export const metadata: Metadata = { title: "Project" };
 export default async function PortalProject({ params }: { params: Promise<{ id: string }> }) {
   const id = Number((await params).id);
   const { supabase } = await requirePortal();
-  const [{ data: p }, { data: milestones }, { data: tasks }] = await Promise.all([
-    supabase.from("projects").select("id, name, status, start_date, deadline, description").eq("id", id).maybeSingle(),
+  const [{ data: p }, { data: milestones }, { data: tasks }, { data: times }] = await Promise.all([
+    supabase.from("projects").select("id, name, status, start_date, deadline, description, progress_manual, portal_show_tasks, portal_show_timesheets").eq("id", id).maybeSingle(),
     supabase.from("milestones").select("id, name, due_date, is_complete").eq("project_id", id).order("position"),
     supabase.from("tasks").select("id, name, status, due_date, milestone_id").eq("rel_type", "project").eq("rel_id", id).order("due_date"),
+    // only returned when the project shares its timesheets with the customer (database rule)
+    supabase.from("timesheets").select("id, date, hours, note").eq("project_id", id).order("date", { ascending: false }).limit(200),
   ]);
   if (!p) notFound();
   const all = tasks ?? [];
-  const pct = all.length ? Math.round((all.filter((t) => t.status === "complete").length / all.length) * 100) : 0;
+  const pct = p.progress_manual != null ? p.progress_manual : all.length ? Math.round((all.filter((t) => t.status === "complete").length / all.length) * 100) : 0;
+  const hours = (times ?? []).reduce((a, t) => a + Number(t.hours), 0);
   const s = projectStatus(p.status);
   const groups = [...(milestones ?? []).map((m) => ({ key: m.id, name: m.name, due: m.due_date, done: m.is_complete })), { key: 0, name: "Other work", due: null as string | null, done: false }];
   return (
@@ -32,6 +35,23 @@ export default async function PortalProject({ params }: { params: Promise<{ id: 
         <div className="h-3 rounded-full bg-slate-100"><div className="h-3 rounded-full bg-gradient-to-r from-brand-500 to-accent-400" style={{ width: `${pct}%` }} /></div>
         {p.description && <p className="mt-4 text-sm text-slate-600">{p.description}</p>}
       </Card>
+      {p.portal_show_timesheets && (
+        <Card className="mb-6">
+          <CardHeader title="Time spent" description={`${hours} hours logged`} />
+          {!times?.length ? <p className="px-5 py-6 text-sm text-slate-400">No time logged yet.</p> : (
+            <ul className="divide-y divide-slate-100">
+              {times.slice(0, 30).map((t) => (
+                <li key={t.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                  <span className="w-24 shrink-0 text-xs text-slate-500">{formatDate(t.date)}</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-700">{t.note ?? "—"}</span>
+                  <b className="shrink-0">{Number(t.hours)} h</b>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+      {!p.portal_show_tasks ? null : (
       <div className="space-y-4">
         {groups.map((g) => {
           const list = all.filter((t) => (t.milestone_id ?? 0) === g.key);
@@ -53,6 +73,7 @@ export default async function PortalProject({ params }: { params: Promise<{ id: 
           );
         })}
       </div>
+      )}
     </>
   );
 }

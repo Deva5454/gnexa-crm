@@ -5,8 +5,8 @@ import { requireStaff } from "@/lib/auth";
 import { str } from "@/lib/utils";
 import { must, withFlash } from "@/lib/flash";
 
-const PATHS = { customer: "/customers", lead: "/leads" } as const;
-const MODULE = { customer: "customers", lead: "leads" } as const;
+const PATHS = { customer: "/customers", lead: "/leads", project: "/projects" } as const;
+const MODULE = { customer: "customers", lead: "leads", project: "projects" } as const;
 
 export async function addNote(form: FormData) {
   return withFlash(async () => {

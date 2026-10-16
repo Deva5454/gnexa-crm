@@ -32,6 +32,11 @@ export async function saveProject(id: number | null, _: FormState, form: FormDat
     start_date: str(form, "start_date") ?? todayIST(),
     deadline: str(form, "deadline"),
     description: str(form, "description"),
+    estimated_hours: num(form, "estimated_hours"),
+    progress_manual: str(form, "progress_mode") === "manual" ? Math.min(100, Math.max(0, Math.round(num(form, "progress_manual") ?? 0))) : null,
+    portal_visible: form.get("portal_visible") === "on",
+    portal_show_tasks: form.get("portal_show_tasks") === "on",
+    portal_show_timesheets: form.get("portal_show_timesheets") === "on",
   };
   if (!fields.name) return { error: "Project name is required." };
   if (!fields.customer_id) return { error: "Choose a customer." };
@@ -223,5 +228,91 @@ export async function deleteFile(form: FormData) {
     if (!data) throw new Error("Only the uploader, or someone with full project access, can delete this file.");
     await supabase.storage.from(BUCKET).remove([data.path]);
     revalidatePath(path(data.project_id, "files"));
+  });
+}
+
+// ───────────── Copy (Perfex "Copy project") ─────────────
+export async function copyProject(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("projects", "edit");
+    const id = Number(str(form, "id"));
+    const withTasks = form.get("tasks") === "on";
+    const withMembers = form.get("members") === "on";
+    const withMilestones = form.get("milestones") === "on" || withTasks;
+    const { data: src } = await supabase.from("projects").select("*").eq("id", id).single();
+    if (!src) throw new Error("Project not found.");
+    const today = todayIST();
+    // Keep the same length: the deadline moves with the new start date
+    const span = src.deadline ? Math.round((Date.parse(src.deadline) - Date.parse(src.start_date)) / 86400_000) : null;
+    const shift = (d: string | null) => (d ? new Date(Date.parse(d) + (Date.parse(today) - Date.parse(src.start_date))).toISOString().slice(0, 10) : null);
+    const { data: copy, error } = await supabase
+      .from("projects")
+      .insert({
+        customer_id: src.customer_id,
+        billing_type: src.billing_type,
+        fixed_price: src.fixed_price,
+        hourly_rate: src.hourly_rate,
+        description: src.description,
+        estimated_hours: src.estimated_hours,
+        portal_visible: src.portal_visible,
+        portal_show_tasks: src.portal_show_tasks,
+        portal_show_timesheets: src.portal_show_timesheets,
+        name: (str(form, "name") ?? `${src.name} (copy)`).slice(0, 200),
+        status: "not_started",
+        start_date: today,
+        deadline: span != null ? new Date(Date.parse(today) + span * 86400_000).toISOString().slice(0, 10) : null,
+        progress_manual: src.progress_manual != null ? 0 : null,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(friendlyError(error.message));
+    if (withMembers) {
+      const { data: m } = await supabase.from("project_members").select("staff_id").eq("project_id", id);
+      if (m?.length) must(await supabase.from("project_members").insert(m.map((x) => ({ project_id: copy.id, staff_id: x.staff_id }))));
+    }
+    const msMap = new Map<number, number>();
+    if (withMilestones) {
+      const { data: ms } = await supabase.from("milestones").select("*").eq("project_id", id).order("position");
+      for (const m of ms ?? []) {
+        const { data: nm } = await supabase
+          .from("milestones")
+          .insert({ project_id: copy.id, name: m.name, description: m.description, due_date: shift(m.due_date), position: m.position, is_complete: false })
+          .select("id")
+          .single();
+        if (nm) msMap.set(m.id, nm.id);
+      }
+    }
+    if (withTasks) {
+      const { data: ts } = await supabase.from("tasks").select("*, task_assignees(staff_id)").eq("rel_type", "project").eq("rel_id", id);
+      for (const t of ts ?? []) {
+        const { data: nt } = await supabase
+          .from("tasks")
+          .insert({
+            name: t.name, description: t.description, priority: t.priority, status: "not_started",
+            rel_type: "project", rel_id: copy.id, milestone_id: t.milestone_id ? (msMap.get(t.milestone_id) ?? null) : null,
+            start_date: shift(t.start_date), due_date: shift(t.due_date),
+          })
+          .select("id")
+          .single();
+        if (nt && withMembers && t.task_assignees.length) {
+          await supabase.from("task_assignees").insert(t.task_assignees.map((a) => ({ task_id: nt.id, staff_id: a.staff_id })));
+        }
+      }
+    }
+    await logActivity(supabase, `copied project "${src.name}"`, { type: "project", id: copy.id });
+    revalidatePath("/projects");
+    redirect(path(copy.id));
+  });
+}
+
+/** Perfex asks, when a project is finished, whether to close its open tasks too. */
+export async function completeProjectTasks(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("tasks", "edit");
+    const id = Number(str(form, "id"));
+    const { data } = await supabase.from("tasks").update({ status: "complete" }).eq("rel_type", "project").eq("rel_id", id).neq("status", "complete").select("id");
+    await logActivity(supabase, `marked ${data?.length ?? 0} open tasks complete`, { type: "project", id });
+    revalidatePath(path(id));
+    revalidatePath("/tasks");
   });
 }

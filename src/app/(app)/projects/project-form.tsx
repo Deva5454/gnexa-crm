@@ -33,6 +33,7 @@ export function ProjectForm({
   const [state, formAction] = useActionState(action, undefined);
   const p = project;
   const [billing, setBilling] = useState(p?.billing_type ?? "fixed");
+  const [manual, setManual] = useState(p?.progress_manual != null);
   const members = new Set(memberIds ?? [currentUserId]);
   return (
     <form action={formAction} className="space-y-6">
@@ -75,6 +76,20 @@ export function ProjectForm({
               <input id="hourly_rate" name="hourly_rate" type="number" min="1" step="0.01" required defaultValue={p?.hourly_rate ?? ""} className="field" />
             </Field>
           )}
+          <Field label="Estimated hours" htmlFor="estimated_hours" hint="The time budget — compared with hours logged">
+            <input id="estimated_hours" name="estimated_hours" type="number" min="0" step="0.5" defaultValue={p?.estimated_hours ?? ""} className="field" />
+          </Field>
+          <Field label="Progress" htmlFor="progress_mode">
+            <div className="flex items-center gap-2">
+              <select id="progress_mode" name="progress_mode" value={manual ? "manual" : "tasks"} onChange={(e) => setManual(e.target.value === "manual")} className="field">
+                <option value="tasks">From completed tasks</option>
+                <option value="manual">Set by hand</option>
+              </select>
+              {manual && (
+                <input name="progress_manual" type="number" min="0" max="100" step="5" defaultValue={p?.progress_manual ?? 0} aria-label="Progress %" className="field w-24" />
+              )}
+            </div>
+          </Field>
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
             <textarea id="description" name="description" rows={4} defaultValue={p?.description ?? ""} className="field" />
           </Field>
@@ -89,6 +104,21 @@ export function ProjectForm({
               ))}
             </div>
           </fieldset>
+        </CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="Customer portal" description="What the customer sees of this project when they sign in to the portal" />
+        <CardBody className="space-y-2 text-sm text-slate-700">
+          {[
+            ["portal_visible", "Show this project in the customer portal", p?.portal_visible ?? true],
+            ["portal_show_tasks", "Show its tasks and milestones progress", p?.portal_show_tasks ?? true],
+            ["portal_show_timesheets", "Show its timesheets (hours logged)", p?.portal_show_timesheets ?? false],
+          ].map(([name, label, on]) => (
+            <label key={name as string} className="flex items-center gap-2">
+              <input type="checkbox" name={name as string} defaultChecked={on as boolean} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+              {label as string}
+            </label>
+          ))}
         </CardBody>
       </Card>
       <div className="flex justify-end gap-2">

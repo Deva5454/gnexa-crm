@@ -7,7 +7,7 @@ import { requireStaff } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import { NoteComposer } from "./note-composer";
 
-export async function NotesPanel({ relType, relId, path }: { relType: "customer" | "lead"; relId: number; path: string }) {
+export async function NotesPanel({ relType, relId, path }: { relType: "customer" | "lead" | "project"; relId: number; path: string }) {
   const { supabase, profile } = await requireStaff();
   const { data: notes } = await supabase
     .from("notes")

@@ -49,6 +49,7 @@ function fields(form: FormData) {
     tax_rate: num(form, "tax_rate") ?? 0,
     date: str(form, "date") ?? todayIST(),
     customer_id: num(form, "customer_id"),
+    project_id: num(form, "customer_id") ? num(form, "project_id") : null,
     payment_mode_id: num(form, "payment_mode_id"),
     reference: str(form, "reference"),
     note: str(form, "note"),
@@ -63,6 +64,10 @@ export async function saveExpense(id: number | null, _: FormState, form: FormDat
   if (!f.name) return { error: "Give the expense a name." };
   if (f.amount < 0) return { error: "Amount must be zero or more." };
   if (f.is_billable && !f.customer_id) return { error: "Billable expenses need a customer." };
+  if (f.project_id) {
+    const { data: pr } = await supabase.from("projects").select("customer_id").eq("id", f.project_id).maybeSingle();
+    if (!pr || pr.customer_id !== f.customer_id) return { error: "That project belongs to a different customer." };
+  }
   if (id) {
     const { data: cur } = await supabase.from("expenses").select("invoice_id, customer_id").eq("id", id).single();
     if (cur?.invoice_id && (cur.customer_id !== f.customer_id || !f.is_billable))

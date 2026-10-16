@@ -19,12 +19,17 @@ export function ExpenseForm({
   customers,
   modes,
   taxRates,
+  projects = [],
   defaultCustomer,
+  defaultProject,
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
   expense?: Tables<"expenses">;
+  projects?: { id: number; name: string; customer_id: number }[];
   /** pre-selected customer for a new expense (?customer=) */
   defaultCustomer?: number;
+  /** pre-selected project for a new expense (?project=) */
+  defaultProject?: number;
   categories: Opt[];
   customers: Opt[];
   modes: Opt[];
@@ -74,6 +79,14 @@ export function ExpenseForm({
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
+          {projects.some((p) => String(p.customer_id) === customer) && (
+            <Field label="Project" htmlFor="project_id" hint="Shows on the project's Expenses tab">
+              <select key={customer} id="project_id" name="project_id" defaultValue={e?.project_id ?? defaultProject ?? ""} className="field">
+                <option value="">— No project —</option>
+                {projects.filter((p) => String(p.customer_id) === customer).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          )}
           <div className="self-end pb-1">
             {billed && <input type="hidden" name="customer_id" value={customer} />}
             {billed && <input type="hidden" name="is_billable" value="on" />}

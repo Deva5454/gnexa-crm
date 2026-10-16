@@ -5,7 +5,7 @@ import { RecordTags } from "@/components/crm/tags";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, Circle, Clock, Download, FileText, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, Clock, Copy, Download, FileText, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react";
 import { ActivityFeed } from "@/components/crm/activity-feed";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,9 @@ import { projectStatus, taskPriority, taskStatus } from "@/lib/constants";
 import { docHref, docNumber, docStatus } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { cn, formatDate, formatMoney, timeAgo } from "@/lib/utils";
-import { deleteComment, deleteFile, deleteMilestone, deleteProject, deleteTimesheet, invoiceProject, toggleMilestone } from "../actions";
+import { completeProjectTasks, copyProject, deleteComment, deleteFile, deleteMilestone, deleteProject, deleteTimesheet, invoiceProject, toggleMilestone } from "../actions";
+import { NotesPanel } from "@/components/crm/notes-panel";
+import { ticketNumber, ticketStatus } from "@/lib/constants";
 import { CommentForm, FileUploader, MilestoneForm, StatusPicker, TimeForm } from "./panels";
 import { todayIST } from "@/lib/dates";
 
@@ -52,11 +54,25 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     supabase.from("sales_docs").select("id, number, status, due_date, total, date").eq("kind", "invoice").eq("project_id", id).order("date", { ascending: false }),
   ]);
   if (!p) notFound();
+  const [{ data: tickets }, { data: expenses }, notesCount] = await Promise.all([
+    can("support", "view")
+      ? supabase.from("tickets").select("id, subject, status, priority, last_reply_at, assignee:profiles!tickets_assigned_to_fkey(full_name)").eq("project_id", id).order("last_reply_at", { ascending: false })
+      : Promise.resolve({ data: null }),
+    can("expenses", "view")
+      ? supabase.from("expenses").select("id, name, date, amount, tax_rate, is_billable, invoice_id, category:expense_categories(name)").eq("project_id", id).order("date", { ascending: false })
+      : Promise.resolve({ data: null }),
+    supabase.from("notes").select("id", { count: "exact", head: true }).eq("rel_type", "project").eq("rel_id", id),
+  ]);
+  const expTotal = (expenses ?? []).reduce((a, e) => a + Number(e.amount) * (1 + Number(e.tax_rate) / 100), 0);
+  const expBillable = (expenses ?? []).filter((e) => e.is_billable).reduce((a, e) => a + Number(e.amount) * (1 + Number(e.tax_rate) / 100), 0);
+  const expBilled = (expenses ?? []).filter((e) => e.invoice_id).reduce((a, e) => a + Number(e.amount) * (1 + Number(e.tax_rate) / 100), 0);
 
   const s = projectStatus(p.status);
   const allTasks = tasks ?? [];
   const done = allTasks.filter((t) => t.status === "complete").length;
-  const pct = allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+  // Perfex: progress from completed tasks, or set by hand on the project
+  const pct = p.progress_manual != null ? p.progress_manual : allTasks.length ? Math.round((done / allTasks.length) * 100) : 0;
+  const openTasks = allTasks.length - done;
   const entries = times ?? [];
   const totalHrs = entries.reduce((a, t) => a + Number(t.hours), 0);
   const billableHrs = entries.filter((t) => t.is_billable).reduce((a, t) => a + Number(t.hours), 0);
@@ -78,6 +94,10 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     { key: "timesheets", label: "Timesheets", href: `${base}?tab=timesheets`, count: entries.length },
     { key: "files", label: "Files", href: `${base}?tab=files`, count: files?.length ?? 0 },
     { key: "discussion", label: "Discussion", href: `${base}?tab=discussion`, count: comments?.length ?? 0 },
+    ...(tickets ? [{ key: "tickets", label: "Tickets", href: `${base}?tab=tickets`, count: tickets.length }] : []),
+    ...(expenses ? [{ key: "expenses", label: "Expenses", href: `${base}?tab=expenses`, count: expenses.length }] : []),
+    { key: "notes", label: "Notes", href: `${base}?tab=notes`, count: notesCount.count ?? 0 },
+    { key: "activity", label: "Activity", href: `${base}?tab=activity` },
   ];
 
   const TaskRow = ({ t }: { t: (typeof allTasks)[number] }) => {
@@ -115,6 +135,23 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               </form>
             )}
             {canEdit && <LinkButton href={`${base}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</LinkButton>}
+            {canEdit && (
+              <details className="relative">
+                <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </summary>
+                <form action={copyProject} className="absolute right-0 z-20 mt-2 w-72 space-y-2 rounded-xl border border-slate-200 bg-white p-4 text-sm shadow-pop">
+                  <input type="hidden" name="id" value={id} />
+                  <label className="block text-xs font-medium text-slate-500" htmlFor="copy_name">New project name</label>
+                  <input id="copy_name" name="name" defaultValue={`${p.name} (copy)`} className="field" />
+                  {[["milestones", "Milestones"], ["tasks", "Tasks (reset to not started)"], ["members", "Team members"]].map(([n, l]) => (
+                    <label key={n} className="flex items-center gap-2 text-slate-700"><input type="checkbox" name={n} defaultChecked className="h-4 w-4 rounded border-slate-300 text-brand-600" />{l}</label>
+                  ))}
+                  <p className="text-xs text-slate-400">Dates move to start today. Time, files and discussion aren&apos;t copied.</p>
+                  <SubmitButton size="sm" pendingText="Copying…">Copy project</SubmitButton>
+                </form>
+              </details>
+            )}
             {canDelete && (
               <ConfirmForm action={deleteProject} message={`Delete project “${p.name}”? Its tasks, milestones, time entries, files and discussion are deleted too.`}>
                 <input type="hidden" name="id" value={id} />
@@ -129,18 +166,36 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <Tabs tabs={tabs} active={tab} />
 
       {tab === "overview" && (
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
+            {p.status === "finished" && openTasks > 0 && can("tasks", "edit") && (
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+                <span className="flex-1">This project is finished but still has <b>{openTasks} open task{openTasks === 1 ? "" : "s"}</b>.</span>
+                <form action={completeProjectTasks}>
+                  <input type="hidden" name="id" value={id} />
+                  <SubmitButton size="sm" variant="secondary" pendingText="Updating…">Mark them complete</SubmitButton>
+                </form>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-4">
               <Card className="px-5 py-4 sm:col-span-2">
                 <div className="mb-2 flex justify-between text-xs"><span className="font-medium text-slate-500">Progress</span><span className="font-bold text-slate-900">{pct}%</span></div>
                 <div className="h-2.5 rounded-full bg-slate-100"><div className="h-2.5 rounded-full bg-gradient-to-r from-brand-500 to-accent-400" style={{ width: `${pct}%` }} /></div>
-                <div className="mt-2 text-xs text-slate-500">{done} of {allTasks.length} tasks done · {(milestones ?? []).filter((m) => m.is_complete).length}/{milestones?.length ?? 0} milestones</div>
+                <div className="mt-2 text-xs text-slate-500">
+                  {p.progress_manual != null ? "Set by hand · " : ""}{done} of {allTasks.length} tasks done · {(milestones ?? []).filter((m) => m.is_complete).length}/{milestones?.length ?? 0} milestones
+                </div>
               </Card>
               <Card className="px-5 py-4">
                 <div className="text-xs font-medium text-slate-500">Hours logged</div>
-                <div className="mt-1 text-xl font-bold">{totalHrs} h</div>
-                <div className="text-xs text-slate-400">{billableHrs} h billable</div>
+                <div className={cn("mt-1 text-xl font-bold", p.estimated_hours && totalHrs > Number(p.estimated_hours) ? "text-rose-600" : "")}>
+                  {totalHrs} h{p.estimated_hours ? <span className="text-sm font-medium text-slate-400"> / {Number(p.estimated_hours)} h</span> : null}
+                </div>
+                {p.estimated_hours ? (
+                  <div className="mt-1 h-1.5 rounded-full bg-slate-100" role="progressbar" aria-label="Hours used of estimate" aria-valuenow={Math.round((totalHrs / Number(p.estimated_hours)) * 100)} aria-valuemin={0} aria-valuemax={100}>
+                    <div className={cn("h-1.5 rounded-full", totalHrs > Number(p.estimated_hours) ? "bg-rose-500" : "bg-brand-500")} style={{ width: `${Math.min(100, (totalHrs / Number(p.estimated_hours)) * 100)}%` }} />
+                  </div>
+                ) : null}
+                <div className="mt-1 text-xs text-slate-400">{billableHrs} h billable</div>
               </Card>
               <Card className="px-5 py-4">
                 <div className="text-xs font-medium text-slate-500">{daysLeft == null ? "Deadline" : daysLeft >= 0 ? "Days left" : "Days overdue"}</div>
@@ -158,6 +213,14 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                   <div><dt className="label">Billing</dt><dd>{p.billing_type === "hourly" ? `Hourly · ${formatMoney(Number(p.hourly_rate))}/h` : `Fixed · ${formatMoney(Number(p.fixed_price))}`}</dd></div>
                   <div><dt className="label">Invoiced</dt><dd>{formatMoney(invoiced)}</dd></div>
                   <div><dt className="label">{p.billing_type === "hourly" ? "Unbilled time" : "Started"}</dt><dd>{p.billing_type === "hourly" ? `${unbilledHrs} h · ${formatMoney(unbilledHrs * Number(p.hourly_rate))}` : formatDate(p.start_date)}</dd></div>
+                  {expenses && (
+                    <>
+                      <div><dt className="label">Expenses</dt><dd>{formatMoney(expTotal)}</dd></div>
+                      <div><dt className="label">Billable expenses</dt><dd>{formatMoney(expBillable)}</dd></div>
+                      <div><dt className="label">Billed / not yet</dt><dd>{formatMoney(expBilled)} · {formatMoney(expBillable - expBilled)}</dd></div>
+                    </>
+                  )}
+                  <div><dt className="label">Customer portal</dt><dd>{!p.portal_visible ? "Hidden" : [p.portal_show_tasks && "tasks", p.portal_show_timesheets && "timesheets"].filter(Boolean).join(" & ") ? `Visible with ${[p.portal_show_tasks && "tasks", p.portal_show_timesheets && "timesheets"].filter(Boolean).join(" & ")}` : "Visible (summary only)"}</dd></div>
                 </dl>
               </CardBody>
             </Card>
@@ -344,6 +407,61 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             ))}
             {!files?.length && <li className="px-5 py-6 text-sm text-slate-400">No files yet.</li>}
           </ul>
+        </Card>
+      )}
+
+      {tab === "tickets" && tickets && (
+        <Card>
+          <CardHeader title="Support tickets" description="Tickets linked to this project" action={can("support", "edit") && <LinkButton href={`/support/new?customer=${p.customer_id}&project=${id}`} size="sm" variant="secondary"><Plus className="h-3.5 w-3.5" /> Ticket</LinkButton>} />
+          {!tickets.length ? <p className="px-5 py-8 text-center text-sm text-slate-400">No tickets for this project.</p> : (
+            <ul className="divide-y divide-slate-100">
+              {tickets.map((t) => (
+                <li key={t.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+                  <Link href={`/support/${t.id}`} className="min-w-0 flex-1 truncate font-medium text-slate-800 hover:text-brand-700"><span className="text-slate-400">{ticketNumber(t.id)}</span> {t.subject}</Link>
+                  <span className="hidden text-xs text-slate-500 sm:inline">{t.assignee?.full_name ?? "Unassigned"}</span>
+                  <span className="text-xs text-slate-400" suppressHydrationWarning>{timeAgo(t.last_reply_at)}</span>
+                  <Badge className={ticketStatus(t.status).color}>{ticketStatus(t.status).label}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {tab === "expenses" && expenses && (
+        <Card>
+          <CardHeader
+            title="Expenses"
+            description={`${formatMoney(expTotal)} in all · ${formatMoney(expBillable)} billable · ${formatMoney(expBilled)} billed`}
+            action={can("expenses", "edit") && <LinkButton href={`/expenses/new?customer=${p.customer_id}&project=${id}`} size="sm" variant="secondary"><Plus className="h-3.5 w-3.5" /> Expense</LinkButton>}
+          />
+          {!expenses.length ? <p className="px-5 py-8 text-center text-sm text-slate-400">No expenses recorded against this project.</p> : (
+            <div className="overflow-x-auto">
+              <table className="table-base">
+                <thead><tr><th>Expense</th><th className="hidden md:table-cell">Category</th><th>Date</th><th>Billing</th><th className="text-right">Amount</th></tr></thead>
+                <tbody>
+                  {expenses.map((e) => (
+                    <tr key={e.id}>
+                      <td><Link href={`/expenses/${e.id}`} className="font-medium text-slate-800 hover:text-brand-700">{e.name}</Link></td>
+                      <td className="hidden text-slate-600 md:table-cell">{e.category?.name ?? "—"}</td>
+                      <td className="text-slate-600">{formatDate(e.date)}</td>
+                      <td>{e.invoice_id ? <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200">Invoiced</Badge> : e.is_billable ? <Badge className="bg-amber-50 text-amber-700 ring-amber-200">Not invoiced yet</Badge> : <span className="text-xs text-slate-400">Not billable</span>}</td>
+                      <td className="text-right font-semibold">{formatMoney(Number(e.amount) * (1 + Number(e.tax_rate) / 100))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === "notes" && <NotesPanel relType="project" relId={id} path={`${base}?tab=notes`} />}
+
+      {tab === "activity" && (
+        <Card>
+          <CardHeader title="Activity log" />
+          <ActivityFeed relType="project" relId={id} limit={50} />
         </Card>
       )}
 

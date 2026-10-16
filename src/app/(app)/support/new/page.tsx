@@ -6,7 +6,7 @@ import { allRows } from "@/lib/fetch-all";
 
 export const metadata: Metadata = { title: "New ticket" };
 
-export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
+export default async function NewTicketPage({ searchParams }: { searchParams: Promise<{ customer?: string; project?: string }> }) {
   const sp = await searchParams;
   const { supabase, profile } = await requireAccess("support", "edit", "/support");
   const [{ data: customers }, { data: contacts }, { data: departments }, { data: projects }, { data: staff }] = await Promise.all([
@@ -26,6 +26,7 @@ export default async function NewTicketPage({ searchParams }: { searchParams: Pr
         projects={projects ?? []}
         staff={staff ?? []}
         defaultCustomer={Number(sp.customer) || undefined}
+        defaultProject={Number(sp.project) || undefined}
         currentUserId={profile.id}
       />
     </div>

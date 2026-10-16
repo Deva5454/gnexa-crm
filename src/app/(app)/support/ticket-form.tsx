@@ -18,6 +18,7 @@ export function TicketForm({
   projects,
   staff,
   defaultCustomer,
+  defaultProject,
   currentUserId,
 }: {
   customers: Opt[];
@@ -26,6 +27,7 @@ export function TicketForm({
   projects: (Opt & { customer_id: number })[];
   staff: { id: string; full_name: string }[];
   defaultCustomer?: number;
+  defaultProject?: number;
   currentUserId: string;
 }) {
   const [state, action] = useActionState(createTicket, undefined);
@@ -68,7 +70,7 @@ export function TicketForm({
             </select>
           </Field>
           <Field label="Project" htmlFor="project_id">
-            <select key={`p${customer}`} id="project_id" name="project_id" defaultValue="" disabled={!theirProjects.length} className="field">
+            <select key={`p${customer}`} id="project_id" name="project_id" defaultValue={theirProjects.some((p) => p.id === defaultProject) ? defaultProject : ""} disabled={!theirProjects.length} className="field">
               <option value="">—</option>
               {theirProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
