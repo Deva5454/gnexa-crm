@@ -16,16 +16,16 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null; contract_expiry_days: number | null;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; };
         Relationships: [];
       };
       contacts: {
@@ -336,10 +336,10 @@ export type Database = {
         Relationships: [];
       };
       contracts: {
-        Row: { id: number; customer_id: number; type_id: number | null; subject: string; value: number | null; start_date: string; end_date: string | null; content: string | null; status: string; signed_by: string | null; signed_at: string | null; created_by: string | null; created_at: string };
-        Insert: { id?: never; customer_id: number; type_id?: number | null; subject: string; value?: number | null; start_date?: string; end_date?: string | null; content?: string | null; status?: string; signed_by?: string | null; signed_at?: string | null; created_by?: string | null; created_at?: string };
-        Update: { id?: never; customer_id?: number; type_id?: number | null; subject?: string; value?: number | null; start_date?: string; end_date?: string | null; content?: string | null; status?: string; signed_by?: string | null; signed_at?: string | null; created_by?: string | null; created_at?: string };
-        Relationships: [{ foreignKeyName: "contracts_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "contracts_type_id_fkey"; columns: ["type_id"]; isOneToOne: false; referencedRelation: "contract_types"; referencedColumns: ["id"] }, { foreignKeyName: "contracts_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+        Row: { id: number; customer_id: number; type_id: number | null; subject: string; value: number | null; start_date: string; end_date: string | null; content: string | null; status: string; signed_by: string | null; signed_at: string | null; created_by: string | null; created_at: string; project_id: number | null; visible_to_client: boolean; expiry_reminded_at: string | null };
+        Insert: { id?: never; customer_id: number; type_id?: number | null; subject: string; value?: number | null; start_date?: string; end_date?: string | null; content?: string | null; status?: string; signed_by?: string | null; signed_at?: string | null; created_by?: string | null; created_at?: string; project_id?: number | null; visible_to_client?: boolean; expiry_reminded_at?: string | null };
+        Update: { id?: never; customer_id?: number; type_id?: number | null; subject?: string; value?: number | null; start_date?: string; end_date?: string | null; content?: string | null; status?: string; signed_by?: string | null; signed_at?: string | null; created_by?: string | null; created_at?: string; project_id?: number | null; visible_to_client?: boolean; expiry_reminded_at?: string | null };
+        Relationships: [{ foreignKeyName: "contracts_project_id_fkey"; columns: ["project_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id"] }, { foreignKeyName: "contracts_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "contracts_type_id_fkey"; columns: ["type_id"]; isOneToOne: false; referencedRelation: "contract_types"; referencedColumns: ["id"] }, { foreignKeyName: "contracts_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
       ticket_departments: {
         Row: { id: number; name: string };
@@ -352,6 +352,30 @@ export type Database = {
         Insert: { id?: never; subject: string; customer_id?: number | null; contact_id?: number | null; department_id?: number | null; project_id?: number | null; priority?: string; status?: string; assigned_to?: string | null; last_reply_at?: string; closed_at?: string | null; created_by?: string | null; created_at?: string; service_id?: number | null; merged_into?: number | null };
         Update: { id?: never; subject?: string; customer_id?: number | null; contact_id?: number | null; department_id?: number | null; project_id?: number | null; priority?: string; status?: string; assigned_to?: string | null; last_reply_at?: string; closed_at?: string | null; created_by?: string | null; created_at?: string; service_id?: number | null; merged_into?: number | null };
         Relationships: [{ foreignKeyName: "tickets_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_contact_id_fkey"; columns: ["contact_id"]; isOneToOne: false; referencedRelation: "contacts"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_service_id_fkey"; columns: ["service_id"]; isOneToOne: false; referencedRelation: "ticket_services"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_department_id_fkey"; columns: ["department_id"]; isOneToOne: false; referencedRelation: "ticket_departments"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_project_id_fkey"; columns: ["project_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_assigned_to_fkey"; columns: ["assigned_to"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }, { foreignKeyName: "tickets_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      contract_renewals: {
+        Row: { id: number; contract_id: number; old_start: string; old_end: string | null; old_value: number | null; new_start: string; new_end: string | null; new_value: number | null; renewed_by: string | null; created_at: string };
+        Insert: { id?: never; contract_id: number; old_start: string; old_end?: string | null; old_value?: number | null; new_start: string; new_end?: string | null; new_value?: number | null; renewed_by?: string | null; created_at?: string };
+        Update: { id?: never; contract_id?: number; old_start?: string; old_end?: string | null; old_value?: number | null; new_start?: string; new_end?: string | null; new_value?: number | null; renewed_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "contract_renewals_renewed_by_fkey"; columns: ["renewed_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      contract_comments: {
+        Row: { id: number; contract_id: number; body: string; staff_id: string | null; author_name: string | null; from_customer: boolean; created_at: string };
+        Insert: { id?: never; contract_id: number; body: string; staff_id?: string | null; author_name?: string | null; from_customer?: boolean; created_at?: string };
+        Update: { id?: never; contract_id?: number; body?: string; staff_id?: string | null; author_name?: string | null; from_customer?: boolean; created_at?: string };
+        Relationships: [{ foreignKeyName: "contract_comments_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
+      };
+      contract_templates: {
+        Row: { id: number; name: string; content: string; created_at: string };
+        Insert: { id?: never; name: string; content?: string; created_at?: string };
+        Update: { id?: never; name?: string; content?: string; created_at?: string };
+        Relationships: [];
+      };
+      contract_files: {
+        Row: { id: number; contract_id: number; name: string; path: string; size: number; mime: string | null; uploaded_by: string | null; created_at: string };
+        Insert: { id?: never; contract_id: number; name: string; path: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Update: { id?: never; contract_id?: number; name?: string; path?: string; size?: number; mime?: string | null; uploaded_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "contract_files_uploaded_by_fkey"; columns: ["uploaded_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
       ticket_services: {
         Row: { id: number; name: string };
@@ -709,6 +733,8 @@ export type Database = {
       run_recurring_tasks: { Args: Record<PropertyKey, never>; Returns: number };
       merge_tickets: { Args: { p_target: number; p_sources: number[] }; Returns: number };
       portal_close_ticket: { Args: { p_ticket: number }; Returns: undefined };
+      renew_contract: { Args: { p_contract: number; p_start: string; p_end: string | null; p_value: number | null; p_keep_signature: boolean }; Returns: undefined };
+      portal_contract_comment: { Args: { p_contract: number; p_body: string }; Returns: undefined };
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
       invoice_project: { Args: { p_project: number }; Returns: Json };
       demo_mode: { Args: Record<PropertyKey, never>; Returns: boolean };

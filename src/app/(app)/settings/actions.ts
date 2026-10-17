@@ -362,3 +362,34 @@ export async function deleteProposalTemplate(form: FormData) {
     revalidatePath("/settings/proposal-templates");
   });
 }
+
+// ───────────── Contract templates & expiry reminders ─────────────
+export async function saveContractTemplate(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const name = (str(form, "name") ?? "").slice(0, 120);
+    const content = (str(form, "content") ?? "").slice(0, 20000);
+    if (!name || !content) throw new Error("Give the template a name and some terms.");
+    const id = num(form, "id");
+    if (id) must(await supabase.from("contract_templates").update({ name, content }).eq("id", id));
+    else must(await supabase.from("contract_templates").insert({ name, content }));
+    revalidatePath("/settings/contracts");
+  });
+}
+
+export async function deleteContractTemplate(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    must(await supabase.from("contract_templates").delete().eq("id", num(form, "id") ?? 0));
+    revalidatePath("/settings/contracts");
+  });
+}
+
+export async function saveContractExpiry(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const days = form.get("auto") === "on" ? Math.min(90, Math.max(1, Math.round(num(form, "days") ?? 7))) : null;
+    must(await supabase.from("company_settings").update({ contract_expiry_days: days }).eq("id", true));
+    revalidatePath("/settings/contracts");
+  });
+}

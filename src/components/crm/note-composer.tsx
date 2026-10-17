@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { addNote } from "@/lib/actions/notes";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export function NoteComposer({ relType, relId }: { relType: "customer" | "lead" | "project"; relId: number }) {
+export function NoteComposer({ relType, relId }: { relType: "customer" | "lead" | "project" | "contract"; relId: number }) {
   const ref = useRef<HTMLFormElement>(null);
   return (
     <form

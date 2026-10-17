@@ -92,6 +92,13 @@ export const DATASETS: Dataset[] = [
     },
   },
   {
+    key: "contracts", label: "Contracts", module: "contracts", dateLabel: "Start",
+    load: async (db, from, to) => {
+      const { data } = await allRows((a, b) => db.from("contracts").select("id, subject, value, start_date, end_date, status, signed_by, signed_at, customer:customers(company), type:contract_types(name), project:projects(name)").gte("start_date", from).lte("start_date", to).order("start_date").order("id").range(a, b));
+      return { columns: ["ID", "Subject", "Customer", "Type", "Project", "Value", "Start", "End", "Status", "Signed by", "Signed on"], rows: data.map((c) => [c.id, c.subject, c.customer?.company, c.type?.name, c.project?.name, c.value, c.start_date, c.end_date, c.status, c.signed_by, day(c.signed_at)]) };
+    },
+  },
+  {
     key: "tickets", label: "Support tickets", module: "support", dateLabel: "Opened",
     load: async (db, from, to) => {
       const { data } = await allRows((a, b) => db.from("tickets").select("id, subject, status, priority, created_at, closed_at, customer:customers(company), department:ticket_departments(name), service:ticket_services(name), assignee:profiles!tickets_assigned_to_fkey(full_name)").gte("created_at", from).lte("created_at", toTs(to)).order("id").range(a, b));

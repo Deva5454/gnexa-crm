@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FormError } from "@/components/ui/field";
 import { rememberSubmitter, SubmitButton } from "@/components/ui/submit-button";
 import { TASK_PRIORITIES } from "@/lib/constants";
-import { openTicket, replyToTicket, respondToQuote, signContract, trackArticle } from "./actions";
+import { commentOnContract, openTicket, replyToTicket, respondToQuote, signContract, trackArticle } from "./actions";
 
 function Ok({ text }: { text?: string }) {
   return text ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{text}</div> : null;
@@ -130,5 +130,21 @@ export function ArticleFeedbackPortal({ id }: { id: number }) {
       <button onClick={() => vote(true)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-emerald-50 hover:text-emerald-700"><ThumbsUp className="h-4 w-4" /> Yes</button>
       <button onClick={() => vote(false)} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-rose-50 hover:text-rose-700"><ThumbsDown className="h-4 w-4" /> No</button>
     </div>
+  );
+}
+
+export function ContractComment({ id }: { id: number }) {
+  const [state, action] = useActionState(commentOnContract, undefined);
+  const ref = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) ref.current?.reset();
+  }, [state]);
+  return (
+    <form ref={ref} action={action} className="space-y-2">
+      <input type="hidden" name="id" value={id} />
+      <FormError message={state?.error} />
+      <textarea name="body" required rows={3} maxLength={4000} placeholder="Questions or changes? Write to us here." aria-label="Comment" className="field" />
+      <div className="flex justify-end"><SubmitButton size="sm" pendingText="Sending…">Send</SubmitButton></div>
+    </form>
   );
 }

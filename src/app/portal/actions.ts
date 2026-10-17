@@ -116,3 +116,12 @@ export async function recordPortalTicketFile(input: { rel_id: number; name: stri
   revalidatePath(`/portal/tickets/${ticketId}`);
   return {};
 }
+
+export async function commentOnContract(_: PortalState, form: FormData): Promise<PortalState> {
+  const { supabase } = await requirePortal();
+  const id = Number(str(form, "id"));
+  const { error } = await supabase.rpc("portal_contract_comment", { p_contract: id, p_body: str(form, "body") ?? "" });
+  if (error) return { error: error.message };
+  revalidatePath(`/portal/contracts/${id}`);
+  return { ok: "Sent." };
+}
