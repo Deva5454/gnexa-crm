@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { pdfFields } from "@/lib/custom-fields";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Landmark } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { DocPaper } from "@/components/sales/doc-paper";
 import { loadParty } from "@/components/sales/party";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import { PrintButton, QuoteResponse } from "./forms";
 import { PayNow } from "./pay-now";
 
 /** A client's view of one of their documents (RLS only returns their own, non-draft documents). */
-export async function PortalDocView({ id, kinds, back, backLabel }: { id: number; kinds: DocKind[]; back: string; backLabel: string }) {
+export async function PortalDocView({ id, kinds }: { id: number; kinds: DocKind[] }) {
   const { supabase, contactName } = await requirePortal();
   const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).in("kind", kinds).maybeSingle(),
@@ -32,8 +31,7 @@ export async function PortalDocView({ id, kinds, back, backLabel }: { id: number
 
   return (
     <>
-      <div className="mb-5 flex items-center justify-between print:hidden">
-        <Link href={back} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"><ArrowLeft className="h-4 w-4" /> {backLabel}</Link>
+      <div className="mb-5 flex items-center justify-end print:hidden">
         <PrintButton />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] print:block">

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Paperclip } from "lucide-react";
+import { CheckCircle2, Paperclip } from "lucide-react";
 import { FileUploader } from "@/components/crm/file-uploader";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +28,6 @@ export default async function PortalTicket({ params }: { params: Promise<{ id: s
   const team = `${settings?.company_name ?? "Our"} team`;
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/portal/tickets" className="mb-5 flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"><ArrowLeft className="h-4 w-4" /> Support</Link>
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold tracking-tight text-slate-900">{t.subject}</h1><Badge className={st.color}>{st.label}</Badge></div>
         <p className="text-sm text-slate-500"><span className="font-mono">{ticketNumber(id)}</span> · opened {formatDateTime(t.created_at)}</p>

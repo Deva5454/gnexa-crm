@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { requirePortal } from "@/lib/auth";
@@ -28,7 +27,6 @@ export default async function PortalProject({ params }: { params: Promise<{ id: 
   const groups = [...(milestones ?? []).map((m) => ({ key: m.id, name: m.name, due: m.due_date, done: m.is_complete })), { key: 0, name: "Other work", due: null as string | null, done: false }];
   return (
     <>
-      <Link href="/portal/projects" className="mb-5 flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"><ArrowLeft className="h-4 w-4" /> All projects</Link>
       <div className="mb-6 flex flex-wrap items-center gap-3"><h1 className="text-2xl font-bold tracking-tight text-slate-900">{p.name}</h1><Badge className={s.color}>{s.label}</Badge></div>
       <Card className="mb-6 p-5">
         <div className="mb-2 flex justify-between text-sm"><span className="text-slate-500">{formatDate(p.start_date)} → {formatDate(p.deadline)}</span><b>{pct}% complete</b></div>

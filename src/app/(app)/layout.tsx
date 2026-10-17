@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/layout/app-shell";
+import { BackButton } from "@/components/layout/back-button";
 import { Flash } from "@/components/layout/flash";
 import { isDemoMode, requireStaff } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
@@ -33,6 +35,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {/* Setup → Theme style */}
       <style>{themeCss(settings.theme)}</style>
+      <Suspense>
+        <BackButton home="/dashboard" />
+      </Suspense>
       {children}
       <Flash flash={flash} />
     </AppShell>

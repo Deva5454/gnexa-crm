@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { BackButton } from "@/components/layout/back-button";
 import { LogoMark } from "@/components/layout/logo";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
 import { isDemoMode, requirePortal } from "@/lib/auth";
@@ -36,7 +37,12 @@ export default async function PortalLayout({ children }: { children: React.React
           <PortalNav hidden={(settings?.disabled_modules ?? []).includes("subscriptions") ? ["/portal/subscriptions"] : []} />
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 print:max-w-none print:p-0">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 print:max-w-none print:p-0">
+        <Suspense>
+          <BackButton home="/portal" />
+        </Suspense>
+        {children}
+      </main>
     </div>
   );
 }

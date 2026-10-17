@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { ContractPaper } from "@/components/sales/contract-paper";
 import { loadParty } from "@/components/sales/party";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -26,8 +25,7 @@ export default async function PortalContract({ params }: { params: Promise<{ id:
   const party = await loadParty(supabase, { customer_id: c.customer_id, lead_id: null });
   return (
     <>
-      <div className="mb-5 flex items-center justify-between print:hidden">
-        <Link href="/portal/contracts" className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600"><ArrowLeft className="h-4 w-4" /> All contracts</Link>
+      <div className="mb-5 flex items-center justify-end print:hidden">
         <PrintButton />
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px] print:block">
