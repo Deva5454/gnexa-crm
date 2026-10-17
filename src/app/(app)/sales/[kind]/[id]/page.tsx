@@ -23,7 +23,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, INTERVAL_LABEL, KINDS, kindFromSlug, type DocKind } from "@/lib/sales";
-import { balancesFor, companySettings } from "@/lib/sales-data";
+import { balancesFor, companySettings, invoicePayOptions } from "@/lib/sales-data";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { daysFromToday } from "@/lib/dates";
 import { convertDoc, copyDoc, createPublicLink, deleteDoc, deleteDocComment, deleteDocFile, deletePayment, disablePublicLink, recordDocFile, removeCredit, setAllowComments, setDocStatus } from "../../actions";
@@ -53,10 +53,11 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
 
-  const [{ data: doc }, { data: lines }, company, extra] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, payOptions, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).eq("kind", kind).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
+    invoicePayOptions(supabase),
     pdfFields(supabase, id),
   ]);
   if (!doc) notFound();
@@ -83,7 +84,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
           .eq(kind === "invoice" ? "invoice_id" : "credit_note_id", id)
           .order("date")
       : Promise.resolve({ data: [] as never[] }),
-    supabase.from("payment_modes").select("id, name").eq("is_active", true).order("id"),
+    supabase.from("payment_modes").select("id, name, is_default").eq("is_active", true).in("applies_to", ["all", "invoices"]).order("is_default", { ascending: false }).order("id"),
   ]);
   const bal = bals.get(id);
   const status = docStatus({ kind, status: doc.status, due_date: doc.due_date, total: Number(doc.total) }, bal);
@@ -252,7 +253,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
       )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_320px]">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} payOptions={payOptions} />
 
         <aside className="space-y-6">
           {canEdit && doc.status !== "cancelled" && (
@@ -404,7 +405,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 {payments?.map((pm) => (
                   <div key={pm.id} className="group flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
                     <div>
-                      <div className="font-semibold text-emerald-700">{formatMoney(Number(pm.amount), cur)}</div>
+                      <Link href={`/sales/payments/${pm.id}`} className="font-semibold text-emerald-700 hover:underline">{formatMoney(Number(pm.amount), cur)}</Link>
                       <div className="text-xs text-slate-500">{formatDate(pm.date)} · {pm.mode?.name ?? "—"}</div>
                       {pm.transaction_id && <div className="text-xs text-slate-400">Ref {pm.transaction_id}</div>}
                       <a href={`/print/receipt/${pm.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-brand-600 hover:underline">Receipt</a>

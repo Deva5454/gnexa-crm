@@ -5,7 +5,7 @@ import { DocPaper } from "@/components/sales/doc-paper";
 import { loadParty } from "@/components/sales/party";
 import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, kindFromSlug } from "@/lib/sales";
-import { balancesFor, companySettings } from "@/lib/sales-data";
+import { balancesFor, companySettings, invoicePayOptions } from "@/lib/sales-data";
 import { PrintToolbar } from "./print-toolbar";
 
 export async function generateMetadata({ params }: { params: Promise<{ kind: string; id: string }> }): Promise<Metadata> {
@@ -25,10 +25,11 @@ export default async function PrintPage({ params }: { params: Promise<{ kind: st
   if (!kind) notFound();
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
-  const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, payOptions, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).eq("kind", kind).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
+    invoicePayOptions(supabase),
     balancesFor(supabase, [id]),
     pdfFields(supabase, id),
   ]);
@@ -41,7 +42,7 @@ export default async function PrintPage({ params }: { params: Promise<{ kind: st
     <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
       <PrintToolbar backHref={docHref(kind, id)} name={docNumber(kind, doc.number)} />
       <div className="px-4 print:px-0">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={status} balance={bal} extra={extra} payOptions={payOptions} />
       </div>
     </div>
   );

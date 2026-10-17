@@ -7,6 +7,7 @@ import { ConfirmForm } from "@/components/ui/confirm-form";
 import { requireAdmin } from "@/lib/auth";
 import { addTax, deleteNamed, saveExpirySettings, saveReminderSettings } from "../actions";
 import { NamedList } from "../named-list";
+import { PaymentModes } from "./payment-modes";
 
 export const metadata: Metadata = { title: "Finance settings" };
 
@@ -14,7 +15,7 @@ export default async function FinanceSettingsPage() {
   const { supabase } = await requireAdmin();
   const [{ data: taxes }, { data: modes }, { data: cats }, { data: cs }] = await Promise.all([
     supabase.from("taxes").select("id, name, rate").order("rate"),
-    supabase.from("payment_modes").select("id, name").order("id"),
+    supabase.from("payment_modes").select("id, name, description, is_active, show_on_invoice, is_default, applies_to").order("id"),
     supabase.from("expense_categories").select("id, name").order("name"),
     supabase.from("company_settings").select("auto_overdue_reminders, overdue_reminder_days, auto_expiry_reminders, expiry_reminder_days").maybeSingle(),
   ]);
@@ -69,7 +70,7 @@ export default async function FinanceSettingsPage() {
           </form>
         </CardBody>
       </Card>
-      <NamedList table="payment_modes" title="Payment modes" description="How customers pay you." items={modes ?? []} />
+      <PaymentModes modes={modes ?? []} />
       <NamedList table="expense_categories" title="Expense categories" items={cats ?? []} />
     </>
   );

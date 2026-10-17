@@ -11,6 +11,7 @@ import { num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
 import { daysFromToday, todayIST } from "@/lib/dates";
 import { discardUpload, fileRow } from "@/lib/uploads";
+import { logReceipt, paymentReceipt } from "@/lib/payment-receipt";
 
 export type FormState = { error?: string; ok?: string } | undefined;
 
@@ -249,15 +250,27 @@ export async function recordPayment(_: FormState, form: FormData): Promise<FormS
   const balance = (await balancesFor(supabase, [invoiceId])).get(invoiceId)?.balance ?? 0;
   if (amount > balance + 0.005) return { error: `Amount is more than the balance due (${balance.toFixed(2)}).` };
 
-  const { error } = await supabase.from("payments").insert({
-    invoice_id: invoiceId,
-    amount,
-    date: str(form, "date") ?? todayIST(),
-    mode_id: num(form, "mode_id"),
-    transaction_id: str(form, "transaction_id"),
-    note: str(form, "note"),
-  });
+  const { data: paid, error } = await supabase
+    .from("payments")
+    .insert({
+      invoice_id: invoiceId,
+      amount,
+      date: str(form, "date") ?? todayIST(),
+      mode_id: num(form, "mode_id"),
+      transaction_id: str(form, "transaction_id"),
+      note: str(form, "note"),
+    })
+    .select("id")
+    .single();
   if (error) return { error: friendlyError(error.message) };
+  // Optional receipt e-mail to the customer's primary contact
+  let emailed = "";
+  if (form.get("send_receipt") === "on") {
+    const r = await paymentReceipt(supabase, paid.id);
+    const to = r?.recipients[0];
+    if (r && to && !(await logReceipt(supabase, paid.id, to, r.subject, r.body))) emailed = ` Receipt e-mailed to ${to.email}.`;
+    else emailed = " (No contact with an e-mail address, so no receipt was sent.)";
+  }
   // Recording money against a draft means it has gone out
   if (inv.status === "draft") await supabase.from("sales_docs").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", invoiceId);
   await logActivity(supabase, `recorded a payment of ₹${amount.toLocaleString("en-IN")} on ${docNumber("invoice", inv.number)}`, {
@@ -266,7 +279,7 @@ export async function recordPayment(_: FormState, form: FormData): Promise<FormS
   });
   revalidatePath(docHref("invoice", invoiceId));
   revalidatePath("/sales/payments");
-  return { ok: "Payment recorded." };
+  return { ok: `Payment recorded.${emailed}` };
 }
 
 export async function deletePayment(form: FormData) {

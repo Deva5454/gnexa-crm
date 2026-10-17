@@ -3,16 +3,14 @@ import { notFound } from "next/navigation";
 import { LogoMark } from "@/components/layout/logo";
 import { loadParty } from "@/components/sales/party";
 import { requireStaff } from "@/lib/auth";
-import { docHref, docNumber } from "@/lib/sales";
+import { docNumber, receiptNumber } from "@/lib/sales";
 import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { PrintToolbar } from "../../[kind]/[id]/print-toolbar";
 
-const receiptNo = (id: number) => `RCPT-${String(id).padStart(5, "0")}`;
-
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   // Browsers use the title as the default PDF file name
-  return { title: { absolute: receiptNo(Number((await params).id)) } };
+  return { title: { absolute: receiptNumber(Number((await params).id)) } };
 }
 
 /** Perfex "Payment receipt": proof of one payment against an invoice, for print / PDF. */
@@ -39,7 +37,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
-      <PrintToolbar backHref={docHref("invoice", inv.id)} name={receiptNo(pay.id)} />
+      <PrintToolbar backHref={`/sales/payments/${pay.id}`} name={receiptNumber(pay.id)} />
       <div className="px-4 print:px-0">
         <article className="mx-auto w-full max-w-[860px] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-card print:max-w-none print:rounded-none print:border-0 print:shadow-none">
           <div className="h-1.5 bg-aurora print:[-webkit-print-color-adjust:exact] print:[print-color-adjust:exact]" />
@@ -55,7 +53,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
               </div>
               <div className="sm:text-right">
                 <div className="text-2xl font-bold uppercase tracking-wide text-slate-900">Payment receipt</div>
-                <div className="mt-0.5 font-mono text-sm text-slate-500">{receiptNo(pay.id)}</div>
+                <div className="mt-0.5 font-mono text-sm text-slate-500">{receiptNumber(pay.id)}</div>
               </div>
             </header>
 

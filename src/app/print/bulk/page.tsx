@@ -5,7 +5,7 @@ import { loadParty } from "@/components/sales/party";
 import { requireStaff } from "@/lib/auth";
 import { pdfFields } from "@/lib/custom-fields";
 import { docStatus, KINDS, type DocKind } from "@/lib/sales";
-import { balancesFor, companySettings } from "@/lib/sales-data";
+import { balancesFor, companySettings, invoicePayOptions } from "@/lib/sales-data";
 import { formatDate } from "@/lib/utils";
 import { PrintToolbar } from "../[kind]/[id]/print-toolbar";
 import { todayIST } from "@/lib/dates";
@@ -32,8 +32,9 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
   }
   const { data: docs } = await q;
   const ids = (docs ?? []).map((d) => d.id);
-  const [company, bals, { data: lines }] = await Promise.all([
+  const [company, payOptions, bals, { data: lines }] = await Promise.all([
     companySettings(supabase),
+    invoicePayOptions(supabase),
     balancesFor(supabase, ids),
     ids.length ? supabase.from("sales_doc_items").select("*").in("doc_id", ids).order("position") : Promise.resolve({ data: [] }),
   ]);
@@ -62,6 +63,7 @@ export default async function BulkPrintPage({ searchParams }: { searchParams: Pr
               status={docStatus({ kind, status: d.status, due_date: d.due_date, total: Number(d.total) }, bals.get(d.id))}
               balance={bals.get(d.id)}
               extra={extra}
+              payOptions={payOptions}
             />
           </div>
         ))}

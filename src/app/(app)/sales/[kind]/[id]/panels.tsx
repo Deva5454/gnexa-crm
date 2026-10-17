@@ -22,7 +22,7 @@ function useResetOnOk(state: { ok?: string } | undefined, done: () => void) {
   return ref;
 }
 
-export function PaymentForm({ invoiceId, balance, modes }: { invoiceId: number; balance: number; modes: { id: number; name: string }[] }) {
+export function PaymentForm({ invoiceId, balance, modes }: { invoiceId: number; balance: number; modes: { id: number; name: string; is_default?: boolean }[] }) {
   const [open, setOpen] = useState(false);
   const [state, action] = useActionState(recordPayment, undefined);
   const ref = useResetOnOk(state, () => setOpen(false));
@@ -51,13 +51,17 @@ export function PaymentForm({ invoiceId, balance, modes }: { invoiceId: number; 
         <Field label="Amount *"><input name="amount" type="number" step="0.01" min="0.01" max={balance} defaultValue={balance.toFixed(2)} required className="field" /></Field>
         <Field label="Date"><input name="date" type="date" defaultValue={today} className="field" /></Field>
         <Field label="Mode" className="col-span-2">
-          <select name="mode_id" className="field" defaultValue={modes[0]?.id ?? ""}>
+          <select name="mode_id" className="field" defaultValue={(modes.find((m) => m.is_default) ?? modes[0])?.id ?? ""}>
             {modes.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </Field>
         <Field label="Transaction / UTR no." className="col-span-2"><input name="transaction_id" className="field" /></Field>
         <Field label="Note" className="col-span-2"><input name="note" className="field" /></Field>
       </div>
+      <label className="flex items-center gap-2 text-sm text-slate-600">
+        <input type="checkbox" name="send_receipt" defaultChecked className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+        E-mail a receipt to the customer
+      </label>
       <SubmitButton size="sm" className="w-full" pendingText="Saving…">Save payment</SubmitButton>
     </form>
   );

@@ -21,7 +21,7 @@ export default async function BatchPaymentsPage() {
     allRows((a, b) =>
       supabase.from("sales_docs").select("id, number, due_date, currency, total, customer:customers(company)").eq("kind", "invoice").eq("status", "sent").order("due_date").order("id").range(a, b),
     ),
-    supabase.from("payment_modes").select("id, name").eq("is_active", true).order("id"),
+    supabase.from("payment_modes").select("id, name, is_default").eq("is_active", true).in("applies_to", ["all", "invoices"]).order("is_default", { ascending: false }).order("id"),
   ]);
   const bals = await balancesFor(supabase, invs.map((i) => i.id));
   const open: OpenInvoice[] = invs

@@ -126,6 +126,36 @@ export async function deleteNamed(form: FormData) {
   });
 }
 
+/** Setup → Finance → Payment modes: Perfex's options for one mode. */
+export async function savePaymentMode(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const id = Number(str(form, "id"));
+    const name = (str(form, "name") ?? "").slice(0, 80);
+    if (!name) throw new Error("Give the payment mode a name.");
+    const applies = str(form, "applies_to") ?? "all";
+    const isDefault = form.get("is_default") === "on";
+    const isActive = form.get("is_active") === "on";
+    if (isDefault && !isActive) throw new Error("An inactive mode can't be the default.");
+    // Only one default: clear the old one first
+    if (isDefault) must(await supabase.from("payment_modes").update({ is_default: false }).eq("is_default", true).neq("id", id));
+    must(
+      await supabase
+        .from("payment_modes")
+        .update({
+          name,
+          description: (str(form, "description") ?? "").slice(0, 1000) || null,
+          is_active: isActive,
+          show_on_invoice: form.get("show_on_invoice") === "on",
+          is_default: isDefault,
+          applies_to: ["all", "invoices", "expenses"].includes(applies) ? applies : "all",
+        })
+        .eq("id", id),
+    );
+    revalidatePath("/settings", "layout");
+  });
+}
+
 export async function resetDemoData(): Promise<SettingsState> {
   const { supabase } = await requireAdmin();
   const { error } = await supabase.rpc("reset_demo_data");

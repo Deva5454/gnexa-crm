@@ -20,6 +20,12 @@ export async function companySettings(supabase: DB) {
   return data;
 }
 
+/** Payment modes marked "show on invoice" (Setup → Finance), printed as payment instructions on invoices. */
+export async function invoicePayOptions(supabase: DB) {
+  const { data } = await supabase.from("payment_modes").select("name, description").eq("is_active", true).eq("show_on_invoice", true).neq("applies_to", "expenses").order("is_default", { ascending: false }).order("id");
+  return (data ?? []).map((m) => ({ name: m.name, description: m.description }));
+}
+
 /** The base currency all cross-document totals are shown in (Setup → Currencies), e.g. "INR". */
 export async function baseCurrency(supabase: DB) {
   const { data } = await supabase.from("currencies").select("code").eq("is_base", true).maybeSingle();

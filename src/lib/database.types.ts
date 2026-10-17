@@ -167,9 +167,9 @@ export type Database = {
         ];
       };
       payment_modes: {
-        Row: { id: number; name: string; is_active: boolean };
-        Insert: { id?: never; name: string; is_active?: boolean };
-        Update: { id?: never; name?: string; is_active?: boolean };
+        Row: { id: number; name: string; is_active: boolean; description: string | null; show_on_invoice: boolean; is_default: boolean; applies_to: string };
+        Insert: { id?: never; name: string; is_active?: boolean; description?: string | null; show_on_invoice?: boolean; is_default?: boolean; applies_to?: string };
+        Update: { id?: never; name?: string; is_active?: boolean; description?: string | null; show_on_invoice?: boolean; is_default?: boolean; applies_to?: string };
         Relationships: [];
       };
       expense_categories: {

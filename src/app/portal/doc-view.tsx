@@ -6,7 +6,7 @@ import { loadParty } from "@/components/sales/party";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { requirePortal } from "@/lib/auth";
 import { docStatus, KINDS, type DocKind } from "@/lib/sales";
-import { balancesFor, companySettings } from "@/lib/sales-data";
+import { balancesFor, companySettings, invoicePayOptions } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { PrintButton, QuoteResponse } from "./forms";
 import { PayNow } from "./pay-now";
@@ -14,10 +14,11 @@ import { PayNow } from "./pay-now";
 /** A client's view of one of their documents (RLS only returns their own, non-draft documents). */
 export async function PortalDocView({ id, kinds }: { id: number; kinds: DocKind[] }) {
   const { supabase, contactName } = await requirePortal();
-  const [{ data: doc }, { data: lines }, company, bals, extra] = await Promise.all([
+  const [{ data: doc }, { data: lines }, company, payOptions, bals, extra] = await Promise.all([
     supabase.from("sales_docs").select("*").eq("id", id).in("kind", kinds).maybeSingle(),
     supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
     companySettings(supabase),
+    invoicePayOptions(supabase),
     balancesFor(supabase, [id]),
     pdfFields(supabase, id),
   ]);
@@ -35,7 +36,7 @@ export async function PortalDocView({ id, kinds }: { id: number; kinds: DocKind[
         <PrintButton />
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_300px] print:block">
-        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={st} balance={bal} extra={extra} />
+        <DocPaper kind={kind} doc={doc} lines={lines ?? []} company={company} party={party} status={st} balance={bal} extra={extra} payOptions={payOptions} />
         <aside className="space-y-6 print:hidden">
           {doc.responded_by && (doc.status === "accepted" || doc.status === "declined") && (
             <Card>

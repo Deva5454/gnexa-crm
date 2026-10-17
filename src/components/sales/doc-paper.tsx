@@ -23,6 +23,7 @@ export function DocPaper({
   status,
   balance,
   extra = [],
+  payOptions = [],
 }: {
   kind: DocKind;
   doc: Tables<"sales_docs">;
@@ -33,6 +34,8 @@ export function DocPaper({
   balance?: Balance;
   /** Custom fields marked "show on PDF" */
   extra?: { label: string; value: string }[];
+  /** Payment modes shown on invoices as ways to pay */
+  payOptions?: { name: string; description: string | null }[];
 }) {
   const k = KINDS[kind];
   const cur = doc.currency || "INR";
@@ -213,6 +216,19 @@ export function DocPaper({
             <div>
               <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pay to</div>
               <p className="whitespace-pre-wrap text-slate-600">{company.bank_details}</p>
+            </div>
+          )}
+          {isInvoice && payOptions.length > 0 && (
+            <div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Ways to pay</div>
+              <ul className="space-y-1.5">
+                {payOptions.map((m) => (
+                  <li key={m.name} className="text-slate-600">
+                    <span className="font-medium text-slate-700">{m.name}</span>
+                    {m.description && <span className="block whitespace-pre-wrap">{m.description}</span>}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </footer>

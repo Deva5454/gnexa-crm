@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { allRows } from "@/lib/fetch-all";
 import type { Module } from "@/lib/permissions";
-import { docNumber, type DocKind } from "@/lib/sales";
+import { docNumber, receiptNumber, type DocKind } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 
 type DB = SupabaseClient<Database>;
@@ -68,7 +68,7 @@ export const DATASETS: Dataset[] = [
     key: "payments", label: "Payments", module: "sales", dateLabel: "Date",
     load: async (db, from, to) => {
       const { data } = await allRows((a, b) => db.from("payments").select("id, date, amount, transaction_id, note, mode:payment_modes(name), invoice:sales_docs(number, currency, customer:customers(company))").gte("date", from).lte("date", to).order("date").order("id").range(a, b));
-      return { columns: ["ID", "Date", "Invoice", "Customer", "Amount", "Currency", "Mode", "Transaction ID", "Note"], rows: data.map((p) => [p.id, p.date, p.invoice ? docNumber("invoice", p.invoice.number) : "", p.invoice?.customer?.company, p.amount, p.invoice?.currency, p.mode?.name, p.transaction_id, p.note]) };
+      return { columns: ["ID", "Receipt", "Date", "Invoice", "Customer", "Amount", "Currency", "Mode", "Transaction ID", "Note"], rows: data.map((p) => [p.id, receiptNumber(p.id), p.date, p.invoice ? docNumber("invoice", p.invoice.number) : "", p.invoice?.customer?.company, p.amount, p.invoice?.currency, p.mode?.name, p.transaction_id, p.note]) };
     },
   },
   {

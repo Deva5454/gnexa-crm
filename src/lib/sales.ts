@@ -21,6 +21,9 @@ export function kindFromSlug(slug: string): DocKind | null {
   return KIND_ORDER.find((k) => KINDS[k].slug === slug) ?? null;
 }
 
+/** Payment receipt number, e.g. RCPT-00012 */
+export const receiptNumber = (id: number) => `RCPT-${String(id).padStart(5, "0")}`;
+
 export function docNumber(kind: DocKind, number: number) {
   return `${KINDS[kind].prefix}-${String(number).padStart(5, "0")}`;
 }

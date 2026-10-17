@@ -6,7 +6,7 @@ export async function expenseOptions(supabase: SupabaseClient<Database>) {
   const [{ data: categories }, { data: customers }, { data: modes }, { data: taxes }, { data: projects }] = await Promise.all([
     supabase.from("expense_categories").select("id, name").order("name"),
     allRows((a, b) => supabase.from("customers").select("id, company").order("company").order("id").range(a, b)),
-    supabase.from("payment_modes").select("id, name").eq("is_active", true).order("id"),
+    supabase.from("payment_modes").select("id, name").eq("is_active", true).in("applies_to", ["all", "expenses"]).order("is_default", { ascending: false }).order("id"),
     supabase.from("taxes").select("rate").order("rate"),
     supabase.from("projects").select("id, name, customer_id").not("status", "in", "(cancelled)").order("name"),
   ]);

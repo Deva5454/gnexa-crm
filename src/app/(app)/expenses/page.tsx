@@ -15,40 +15,13 @@ import { requireStaff } from "@/lib/auth";
 import { docHref, docNumber } from "@/lib/sales";
 import { cn, formatDate, formatMoney, PAGE_SIZE, searchTerm } from "@/lib/utils";
 import { allRows } from "@/lib/fetch-all";
-import { monthEndIST, monthStartIST, todayIST } from "@/lib/dates";
+import { PERIODS, periodRange } from "@/lib/dates";
 import { baseCurrency } from "@/lib/sales-data";
 import { bulkExpenses } from "./actions";
 
 export const metadata: Metadata = { title: "Expenses" };
 
 type SP = { q?: string; category?: string; billable?: string; page?: string; period?: string; mode?: string; customer?: string; project?: string; recurring?: string; sort?: string; dir?: string };
-
-const PERIODS = [
-  { value: "this_month", label: "This month" },
-  { value: "last_month", label: "Last month" },
-  { value: "this_year", label: "This year" },
-  { value: "last_year", label: "Last year" },
-  { value: "fy", label: "This financial year" },
-];
-
-/** [from, to] (inclusive, YYYY-MM-DD) for a period filter, India time. Financial year runs April–March. */
-function periodRange(p: string | undefined): [string, string] | null {
-  const today = todayIST();
-  const y = Number(today.slice(0, 4));
-  const m = Number(today.slice(5, 7));
-  switch (p) {
-    case "this_month": return [monthStartIST(), monthEndIST()];
-    case "last_month": {
-      const start = monthStartIST(-1);
-      const end = new Date(Date.UTC(Number(start.slice(0, 4)), Number(start.slice(5, 7)), 0)).toISOString().slice(0, 10);
-      return [start, end];
-    }
-    case "this_year": return [`${y}-01-01`, `${y}-12-31`];
-    case "last_year": return [`${y - 1}-01-01`, `${y - 1}-12-31`];
-    case "fy": return m >= 4 ? [`${y}-04-01`, `${y + 1}-03-31`] : [`${y - 1}-04-01`, `${y}-03-31`];
-    default: return null;
-  }
-}
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
