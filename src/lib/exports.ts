@@ -57,6 +57,14 @@ export const DATASETS: Dataset[] = [
     },
   })),
   {
+    key: "items", label: "Items", module: "sales", dateLabel: "Added",
+    load: async (db, from, to) => {
+      const { data } = await allRows((a, b) => db.from("items").select("id, name, description, rate, currency_rates, unit, hsn_sac, created_at, tax:taxes(name), group:item_groups(name)").gte("created_at", from).lte("created_at", toTs(to)).order("name").order("id").range(a, b));
+      const fx = (r: unknown) => Object.entries((r ?? {}) as Record<string, number>).map(([c, v]) => `${c} ${v}`).join("; ");
+      return { columns: ["ID", "Name", "Description", "Rate", "Other currencies", "Unit", "Tax", "HSN/SAC", "Group", "Added"], rows: data.map((i) => [i.id, i.name, i.description, i.rate, fx(i.currency_rates), i.unit, i.tax?.name, i.hsn_sac, i.group?.name, day(i.created_at)]) };
+    },
+  },
+  {
     key: "payments", label: "Payments", module: "sales", dateLabel: "Date",
     load: async (db, from, to) => {
       const { data } = await allRows((a, b) => db.from("payments").select("id, date, amount, transaction_id, note, mode:payment_modes(name), invoice:sales_docs(number, currency, customer:customers(company))").gte("date", from).lte("date", to).order("date").order("id").range(a, b));

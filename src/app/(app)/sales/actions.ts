@@ -338,11 +338,58 @@ export async function saveItem(_: FormState, form: FormData): Promise<FormState>
   if (rate == null || rate < 0) return { error: "Rate must be zero or more." };
   const hsn = (str(form, "hsn_sac") ?? "").replace(/\s/g, "");
   if (hsn && !HSN_RE.test(hsn)) return { error: "HSN / SAC must be 4 to 8 digits." };
-  const fields = { name, description: str(form, "description"), rate, unit: str(form, "unit"), tax_id: num(form, "tax_id"), hsn_sac: hsn || null };
+  // Fixed prices in other currencies: inputs named rate_USD, rate_EUR… (blank = convert from the base rate)
+  const currency_rates: Record<string, number> = {};
+  for (const [k, v] of form.entries()) {
+    const code = /^rate_([A-Z]{3})$/.exec(k)?.[1];
+    if (!code || typeof v !== "string" || !v.trim()) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return { error: `The ${code} price must be zero or more.` };
+    currency_rates[code] = Math.round(n * 100) / 100;
+  }
+  const fields = { name, description: str(form, "description"), rate, unit: str(form, "unit"), tax_id: num(form, "tax_id"), hsn_sac: hsn || null, group_id: num(form, "group_id"), currency_rates };
   const { error } = id ? await supabase.from("items").update(fields).eq("id", id) : await supabase.from("items").insert(fields);
   if (error) return { error: friendlyError(error.message) };
   revalidatePath("/sales/items");
   return { ok: id ? "Item updated." : "Item added." };
+}
+
+/** Bulk actions from the item list. */
+export async function bulkItems(form: FormData) {
+  return withFlash(async () => {
+    const op = str(form, "op") ?? "";
+    const ids = [...new Set(form.getAll("ids").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 500);
+    if (!ids.length) throw new Error("Tick at least one item first.");
+    const { supabase } = await assertAccess("sales", op === "delete" ? "full" : "edit");
+    const target = str(form, "target");
+    switch (op) {
+      case "group": must(await supabase.from("items").update({ group_id: target && target !== "none" ? Number(target) : null }).in("id", ids)); break;
+      case "tax": must(await supabase.from("items").update({ tax_id: target && target !== "none" ? Number(target) : null }).in("id", ids)); break;
+      case "delete": must(await supabase.from("items").delete().in("id", ids)); break;
+      default: throw new Error("Pick an action.");
+    }
+    revalidatePath("/sales/items");
+  });
+}
+
+// ───────────── Item groups ─────────────
+export async function saveItemGroup(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const name = (str(form, "name") ?? "").slice(0, 80);
+    if (!name) throw new Error("Give the group a name.");
+    const id = num(form, "id");
+    must(id ? await supabase.from("item_groups").update({ name }).eq("id", id) : await supabase.from("item_groups").insert({ name }));
+    revalidatePath("/sales/items");
+  });
+}
+
+export async function deleteItemGroup(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    must(await supabase.from("item_groups").delete().eq("id", num(form, "id") ?? 0));
+    revalidatePath("/sales/items");
+  });
 }
 
 export async function deleteItem(form: FormData) {

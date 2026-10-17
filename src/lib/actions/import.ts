@@ -105,3 +105,46 @@ export async function importLeads(rows: Record<string, string>[]): Promise<Impor
   revalidatePath("/leads");
   return { created, skipped };
 }
+
+export async function importItems(rows: Record<string, string>[]): Promise<ImportResult> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return { created: 0, skipped: [], error: `The ${roleName} role can't add items.` };
+  if (rows.length > 500) return { created: 0, skipped: [], error: "Import at most 500 rows at a time." };
+  const [{ data: existing }, { data: groups }, { data: taxes }] = await Promise.all([
+    supabase.from("items").select("name"),
+    supabase.from("item_groups").select("id, name"),
+    supabase.from("taxes").select("id, name, rate"),
+  ]);
+  const seen = new Set((existing ?? []).map((i) => i.name.toLowerCase()));
+  const groupIds = new Map((groups ?? []).map((g) => [g.name.toLowerCase(), g.id]));
+  const skipped: ImportResult["skipped"] = [];
+  let created = 0;
+  for (const [i, r] of rows.entries()) {
+    const row = i + 2;
+    const name = clean(r.name, 200);
+    if (!name) { skipped.push({ row, reason: "no item name" }); continue; }
+    if (seen.has(name.toLowerCase())) { skipped.push({ row, reason: `${name} already exists` }); continue; }
+    const rate = Number((r.rate ?? "").replace(/[,₹\s]/g, ""));
+    if (!Number.isFinite(rate) || rate < 0) { skipped.push({ row, reason: `invalid rate “${r.rate ?? ""}”` }); continue; }
+    const hsn = (r.hsn_sac ?? "").replace(/\s/g, "");
+    if (hsn && !/^[0-9]{4,8}$/.test(hsn)) { skipped.push({ row, reason: `HSN/SAC “${hsn}” must be 4 to 8 digits` }); continue; }
+    // Tax by name ("GST 18%") or by rate ("18")
+    const t = (r.tax ?? "").trim().toLowerCase();
+    const tax = t ? taxes?.find((x) => x.name.toLowerCase() === t || Number(x.rate) === Number(t.replace("%", ""))) : null;
+    if (t && !tax) { skipped.push({ row, reason: `unknown tax “${r.tax}”` }); continue; }
+    // Groups are created on the fly
+    const g = clean(r.group, 80);
+    let groupId = g ? (groupIds.get(g.toLowerCase()) ?? null) : null;
+    if (g && !groupId) {
+      const { data: ng } = await supabase.from("item_groups").insert({ name: g }).select("id").single();
+      if (ng) { groupId = ng.id; groupIds.set(g.toLowerCase(), ng.id); }
+    }
+    const { error } = await supabase.from("items").insert({ name, description: clean(r.description, 500), rate, unit: clean(r.unit, 20), tax_id: tax?.id ?? null, hsn_sac: hsn || null, group_id: groupId });
+    if (error) { skipped.push({ row, reason: error.message }); continue; }
+    seen.add(name.toLowerCase());
+    created++;
+  }
+  if (created) await logActivity(supabase, `imported ${created} item${created === 1 ? "" : "s"} from CSV`);
+  revalidatePath("/sales/items");
+  return { created, skipped };
+}

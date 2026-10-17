@@ -12,7 +12,7 @@ import type { BillableExpense } from "./editor-data";
 import { formatMoney } from "@/lib/utils";
 import type { FormState } from "../actions";
 
-export type CatalogueItem = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_rate: number; hsn_sac: string | null };
+export type CatalogueItem = { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_rate: number; hsn_sac: string | null; group: string | null; currency_rates: Record<string, number> };
 export type PartyOption = { value: string; label: string; currency?: string | null };
 type Row = Line & { key: number };
 
@@ -95,11 +95,18 @@ export function DocEditor({
 
   const update = (key: number, patch: Partial<Row>) => setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   const remove = (key: number) => setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : [blank()]));
+  // An item's fixed price in the document's currency, when it has one (Items → rate per currency)
+  const itemRate = (it: CatalogueItem) => Number(it.currency_rates[cur] ?? it.rate);
+  const catalogueGroups = useMemo(() => {
+    const m = new Map<string, CatalogueItem[]>();
+    for (const c of catalogue) m.set(c.group ?? "", [...(m.get(c.group ?? "") ?? []), c]);
+    return [...m.entries()].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : 0));
+  }, [catalogue]);
   const addFromCatalogue = (id: string) => {
     const it = catalogue.find((c) => String(c.id) === id);
     setPick("");
     if (!it) return;
-    const row: Row = { key: ++seq, item_id: it.id, description: it.name, long_description: it.description ?? "", qty: 1, unit: it.unit ?? "", rate: Number(it.rate), tax_rate: Number(it.tax_rate), hsn_sac: it.hsn_sac ?? "" };
+    const row: Row = { key: ++seq, item_id: it.id, description: it.name, long_description: it.description ?? "", qty: 1, unit: it.unit ?? "", rate: itemRate(it), tax_rate: Number(it.tax_rate), hsn_sac: it.hsn_sac ?? "" };
     // Replace a single untouched blank row instead of appending under it
     setRows((rs) => (rs.length === 1 && !rs[0]!.description && !rs[0]!.rate ? [row] : [...rs, row]));
   };
@@ -264,9 +271,10 @@ export function DocEditor({
                 <PackagePlus className="h-4 w-4 text-brand-500" />
                 <select value={pick} onChange={(e) => addFromCatalogue(e.target.value)} className="field h-9 w-56 py-1" aria-label="Add item from catalogue">
                   <option value="">Add from catalogue…</option>
-                  {catalogue.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name} — {formatMoney(Number(c.rate), cur)}</option>
-                  ))}
+                  {catalogueGroups.map(([g, list]) => {
+                    const opts = list.map((c) => <option key={c.id} value={c.id}>{c.name} — {formatMoney(itemRate(c), cur)}</option>);
+                    return catalogueGroups.length > 1 ? <optgroup key={g} label={g || "Other items"}>{opts}</optgroup> : opts;
+                  })}
                 </select>
               </label>
             )

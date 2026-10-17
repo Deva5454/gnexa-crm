@@ -151,12 +151,19 @@ export type Database = {
         Update: { id?: never; name?: string; rate?: number };
         Relationships: [];
       };
+      item_groups: {
+        Row: { id: number; name: string; position: number };
+        Insert: { id?: never; name: string; position?: number };
+        Update: { id?: never; name?: string; position?: number };
+        Relationships: [];
+      };
       items: {
-        Row: { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null; created_at: string; hsn_sac: string | null };
-        Insert: { id?: never; name: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null };
-        Update: { id?: never; name?: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null };
+        Row: { id: number; name: string; description: string | null; rate: number; unit: string | null; tax_id: number | null; created_at: string; hsn_sac: string | null; group_id: number | null; currency_rates: Json };
+        Insert: { id?: never; name: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null; group_id?: number | null; currency_rates?: Json };
+        Update: { id?: never; name?: string; description?: string | null; rate?: number; unit?: string | null; tax_id?: number | null; created_at?: string; hsn_sac?: string | null; group_id?: number | null; currency_rates?: Json };
         Relationships: [
           { foreignKeyName: "items_tax_id_fkey"; columns: ["tax_id"]; isOneToOne: false; referencedRelation: "taxes"; referencedColumns: ["id"] },
+          { foreignKeyName: "items_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "item_groups"; referencedColumns: ["id"] },
         ];
       };
       payment_modes: {
