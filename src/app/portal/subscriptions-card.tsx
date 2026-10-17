@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CreditCard, Repeat } from "lucide-react";
 import { SUB_STATUS, withTax } from "@/app/(app)/subscriptions/status";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,7 @@ export async function PortalSubscriptions() {
   if (!subs?.length) return null;
   return (
     <Card className="mt-6">
-      <CardHeader title="Your subscriptions" description="Billed automatically — each period's invoice appears above." />
+      <CardHeader title="Your subscriptions" description="Billed automatically — each period's invoice appears above." action={<Link href="/portal/subscriptions" className="text-xs font-medium text-brand-700 hover:underline">Manage</Link>} />
       <ul className="divide-y divide-slate-100">
         {subs.map((s) => {
           const st = SUB_STATUS[s.status] ?? SUB_STATUS.active!;

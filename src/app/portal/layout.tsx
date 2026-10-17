@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: { default: "Client portal", template:
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user, company, contactName } = await requirePortal();
-  const { data: settings } = await supabase.from("company_settings").select("company_name, theme").maybeSingle();
+  const { data: settings } = await supabase.from("company_settings").select("company_name, theme, disabled_modules").maybeSingle();
   const demo = await isDemoMode();
   return (
     <div className="min-h-screen bg-canvas">
@@ -33,7 +33,7 @@ export default async function PortalLayout({ children }: { children: React.React
               </Suspense>
             </div>
           </div>
-          <PortalNav />
+          <PortalNav hidden={(settings?.disabled_modules ?? []).includes("subscriptions") ? ["/portal/subscriptions"] : []} />
         </div>
       </header>
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 print:max-w-none print:p-0">{children}</main>

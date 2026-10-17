@@ -508,21 +508,25 @@ export type Database = {
           id: number; customer_id: number; name: string; description: string | null; item_id: number | null; quantity: number; unit_price: number; tax_rate: number;
           currency: string; interval_count: number; interval_unit: string; start_date: string; next_billing_date: string | null; ends_after_cycles: number | null;
           cycles_billed: number; auto_charge: boolean; status: string; cancelled_at: string | null; created_by: string | null; created_at: string;
+          project_id: number | null; cancel_at_period_end: boolean; ends_after_before_cancel: number | null; last_sent_at: string | null;
         };
         Insert: {
           id?: never; customer_id: number; name: string; description?: string | null; item_id?: number | null; quantity?: number; unit_price: number; tax_rate?: number;
           currency?: string; interval_count?: number; interval_unit?: string; start_date?: string; next_billing_date?: string | null; ends_after_cycles?: number | null;
           cycles_billed?: number; auto_charge?: boolean; status?: string; cancelled_at?: string | null; created_by?: string | null; created_at?: string;
+          project_id?: number | null; cancel_at_period_end?: boolean; ends_after_before_cancel?: number | null; last_sent_at?: string | null;
         };
         Update: {
           id?: never; customer_id?: number; name?: string; description?: string | null; item_id?: number | null; quantity?: number; unit_price?: number; tax_rate?: number;
           currency?: string; interval_count?: number; interval_unit?: string; start_date?: string; next_billing_date?: string | null; ends_after_cycles?: number | null;
           cycles_billed?: number; auto_charge?: boolean; status?: string; cancelled_at?: string | null; created_by?: string | null; created_at?: string;
+          project_id?: number | null; cancel_at_period_end?: boolean; ends_after_before_cancel?: number | null; last_sent_at?: string | null;
         };
         Relationships: [
           { foreignKeyName: "subscriptions_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
           { foreignKeyName: "subscriptions_item_id_fkey"; columns: ["item_id"]; isOneToOne: false; referencedRelation: "items"; referencedColumns: ["id"] },
           { foreignKeyName: "subscriptions_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "subscriptions_project_id_fkey"; columns: ["project_id"]; isOneToOne: false; referencedRelation: "projects"; referencedColumns: ["id"] },
         ];
       };
       email_log: {
@@ -736,6 +740,7 @@ export type Database = {
       renew_contract: { Args: { p_contract: number; p_start: string; p_end: string | null; p_value: number | null; p_keep_signature: boolean }; Returns: undefined };
       portal_contract_comment: { Args: { p_contract: number; p_body: string }; Returns: undefined };
       public_kb: { Args: { p_q?: string | null }; Returns: Json };
+      subscription_cancel_at_end: { Args: { p_id: number; p_undo?: boolean }; Returns: string };
       public_kb_article: { Args: { p_slug: string }; Returns: Json };
       public_kb_track: { Args: { p_slug: string; p_event: string }; Returns: undefined };
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };

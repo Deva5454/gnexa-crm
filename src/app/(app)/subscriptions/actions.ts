@@ -28,6 +28,7 @@ export async function saveSubscription(id: number | null, _: FormState, form: Fo
     interval_unit: unit,
     ends_after_cycles: Math.round(num(form, "ends_after_cycles") ?? 0) || null,
     auto_charge: form.get("auto_charge") === "on",
+    project_id: num(form, "project_id"),
   };
   if (!f.customer_id) return { error: "Choose a customer." };
   if (!f.name) return { error: "Name the plan." };
@@ -35,9 +36,18 @@ export async function saveSubscription(id: number | null, _: FormState, form: Fo
   if (f.quantity <= 0) return { error: "Quantity must be more than zero." };
   if (f.interval_count < 1 || f.interval_count > 36) return { error: "Billing interval must be between 1 and 36." };
 
+  if (f.project_id) {
+    const { data: pr } = await supabase.from("projects").select("customer_id").eq("id", f.project_id).maybeSingle();
+    if (!pr || pr.customer_id !== f.customer_id) return { error: "That project belongs to a different customer." };
+  }
+
   let subId = id;
   if (id) {
-    const { error } = await supabase.from("subscriptions").update(f).eq("id", id);
+    // While a period-end cancellation is pending, "end after" is on hold — keep it for an undo instead
+    const { data: cur } = await supabase.from("subscriptions").select("cancel_at_period_end").eq("id", id).single();
+    const { ends_after_cycles, ...rest } = f;
+    const patch = cur?.cancel_at_period_end ? { ...rest, ends_after_before_cancel: ends_after_cycles } : f;
+    const { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
     if (error) return { error: friendlyError(error.message) };
   } else {
     const start = str(form, "start_date") ?? today();
@@ -95,4 +105,36 @@ export async function deleteSubscription(form: FormData) {
     revalidatePath("/subscriptions");
     redirect("/subscriptions");
   });
+}
+
+/** Cancel at the end of the billing period, or undo that (the database checks who may). */
+export async function cancelAtPeriodEnd(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    must(await supabase.rpc("subscription_cancel_at_end", { p_id: id, p_undo: str(form, "undo") === "1" }));
+    revalidatePath(`/subscriptions/${id}`);
+    revalidatePath("/subscriptions");
+  });
+}
+
+/** E-mail the subscription's details to the customer (logged in the demo, like every e-mail). */
+export async function sendSubscriptionEmail(_: { error?: string; ok?: string } | undefined, form: FormData): Promise<{ error?: string; ok?: string }> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  const id = Number(str(form, "subscription_id"));
+  const to = str(form, "to");
+  const subject = str(form, "subject");
+  const body = str(form, "body");
+  if (!to || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(to.split("|")[0]!)) return { error: "Choose who to send it to." };
+  if (!subject || !body) return { error: "Subject and message are required." };
+  const { data: s } = await supabase.from("subscriptions").select("customer_id, name").eq("id", id).single();
+  if (!s) return { error: "Subscription not found." };
+  const [email, name] = to.split("|");
+  const { error } = await supabase.from("email_log").insert({ customer_id: s.customer_id, to_email: email, to_name: name || null, subject, body, kind: "subscription", rel_type: "subscription", rel_id: id });
+  if (error) return { error: friendlyError(error.message) };
+  await supabase.from("subscriptions").update({ last_sent_at: new Date().toISOString() }).eq("id", id);
+  await logActivity(supabase, `e-mailed subscription “${s.name}” to ${name || email}`, { type: "customer", id: s.customer_id });
+  revalidatePath(`/subscriptions/${id}`);
+  return { ok: `Logged as sent to ${email}. (Demo — no real e-mail goes out.)` };
 }

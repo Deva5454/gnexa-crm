@@ -92,6 +92,16 @@ export const DATASETS: Dataset[] = [
     },
   },
   {
+    key: "subscriptions", label: "Subscriptions", module: "sales", dateLabel: "Started",
+    load: async (db, from, to) => {
+      const { data } = await allRows((a, b) => db.from("subscriptions").select("id, name, status, quantity, unit_price, tax_rate, currency, interval_count, interval_unit, start_date, next_billing_date, cycles_billed, ends_after_cycles, cancel_at_period_end, auto_charge, customer:customers(company), project:projects(name)").gte("start_date", from).lte("start_date", to).order("start_date").order("id").range(a, b));
+      return {
+        columns: ["ID", "Plan", "Customer", "Project", "Status", "Quantity", "Price", "GST %", "Currency", "Every", "Started", "Next invoice", "Invoices raised", "Ends after", "Ending at period end", "Auto-charge"],
+        rows: data.map((s) => [s.id, s.name, s.customer?.company, s.project?.name, s.status, s.quantity, s.unit_price, s.tax_rate, s.currency, `${s.interval_count} ${s.interval_unit}`, s.start_date, s.next_billing_date, s.cycles_billed, s.ends_after_cycles, s.cancel_at_period_end ? "Yes" : "No", s.auto_charge ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
     key: "contracts", label: "Contracts", module: "contracts", dateLabel: "Start",
     load: async (db, from, to) => {
       const { data } = await allRows((a, b) => db.from("contracts").select("id, subject, value, start_date, end_date, status, signed_by, signed_at, customer:customers(company), type:contract_types(name), project:projects(name)").gte("start_date", from).lte("start_date", to).order("start_date").order("id").range(a, b));

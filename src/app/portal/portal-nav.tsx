@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/portal", label: "Home" },
   { href: "/portal/invoices", label: "Invoices" },
+  { href: "/portal/subscriptions", label: "Subscriptions" },
   { href: "/portal/quotes", label: "Quotes" },
   { href: "/portal/contracts", label: "Contracts" },
   { href: "/portal/projects", label: "Projects" },
@@ -15,11 +16,12 @@ const LINKS = [
   { href: "/portal/privacy", label: "Privacy" },
 ];
 
-export function PortalNav() {
+/** `hidden`: links for modules switched off in Setup → Modules. */
+export function PortalNav({ hidden = [] }: { hidden?: string[] }) {
   const pathname = usePathname();
   return (
     <nav className="-mb-px flex gap-1 overflow-x-auto">
-      {LINKS.map((l) => {
+      {LINKS.filter((l) => !hidden.includes(l.href)).map((l) => {
         const active = l.href === "/portal" ? pathname === "/portal" : pathname.startsWith(l.href);
         return (
           <Link

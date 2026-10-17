@@ -125,3 +125,13 @@ export async function commentOnContract(_: PortalState, form: FormData): Promise
   revalidatePath(`/portal/contracts/${id}`);
   return { ok: "Sent." };
 }
+
+/** The client ends one of their subscriptions at the close of the current period, or changes their mind. */
+export async function portalSubscriptionEnd(form: FormData) {
+  const { supabase } = await requirePortal();
+  const id = Number(str(form, "id"));
+  const { error } = await supabase.rpc("subscription_cancel_at_end", { p_id: id, p_undo: str(form, "undo") === "1" });
+  if (error) throw new Error(error.message);
+  revalidatePath("/portal/subscriptions");
+  revalidatePath("/portal/invoices");
+}

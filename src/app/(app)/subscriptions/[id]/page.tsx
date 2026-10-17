@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Ban, CreditCard, Pause, Pencil, Play, ReceiptText, Trash2 } from "lucide-react";
+import { Ban, CalendarClock, CalendarX, CreditCard, Pause, Pencil, Play, ReceiptText, Trash2, Undo2 } from "lucide-react";
+import { EmailHistory } from "@/components/crm/email-history";
+import { SendEmailForm, type Recipient } from "@/components/crm/send-email-form";
+import { renderTemplate } from "@/lib/email-templates";
+import { todayIST } from "@/lib/dates";
 import { Badge } from "@/components/ui/badge";
 import { Button, LinkButton } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -10,9 +14,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireFeature, requireStaff } from "@/lib/auth";
 import { docHref, docNumber, docStatus, INTERVAL_LABEL } from "@/lib/sales";
-import { balancesFor } from "@/lib/sales-data";
+import { balancesFor, companySettings } from "@/lib/sales-data";
 import { formatDate, formatMoney } from "@/lib/utils";
-import { billNow, deleteSubscription, setSubscriptionStatus } from "../actions";
+import { billNow, cancelAtPeriodEnd, deleteSubscription, sendSubscriptionEmail, setSubscriptionStatus } from "../actions";
 import { monthly, SUB_STATUS, withTax } from "../status";
 
 export const metadata: Metadata = { title: "Subscription" };
@@ -23,7 +27,7 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
   const { supabase, can } = await requireStaff();
   if (!can("sales", "view")) notFound();
   const [{ data: s }, { data: invoices }] = await Promise.all([
-    supabase.from("subscriptions").select("*, customer:customers(id, company), creator:profiles!subscriptions_created_by_fkey(full_name)").eq("id", id).maybeSingle(),
+    supabase.from("subscriptions").select("*, customer:customers(id, company), project:projects(id, name), creator:profiles!subscriptions_created_by_fkey(full_name)").eq("id", id).maybeSingle(),
     supabase.from("sales_docs").select("id, number, date, due_date, status, total").eq("subscription_id", id).order("date", { ascending: false }),
   ]);
   if (!s) notFound();
@@ -32,6 +36,21 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
   const canEdit = can("sales", "edit");
   const billed = (invoices ?? []).reduce((t, i) => t + Number(i.total), 0);
   const collected = (invoices ?? []).reduce((t, i) => t + (bals.get(i.id)?.paid ?? 0), 0);
+  const live = s.status === "active" || s.status === "paused";
+  const notStarted = s.status === "active" && s.cycles_billed === 0 && !!s.next_billing_date && s.next_billing_date > todayIST();
+
+  // E-mail to the customer: their contacts with an address, and the "subscription details" template
+  const { data: contacts } = await supabase.from("contacts").select("email, first_name, last_name").eq("customer_id", s.customer_id).not("email", "is", null).order("is_primary", { ascending: false });
+  const recipients: Recipient[] = (contacts ?? []).map((c) => ({ email: c.email!, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null }));
+  const company = await companySettings(supabase);
+  const tpl = await renderTemplate(supabase, "subscription_send", {
+    contact_name: (recipients[0]?.name ?? "").split(" ")[0] || "there",
+    company_name: company?.company_name ?? "",
+    plan: s.name,
+    price: formatMoney(withTax(s), s.currency),
+    interval: INTERVAL_LABEL(s.interval_count, s.interval_unit),
+    next_billing: s.status === "active" && s.next_billing_date ? formatDate(s.next_billing_date) : "—",
+  });
 
   const Action = ({ to, label, icon: Icon, confirm }: { to: string; label: string; icon: typeof Pause; confirm?: string }) => {
     const inner = (
@@ -64,7 +83,13 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
               )}
               {s.status === "active" && <Action to="paused" label="Pause" icon={Pause} />}
               {s.status === "paused" && <Action to="active" label="Resume" icon={Play} />}
-              {(s.status === "active" || s.status === "paused") && <Action to="cancelled" label="Cancel" icon={Ban} confirm={`Cancel “${s.name}”? No further invoices will be raised.`} />}
+              {live && !s.cancel_at_period_end && s.cycles_billed > 0 && (
+                <ConfirmForm action={cancelAtPeriodEnd} message={`End “${s.name}” on ${s.next_billing_date ? formatDate(s.next_billing_date) : "its next billing date"}? No further invoice will be raised.`}>
+                  <input type="hidden" name="id" value={id} />
+                  <Button variant="secondary" size="sm"><CalendarX className="h-3.5 w-3.5" /> Cancel at period end</Button>
+                </ConfirmForm>
+              )}
+              {live && <Action to="cancelled" label="Cancel now" icon={Ban} confirm={`Cancel “${s.name}” now? No further invoices will be raised.`} />}
               {s.status !== "cancelled" && s.status !== "completed" && <LinkButton href={`/subscriptions/${id}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</LinkButton>}
               {can("sales", "full") && (
                 <ConfirmForm action={deleteSubscription} message={`Delete “${s.name}”? Its invoices stay.`}>
@@ -76,6 +101,23 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
           )
         }
       />
+      {live && s.cancel_at_period_end && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm text-amber-900">
+          <span className="flex items-center gap-2"><CalendarX className="h-4 w-4" /> Ends on <b>{s.next_billing_date ? formatDate(s.next_billing_date) : "its next billing date"}</b> — no further invoice will be raised.</span>
+          {canEdit && (
+            <form action={cancelAtPeriodEnd}>
+              <input type="hidden" name="id" value={id} />
+              <input type="hidden" name="undo" value="1" />
+              <SubmitButton size="sm" variant="secondary" pendingText="…"><Undo2 className="h-3.5 w-3.5" /> Keep subscription</SubmitButton>
+            </form>
+          )}
+        </div>
+      )}
+      {notStarted && (
+        <div className="mb-6 flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-3 text-sm text-sky-900">
+          <CalendarClock className="h-4 w-4" /> Not started yet — the first invoice is raised on <b>{formatDate(s.next_billing_date)}</b>.
+        </div>
+      )}
       <div className="mb-6 grid gap-3 sm:grid-cols-4">
         {[
           ["Per invoice", formatMoney(withTax(s), s.currency), `incl. ${s.tax_rate}% GST`],
@@ -111,7 +153,17 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
             </ul>
           )}
         </Card>
-        <Card className="self-start">
+        <div className="space-y-6 self-start">
+        {canEdit && (
+          <Card>
+            <CardHeader title="E-mail" description={s.last_sent_at ? `Last sent ${formatDate(s.last_sent_at)}` : "Send the plan's details to the customer"} />
+            <CardBody>
+              <SendEmailForm action={sendSubscriptionEmail} hidden={{ subscription_id: id }} recipients={recipients} subject={tpl?.subject ?? `Your subscription: ${s.name}`} body={tpl?.body ?? ""} label="E-mail to customer" />
+            </CardBody>
+          </Card>
+        )}
+        <EmailHistory relType="subscription" relId={id} />
+        <Card>
           <CardHeader title="Details" />
           <CardBody>
             <dl className="space-y-3 text-sm">
@@ -120,6 +172,8 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
                 ["Quantity × price", `${Number(s.quantity)} × ${formatMoney(Number(s.unit_price), s.currency)}`],
                 ["Next invoice", s.status === "active" && s.next_billing_date ? formatDate(s.next_billing_date) : "—"],
                 ["Started", formatDate(s.start_date)],
+                ["Project", s.project?.name ?? "—"],
+                ["Last e-mailed", s.last_sent_at ? formatDate(s.last_sent_at) : "Never"],
                 ["Payment", s.auto_charge ? "Card on file, charged automatically (demo)" : "Customer pays each invoice"],
                 ["Created by", s.creator?.full_name ?? "—"],
                 ...(s.cancelled_at ? [["Cancelled", formatDate(s.cancelled_at)]] : []),
@@ -133,6 +187,7 @@ export default async function SubscriptionPage({ params }: { params: Promise<{ i
             {s.description && <p className="mt-4 border-t border-slate-100 pt-3 text-sm text-slate-600">{s.description}</p>}
           </CardBody>
         </Card>
+        </div>
       </div>
     </>
   );

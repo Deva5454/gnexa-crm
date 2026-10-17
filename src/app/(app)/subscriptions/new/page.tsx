@@ -9,15 +9,15 @@ import { SubscriptionForm } from "../subscription-form";
 
 export const metadata: Metadata = { title: "New subscription" };
 
-export default async function NewSubscriptionPage({ searchParams }: { searchParams: Promise<{ customer?: string }> }) {
+export default async function NewSubscriptionPage({ searchParams }: { searchParams: Promise<{ customer?: string; project?: string }> }) {
   await requireFeature("subscriptions"); // Setup → Modules
   const { supabase, can } = await requireStaff();
   if (!can("sales", "edit")) notFound();
-  const opts = await subscriptionOptions(supabase);
+  const [opts, sp] = await Promise.all([subscriptionOptions(supabase), searchParams]);
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader eyebrow={<Link href="/subscriptions" className="hover:text-brand-600">Subscriptions</Link>} title="New subscription" />
-      <SubscriptionForm action={saveSubscription.bind(null, null)} {...opts} defaultCustomer={Number((await searchParams).customer) || undefined} cancelHref="/subscriptions" />
+      <SubscriptionForm action={saveSubscription.bind(null, null)} {...opts} defaultCustomer={Number(sp.customer) || undefined} defaultProject={Number(sp.project) || undefined} cancelHref="/subscriptions" />
     </div>
   );
 }

@@ -19,7 +19,9 @@ export function SubscriptionForm({
   customers,
   items,
   taxRates,
+  projects,
   defaultCustomer,
+  defaultProject,
   cancelHref,
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
@@ -27,7 +29,9 @@ export function SubscriptionForm({
   customers: { id: number; name: string }[];
   items: Item[];
   taxRates: number[];
+  projects: { id: number; name: string; customer_id: number }[];
   defaultCustomer?: number;
+  defaultProject?: number;
   cancelHref: string;
 }) {
   const [state, formAction] = useActionState(action, undefined);
@@ -37,6 +41,9 @@ export function SubscriptionForm({
   const [qty, setQty] = useState(String(sub?.quantity ?? 1));
   const [tax, setTax] = useState(String(sub?.tax_rate ?? 18));
   const [itemId, setItemId] = useState(String(sub?.item_id ?? ""));
+  const [customer, setCustomer] = useState<number | "">(sub?.customer_id ?? defaultCustomer ?? "");
+  const theirProjects = projects.filter((p) => p.customer_id === customer);
+  const projectValue = sub?.project_id ?? defaultProject;
   const total = useMemo(() => {
     const sub_ = (Number(price) || 0) * (Number(qty) || 0);
     return sub_ + (sub_ * (Number(tax) || 0)) / 100;
@@ -49,11 +56,17 @@ export function SubscriptionForm({
         <CardHeader title="Plan" />
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Customer *" htmlFor="customer_id">
-            <select id="customer_id" name="customer_id" required defaultValue={sub?.customer_id ?? defaultCustomer ?? ""} disabled={!!sub} className="field">
+            <select id="customer_id" name="customer_id" required value={customer} onChange={(e) => setCustomer(Number(e.target.value) || "")} disabled={!!sub} className="field">
               <option value="">Choose…</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {sub && <input type="hidden" name="customer_id" value={sub.customer_id} />}
+          </Field>
+          <Field label="Project" htmlFor="project_id" hint={customer ? "Its invoices are linked to the project too" : "Pick a customer first"}>
+            <select key={`p${customer}`} id="project_id" name="project_id" defaultValue={theirProjects.some((p) => p.id === projectValue) ? projectValue : ""} disabled={!theirProjects.length} className="field">
+              <option value="">—</option>
+              {theirProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           </Field>
           <Field label="From catalogue" htmlFor="item_id" hint="Optional — fills in the name and price">
             <select
@@ -115,8 +128,8 @@ export function SubscriptionForm({
               <input id="start_date" name="start_date" type="date" defaultValue={todayIST()} className="field" />
             </Field>
           )}
-          <Field label="End after" htmlFor="ends_after_cycles" hint="Number of invoices — blank for no end">
-            <input id="ends_after_cycles" name="ends_after_cycles" type="number" min={1} max={240} defaultValue={sub?.ends_after_cycles ?? ""} placeholder="∞" className="field" />
+          <Field label="End after" htmlFor="ends_after_cycles" hint={sub?.cancel_at_period_end ? "Set to end at the current period — this applies if that's undone" : "Number of invoices — blank for no end"}>
+            <input id="ends_after_cycles" name="ends_after_cycles" type="number" min={1} max={240} defaultValue={(sub?.cancel_at_period_end ? sub.ends_after_before_cancel : sub?.ends_after_cycles) ?? ""} placeholder="∞" className="field" />
           </Field>
           <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 p-3 text-sm text-slate-600 sm:col-span-3">
             <input type="checkbox" name="auto_charge" defaultChecked={sub?.auto_charge} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-600" />
