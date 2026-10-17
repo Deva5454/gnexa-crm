@@ -263,6 +263,16 @@ export type Database = {
           { foreignKeyName: "payments_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
         ];
       };
+      credit_note_refunds: {
+        Row: { id: number; credit_note_id: number; amount: number; date: string; mode_id: number | null; reference: string | null; note: string | null; created_by: string | null; created_at: string };
+        Insert: { id?: never; credit_note_id: number; amount: number; date?: string; mode_id?: number | null; reference?: string | null; note?: string | null; created_by?: string | null; created_at?: string };
+        Update: { id?: never; credit_note_id?: number; amount?: number; date?: string; mode_id?: number | null; reference?: string | null; note?: string | null; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "credit_note_refunds_credit_note_id_fkey"; columns: ["credit_note_id"]; isOneToOne: false; referencedRelation: "sales_docs"; referencedColumns: ["id"] },
+          { foreignKeyName: "credit_note_refunds_mode_id_fkey"; columns: ["mode_id"]; isOneToOne: false; referencedRelation: "payment_modes"; referencedColumns: ["id"] },
+          { foreignKeyName: "credit_note_refunds_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
+      };
       credit_applications: {
         Row: { id: number; credit_note_id: number; invoice_id: number; amount: number; date: string; created_by: string | null; created_at: string };
         Insert: { id?: never; credit_note_id: number; invoice_id: number; amount: number; date?: string; created_by?: string | null; created_at?: string };
@@ -722,7 +732,7 @@ export type Database = {
     };
     Views: {
       doc_balances: {
-        Row: { id: number; paid: number; credited: number; credit_used: number; balance: number };
+        Row: { id: number; paid: number; credited: number; credit_used: number; balance: number; refunded: number };
         Relationships: [];
       };
     };

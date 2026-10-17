@@ -88,7 +88,7 @@ export function docStatus(
   bal?: { paid: number; credited: number; credit_used: number; balance: number } | null,
   today = todayIST(),
 ): StatusView {
-  if (doc.status === "cancelled") return { key: "cancelled", label: "Cancelled", color: C.dark };
+  if (doc.status === "cancelled") return { key: "cancelled", label: doc.kind === "credit_note" ? "Void" : "Cancelled", color: C.dark };
   if (doc.status === "draft") return { key: "draft", label: "Draft", color: C.slate };
 
   if (doc.kind === "invoice") {
@@ -137,6 +137,7 @@ export const STATUS_FILTERS: Record<DocKind, { key: string; label: string }[]> =
     { key: "open", label: "Open" },
     { key: "closed", label: "Closed" },
     { key: "draft", label: "Draft" },
+    { key: "cancelled", label: "Void" },
   ],
 };
 

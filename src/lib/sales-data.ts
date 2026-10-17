@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 
 type DB = SupabaseClient<Database>;
-export type Balance = { paid: number; credited: number; credit_used: number; balance: number };
+export type Balance = { paid: number; credited: number; credit_used: number; balance: number; refunded?: number };
 
 /** Paid / credited / balance for a set of documents, keyed by id. */
 export async function balancesFor(supabase: DB, ids: number[]) {
@@ -11,7 +11,7 @@ export async function balancesFor(supabase: DB, ids: number[]) {
   if (!ids.length) return map;
   // In batches: thousands of ids in one `in=(…)` filter would overflow the request URL
   const results = await Promise.all(chunks([...new Set(ids)]).map((part) => supabase.from("doc_balances").select("*").in("id", part)));
-  for (const b of results.flatMap((r) => r.data ?? [])) map.set(b.id, { paid: Number(b.paid), credited: Number(b.credited), credit_used: Number(b.credit_used), balance: Number(b.balance) });
+  for (const b of results.flatMap((r) => r.data ?? [])) map.set(b.id, { paid: Number(b.paid), credited: Number(b.credited), credit_used: Number(b.credit_used), balance: Number(b.balance), refunded: Number(b.refunded ?? 0) });
   return map;
 }
 

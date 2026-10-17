@@ -51,7 +51,7 @@ export const DATASETS: Dataset[] = [
         columns: ["Number", "Date", "Due", "Customer / lead", "Subject", "Status", "Currency", "Rate", "Sub total", "Discount", "Tax", "Total", "Paid / used", "Balance", "Supply", "Place of supply"],
         rows: data.map((d) => {
           const b = bals.get(d.id);
-          return [docNumber(kind, d.number), d.date, d.due_date, d.customer?.company ?? d.lead?.name, d.subject, d.status, d.currency, d.exchange_rate, d.subtotal, d.discount_total, d.tax_total, d.total, (b?.paid ?? 0) + (b?.credited ?? 0) + (b?.credit_used ?? 0), b?.balance ?? d.total, d.supply_type, d.place_of_supply];
+          return [docNumber(kind, d.number), d.date, d.due_date, d.customer?.company ?? d.lead?.name, d.subject, d.status, d.currency, d.exchange_rate, d.subtotal, d.discount_total, d.tax_total, d.total, (b?.paid ?? 0) + (b?.credited ?? 0) + (b?.credit_used ?? 0) + (b?.refunded ?? 0), b?.balance ?? d.total, d.supply_type, d.place_of_supply];
         }),
       };
     },

@@ -6,7 +6,7 @@ import { RelatedTasks } from "@/components/crm/related-tasks";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRightLeft, Ban, Check, Copy, Download, Lock, Paperclip, Pencil, Printer, Repeat, RotateCcw, Send, Trash2, X } from "lucide-react";
+import { ArrowRightLeft, Ban, Check, Copy, Download, Lock, Paperclip, Pencil, Printer, ReceiptText, Repeat, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { FileUploader } from "@/components/crm/file-uploader";
 import { CopyLink, StaffCommentForm } from "@/components/sales/share-panel";
 import { headers } from "next/headers";
@@ -26,8 +26,8 @@ import { docHref, docNumber, docStatus, INTERVAL_LABEL, KINDS, kindFromSlug, typ
 import { balancesFor, companySettings, invoicePayOptions } from "@/lib/sales-data";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/utils";
 import { daysFromToday } from "@/lib/dates";
-import { convertDoc, copyDoc, createPublicLink, deleteDoc, deleteDocComment, deleteDocFile, deletePayment, disablePublicLink, recordDocFile, removeCredit, setAllowComments, setDocStatus } from "../../actions";
-import { ApplyCreditForm, PaymentForm } from "./panels";
+import { convertDoc, copyDoc, createPublicLink, creditNoteFromInvoice, deleteRefund, deleteDoc, deleteDocComment, deleteDocFile, deletePayment, disablePublicLink, recordDocFile, removeCredit, setAllowComments, setDocStatus } from "../../actions";
+import { ApplyCreditForm, InvoiceCreditForm, PaymentForm, RefundForm } from "./panels";
 
 export const metadata: Metadata = { title: "Document" };
 
@@ -100,6 +100,22 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
     return o ? docNumber(o.kind, o.number) : `#${oid}`;
   };
 
+  // Credit note: refunds paid back to the customer
+  const { data: refunds } =
+    kind === "credit_note"
+      ? await supabase.from("credit_note_refunds").select("id, amount, date, reference, note, mode:payment_modes(name)").eq("credit_note_id", id).order("date")
+      : { data: [] as { id: number; amount: number; date: string; reference: string | null; note: string | null; mode: { name: string } | null }[] };
+
+  // Invoice: the customer's open credit notes (same currency) that could pay part of it
+  let openCredits: { id: number; label: string; available: number }[] = [];
+  if (kind === "invoice" && doc.customer_id && doc.status !== "draft" && doc.status !== "cancelled" && (bal?.balance ?? 0) > 0.005) {
+    const { data: cns } = await supabase.from("sales_docs").select("id, number").eq("kind", "credit_note").eq("customer_id", doc.customer_id).eq("status", "sent").eq("currency", cur);
+    const cb = await balancesFor(supabase, (cns ?? []).map((c) => c.id));
+    openCredits = (cns ?? [])
+      .filter((c) => (cb.get(c.id)?.balance ?? 0) > 0.005)
+      .map((c) => ({ id: c.id, available: cb.get(c.id)!.balance, label: `${docNumber("credit_note", c.number)} · ${formatMoney(cb.get(c.id)!.balance, cur)} left` }));
+  }
+
   // Credit note: open invoices of the same customer
   let openInvoices: { id: number; label: string; balance: number }[] = [];
   if (kind === "credit_note" && doc.customer_id && (bal?.balance ?? 0) > 0 && status.key !== "draft") {
@@ -155,7 +171,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
     expiring ? renderTemplate(supabase, "expiry_reminder", tplVars) : Promise.resolve(null),
   ]);
 
-  const hasMoney = (payments?.length ?? 0) > 0 || (credits?.length ?? 0) > 0;
+  const hasMoney = (payments?.length ?? 0) > 0 || (credits?.length ?? 0) > 0 || (refunds?.length ?? 0) > 0;
   const converted = (derived ?? []).length > 0;
   const k = KINDS[kind];
 
@@ -190,6 +206,12 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 <SubmitButton variant="secondary" size="sm" pendingText="Copying…"><Copy className="h-3.5 w-3.5" /> Copy</SubmitButton>
               </form>
             )}
+            {canEdit && kind === "invoice" && doc.status !== "cancelled" && !!doc.customer_id && (
+              <form action={creditNoteFromInvoice}>
+                <input type="hidden" name="id" value={id} />
+                <SubmitButton variant="secondary" size="sm" pendingText="Creating…"><ReceiptText className="h-3.5 w-3.5" /> Credit note</SubmitButton>
+              </form>
+            )}
             {canEdit && doc.status === "draft" && <StatusButton id={id} status="sent" label="Mark as sent" icon={Send} variant="primary" />}
             {canEdit && (kind === "proposal" || kind === "estimate") && doc.status === "sent" && (
               <>
@@ -214,7 +236,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
               </>
             )}
             {canEdit && (kind === "invoice" || kind === "credit_note") && doc.status !== "cancelled" && !hasMoney && (
-              <StatusButton id={id} status="cancelled" label="Cancel" icon={Ban} />
+              <StatusButton id={id} status="cancelled" label={kind === "credit_note" ? "Void" : "Cancel"} icon={Ban} />
             )}
             {/* A cancelled project invoice stays cancelled (its hours were released) — invoice the project again instead */}
             {canEdit && doc.status === "cancelled" && !(kind === "invoice" && doc.project_id) && <StatusButton id={id} status="draft" label="Reopen" icon={RotateCcw} />}
@@ -378,7 +400,11 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 </>
               )}
               {kind === "credit_note" && (
-                <div className="flex justify-between border-t border-slate-100 pt-2"><span className="font-medium">Credit remaining</span><b className="text-violet-700">{formatMoney(bal?.balance ?? Number(doc.total), cur)}</b></div>
+                <>
+                  {(bal?.credit_used ?? 0) > 0 && <div className="flex justify-between"><span className="text-slate-500">Applied to invoices</span><span>{formatMoney(bal!.credit_used, cur)}</span></div>}
+                  {(bal?.refunded ?? 0) > 0 && <div className="flex justify-between"><span className="text-slate-500">Refunded</span><span>{formatMoney(bal!.refunded!, cur)}</span></div>}
+                  <div className="flex justify-between border-t border-slate-100 pt-2"><span className="font-medium">Credit remaining</span><b className="text-violet-700">{formatMoney(bal?.balance ?? Number(doc.total), cur)}</b></div>
+                </>
               )}
               {doc.sent_at && <div className="flex justify-between text-xs text-slate-400"><span>Sent</span><span>{formatDate(doc.sent_at)}</span></div>}
               <div className="flex justify-between text-xs"><span className="text-slate-400">Sale agent</span><span className="text-slate-700">{agent?.full_name ?? "—"}</span></div>
@@ -392,7 +418,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 <div className="flex justify-between text-xs"><span className="text-slate-400">Created from</span><Link href={docHref(source.kind, source.id)} className="font-mono text-brand-700">{docNumber(source.kind, source.number)}</Link></div>
               )}
               {(derived ?? []).map((d) => (
-                <div key={d.id} className="flex justify-between text-xs"><span className="text-slate-400">Converted to</span><Link href={docHref(d.kind as DocKind, d.id)} className="font-mono text-brand-700">{docNumber(d.kind as DocKind, d.number)}</Link></div>
+                <div key={d.id} className="flex justify-between text-xs"><span className="text-slate-400">{d.kind === "credit_note" ? "Credit note" : "Converted to"}</span><Link href={docHref(d.kind as DocKind, d.id)} className="font-mono text-brand-700">{docNumber(d.kind as DocKind, d.number)}</Link></div>
               ))}
             </CardBody>
           </Card>
@@ -432,6 +458,13 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                 {canEdit && doc.status !== "cancelled" && (bal?.balance ?? 0) > 0.005 && (
                   <PaymentForm invoiceId={id} balance={bal!.balance} modes={modes ?? []} />
                 )}
+                {canEdit && openCredits.length > 0 && (
+                  <div className="space-y-2 rounded-xl border border-violet-100 bg-violet-50/40 p-4">
+                    <h4 className="text-sm font-semibold">Apply credits</h4>
+                    <p className="text-xs text-slate-500">This customer has {formatMoney(openCredits.reduce((t, c) => t + c.available, 0), cur)} of unused credit.</p>
+                    <InvoiceCreditForm invoiceId={id} due={bal?.balance ?? 0} credits={openCredits} />
+                  </div>
+                )}
               </CardBody>
             </Card>
           )}
@@ -464,6 +497,31 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
                   </div>
                 )}
                 {doc.status === "draft" && <p className="text-xs text-slate-400">Mark the credit note as sent to apply it.</p>}
+              </CardBody>
+            </Card>
+          )}
+          {kind === "credit_note" && doc.status !== "draft" && doc.status !== "cancelled" && (
+            <Card>
+              <CardHeader title="Refunds" description="Credit paid back to the customer" />
+              <CardBody className="space-y-3">
+                {!refunds?.length && <p className="text-sm text-slate-400">No refunds.</p>}
+                {refunds?.map((r) => (
+                  <div key={r.id} className="group flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                    <div>
+                      <div className="font-semibold text-violet-700">{formatMoney(Number(r.amount), cur)}</div>
+                      <div className="text-xs text-slate-500">{formatDate(r.date)} · {r.mode?.name ?? "—"}</div>
+                      {r.reference && <div className="text-xs text-slate-400">Ref {r.reference}</div>}
+                      {r.note && <div className="text-xs text-slate-400">{r.note}</div>}
+                    </div>
+                    {canDelete && (
+                      <ConfirmForm action={deleteRefund} message="Delete this refund? Its amount goes back to the credit remaining.">
+                        <input type="hidden" name="id" value={r.id} />
+                        <button className="text-slate-300 opacity-0 hover:text-rose-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100" aria-label="Delete refund"><Trash2 className="h-3.5 w-3.5" /></button>
+                      </ConfirmForm>
+                    )}
+                  </div>
+                ))}
+                {canEdit && (bal?.balance ?? 0) > 0.005 && <RefundForm creditNoteId={id} available={bal!.balance} modes={modes ?? []} />}
               </CardBody>
             </Card>
           )}

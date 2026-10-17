@@ -7,7 +7,7 @@ import { assertAccess, denied, requireStaff } from "@/lib/auth";
 import { addDays, addInterval, computeTotals, docHref, docNumber, KINDS, type DocKind, type Line } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { HSN_RE } from "@/lib/gst";
-import { num, str } from "@/lib/utils";
+import { formatMoney, num, str } from "@/lib/utils";
 import { friendlyError, must, withFlash } from "@/lib/flash";
 import { daysFromToday, todayIST } from "@/lib/dates";
 import { discardUpload, fileRow } from "@/lib/uploads";
@@ -337,6 +337,83 @@ export async function removeCredit(form: FormData) {
       revalidatePath(docHref("credit_note", data.credit_note_id));
       revalidatePath(docHref("invoice", data.invoice_id));
     }
+  });
+}
+
+/** Refund part or all of a credit note's remaining credit to the customer (Perfex "Refund"). */
+export async function recordRefund(_: FormState, form: FormData): Promise<FormState> {
+  const { supabase, can, roleName } = await requireStaff();
+  if (!can("sales", "edit")) return denied(roleName, "sales", "edit");
+  const creditId = Number(str(form, "credit_note_id"));
+  const amount = num(form, "amount");
+  if (!amount || amount <= 0) return { error: "Enter an amount greater than zero." };
+  const { data: cn } = await supabase.from("sales_docs").select("number, customer_id, currency, status").eq("id", creditId).eq("kind", "credit_note").maybeSingle();
+  if (!cn) return { error: "Credit note not found." };
+  if (cn.status === "draft" || cn.status === "cancelled") return { error: "Only an issued credit note can be refunded." };
+  // The database also refuses more than the credit left on the note
+  const { error } = await supabase.from("credit_note_refunds").insert({
+    credit_note_id: creditId,
+    amount,
+    date: str(form, "date") ?? todayIST(),
+    mode_id: num(form, "mode_id"),
+    reference: (str(form, "reference") ?? "").slice(0, 120) || null,
+    note: (str(form, "note") ?? "").slice(0, 1000) || null,
+  });
+  if (error) return { error: friendlyError(error.message) };
+  if (cn.customer_id)
+    await logActivity(supabase, `refunded ${formatMoney(amount, cn.currency)} from ${docNumber("credit_note", cn.number)}`, { type: "customer", id: cn.customer_id });
+  revalidatePath(docHref("credit_note", creditId));
+  revalidatePath(`/sales/${KINDS.credit_note.slug}`);
+  return { ok: "Refund recorded." };
+}
+
+export async function deleteRefund(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("sales", "full");
+    const { data } = must(await supabase.from("credit_note_refunds").delete().eq("id", Number(str(form, "id"))).select("credit_note_id").maybeSingle());
+    if (data) {
+      revalidatePath(docHref("credit_note", data.credit_note_id));
+      revalidatePath(`/sales/${KINDS.credit_note.slug}`);
+    }
+  });
+}
+
+/** Perfex "Create credit note" on an invoice: a draft credit note for the same customer with the invoice's lines. */
+export async function creditNoteFromInvoice(form: FormData) {
+  return withFlash(async () => {
+    const { supabase, profile } = await assertAccess("sales", "edit");
+    const id = Number(str(form, "id"));
+    const [{ data: inv }, { data: lines }] = await Promise.all([
+      supabase.from("sales_docs").select("*").eq("id", id).eq("kind", "invoice").maybeSingle(),
+      supabase.from("sales_doc_items").select("*").eq("doc_id", id).order("position"),
+    ]);
+    if (!inv) throw new Error("Invoice not found.");
+    if (!inv.customer_id) throw new Error("This invoice has no customer.");
+    if (!lines?.length) throw new Error("This invoice has no line items.");
+    // Plain lines: billed expenses and project hours stay on the invoice
+    const copied: Line[] = lines.map((l) => ({
+      item_id: l.item_id, hsn_sac: l.hsn_sac, description: l.description, long_description: l.long_description,
+      qty: Number(l.qty), unit: l.unit, rate: Number(l.rate), tax_rate: Number(l.tax_rate),
+    }));
+    const totals = computeTotals(copied, Number(inv.discount_percent), Number(inv.adjustment));
+    const { data: saved, error } = await supabase.rpc("save_sales_doc", {
+      p_kind: "credit_note",
+      p_id: null,
+      p_doc: {
+        customer_id: inv.customer_id, subject: inv.subject ? `Credit for ${inv.subject}` : `Credit for ${docNumber("invoice", inv.number)}`,
+        date: todayIST(), due_date: null, currency: inv.currency,
+        discount_percent: Number(inv.discount_percent), adjustment: Number(inv.adjustment), ...totals,
+        notes: `Credit against invoice ${docNumber("invoice", inv.number)}.`, terms: null, status: "draft", source_id: inv.id,
+      },
+      p_lines: copied,
+    });
+    if (error) throw new Error(error.message);
+    const created = saved as { id: number; number: number };
+    await supabase.from("sales_docs").update({ sale_agent: inv.sale_agent ?? profile.id }).eq("id", created.id);
+    await logActivity(supabase, `created ${docNumber("credit_note", created.number)} from ${docNumber("invoice", inv.number)}`, { type: "customer", id: inv.customer_id });
+    revalidatePath(`/sales/${KINDS.credit_note.slug}`);
+    revalidatePath(docHref("invoice", id));
+    redirect(docHref("credit_note", created.id));
   });
 }
 

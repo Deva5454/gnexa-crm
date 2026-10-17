@@ -82,9 +82,9 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
       : kind === "credit_note"
         ? [
             { label: "Credit issued", value: fm(sum(live, (d) => d.total)), tone: "text-slate-900" },
+            { label: "Applied to invoices", value: fm(sum(live, (d) => d.bal?.credit_used ?? 0)), tone: "text-emerald-600" },
+            { label: "Refunded", value: fm(sum(live, (d) => d.bal?.refunded ?? 0)), tone: "text-slate-600" },
             { label: "Credit remaining", value: fm(sum(live, (d) => Math.max(0, d.bal?.balance ?? d.total))), tone: "text-violet-600" },
-            { label: "Open notes", value: String(all.filter((d) => d.st.key === "open").length), tone: "text-slate-900" },
-            { label: "Drafts", value: String(all.filter((d) => d.status === "draft").length), tone: "text-slate-400" },
           ]
         : [
             { label: "Sent & awaiting", value: fm(sum(all.filter((d) => d.st.key === "sent"), (d) => d.total)), tone: "text-sky-600" },
@@ -170,7 +170,7 @@ export default async function DocsPage({ params, searchParams }: { params: Promi
     { value: "sent", label: "Mark as sent (drafts)" },
     ...(kind === "proposal" || kind === "estimate"
       ? [{ value: "accepted", label: "Mark accepted" }, { value: "declined", label: "Mark declined" }]
-      : [{ value: "cancelled", label: "Cancel" }]),
+      : [{ value: "cancelled", label: kind === "credit_note" ? "Void" : "Cancel" }]),
     { value: "agent", label: "Change sale agent", target: { label: "New sale agent", options: [{ value: "none", label: "— None —" }, ...staffOpts] } },
     ...(can("sales", "full") ? [{ value: "delete", label: "Delete", danger: true }] : []),
   ];
