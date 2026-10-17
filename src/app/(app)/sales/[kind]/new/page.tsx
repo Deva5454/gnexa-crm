@@ -47,13 +47,13 @@ export default async function NewDocPage({
           subject: "",
           content: "",
           date: today,
-          due_date: k.dueLabel ? addDays(today, kind === "invoice" ? 15 : 30) : "",
+          due_date: k.dueLabel ? addDays(today, kind === "invoice" ? opts.defaults.invoiceDueDays : opts.defaults.quoteValidDays) : "",
           currency: opts.customers.find((c) => c.value === party)?.currency || opts.currency,
           discount_percent: 0,
           adjustment: 0,
           sale_agent: profile.id, // Perfex defaults the sale agent to whoever creates it
-          notes: kind === "invoice" ? "Thank you for your business." : "",
-          terms: kind === "invoice" ? opts.defaultTerms : kind === "estimate" ? "Prices valid until the expiry date. Taxes as applicable." : "",
+          notes: kind === "invoice" ? opts.defaults.invoiceNote : "",
+          terms: kind === "invoice" ? opts.defaultTerms : kind === "estimate" ? opts.defaults.estimateTerms : kind === "proposal" ? opts.defaults.proposalTerms : "",
           // "Add to an invoice" from an expense pre-fills that expense as the first line
           lines: kind === "invoice" && sp.expense
             ? opts.billableExpenses.filter((e) => e.id === Number(sp.expense) && `customer:${e.customer_id}` === party).map(expenseLine)

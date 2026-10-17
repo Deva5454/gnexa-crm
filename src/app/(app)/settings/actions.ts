@@ -54,6 +54,63 @@ export async function updateStaff(form: FormData) {
   });
 }
 
+/** Staff member page: profile details as well as role, access and departments. */
+export async function saveStaffMember(form: FormData) {
+  return withFlash(async () => {
+    const { supabase, profile } = await requireAdmin();
+    const id = str(form, "id")!;
+    const name = (str(form, "full_name") ?? "").slice(0, 120);
+    if (!name) throw new Error("Enter the person's name.");
+    must(
+      await supabase
+        .from("profiles")
+        .update({
+          full_name: name,
+          job_title: (str(form, "job_title") ?? "").slice(0, 120) || null,
+          phone: (str(form, "phone") ?? "").slice(0, 40) || null,
+          role_id: num(form, "role_id"),
+          // An admin can't lock themselves out
+          is_admin: id === profile.id ? true : form.get("is_admin") === "on",
+          is_active: id === profile.id ? true : form.get("is_active") === "on",
+        })
+        .eq("id", id),
+    );
+    const depts = form.getAll("dept").map(Number).filter(Boolean);
+    must(await supabase.from("staff_departments").delete().eq("staff_id", id));
+    if (depts.length) must(await supabase.from("staff_departments").insert(depts.map((department_id) => ({ staff_id: id, department_id }))));
+    revalidatePath("/settings/staff");
+    revalidatePath(`/settings/staff/${id}`);
+  });
+}
+
+/** Let a pending sign-up in, straight from the staff list. */
+export async function approveStaff(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    must(await supabase.from("profiles").update({ is_active: true }).eq("id", str(form, "id")!));
+    revalidatePath("/settings/staff");
+  });
+}
+
+export async function addStaffNote(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const staffId = str(form, "staff_id")!;
+    const body = (str(form, "body") ?? "").slice(0, 5000);
+    if (!body) throw new Error("Write the note first.");
+    must(await supabase.from("staff_notes").insert({ staff_id: staffId, body }));
+    revalidatePath(`/settings/staff/${staffId}`);
+  });
+}
+
+export async function deleteStaffNote(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const { data } = must(await supabase.from("staff_notes").delete().eq("id", Number(str(form, "id"))).select("staff_id").maybeSingle());
+    if (data) revalidatePath(`/settings/staff/${data.staff_id}`);
+  });
+}
+
 export async function savePredefinedReply(form: FormData) {
   return withFlash(async () => {
     const { supabase } = await requireAdmin();
@@ -153,6 +210,32 @@ export async function savePaymentMode(form: FormData) {
         .eq("id", id),
     );
     revalidatePath("/settings", "layout");
+  });
+}
+
+/** Setup → Settings → New records: defaults for new invoices, quotes and customers. */
+export async function saveRecordDefaults(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const days = (k: string, min: number, fallback: number) => {
+      const n = Math.round(Number(str(form, k)));
+      return Number.isFinite(n) && n >= min && n <= 365 ? n : fallback;
+    };
+    const text = (k: string, max: number) => (str(form, k) ?? "").slice(0, max) || null;
+    must(
+      await supabase
+        .from("company_settings")
+        .update({
+          invoice_due_days: days("invoice_due_days", 0, 15),
+          quote_valid_days: days("quote_valid_days", 1, 30),
+          invoice_note: text("invoice_note", 1000),
+          estimate_terms: text("estimate_terms", 2000),
+          proposal_terms: text("proposal_terms", 2000),
+          default_country: text("default_country", 80),
+        })
+        .eq("id", true),
+    );
+    revalidatePath("/settings");
   });
 }
 

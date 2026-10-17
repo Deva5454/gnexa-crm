@@ -22,7 +22,7 @@ export async function editorOptions(supabase: SupabaseClient<Database>, docId?: 
     supabase.from("leads").select("id, name, company").is("converted_customer_id", null).eq("is_junk", false).eq("is_lost", false).order("name").limit(1000),
     supabase.from("items").select("id, name, description, rate, unit, hsn_sac, currency_rates, tax:taxes(rate), group:item_groups(name, position)").order("name"),
     supabase.from("taxes").select("rate").order("rate"),
-    supabase.from("company_settings").select("currency, default_terms").maybeSingle(),
+    supabase.from("company_settings").select("currency, default_terms, invoice_due_days, quote_valid_days, invoice_note, estimate_terms, proposal_terms").maybeSingle(),
     supabase.from("currencies").select("code").order("is_base", { ascending: false }).order("code"),
     supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
     supabase.from("proposal_templates").select("id, name, content").order("name"),
@@ -40,5 +40,13 @@ export async function editorOptions(supabase: SupabaseClient<Database>, docId?: 
     taxRates: (taxes ?? []).map((t) => Number(t.rate)),
     currency: settings?.currency ?? "INR",
     defaultTerms: settings?.default_terms ?? "",
+    // Setup → Settings → Invoices & quotes
+    defaults: {
+      invoiceDueDays: settings?.invoice_due_days ?? 15,
+      quoteValidDays: settings?.quote_valid_days ?? 30,
+      invoiceNote: settings?.invoice_note ?? "",
+      estimateTerms: settings?.estimate_terms ?? "",
+      proposalTerms: settings?.proposal_terms ?? "",
+    },
   };
 }

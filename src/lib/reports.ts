@@ -1,10 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import type { Module } from "@/lib/permissions";
-import { docStatus } from "@/lib/sales";
+import { docNumber, docStatus, receiptNumber } from "@/lib/sales";
 import { balancesFor } from "@/lib/sales-data";
 import { allRows } from "@/lib/fetch-all";
-import { daysFromToday, todayIST } from "@/lib/dates";
+import { daysFromToday, periodRange, todayIST } from "@/lib/dates";
 import { toBase } from "@/lib/sales-data";
 
 type DB = SupabaseClient<Database>;
@@ -20,6 +20,7 @@ export type ReportTable = {
 
 export const REPORT_TABS: { key: string; label: string; module: Module }[] = [
   { key: "sales", label: "Sales", module: "sales" },
+  { key: "detail", label: "Invoices & payments", module: "sales" },
   { key: "leads", label: "Leads", module: "leads" },
   { key: "expenses", label: "Expenses", module: "expenses" },
   { key: "income", label: "Expenses vs income", module: "expenses" },
@@ -422,9 +423,83 @@ export async function kbReports(supabase: DB): Promise<ReportTable[]> {
   ];
 }
 
-export async function reportsFor(tab: string, supabase: DB) {
+/** Periods for the detailed reports (Perfex: "Report period"); defaults to this year. */
+export const DETAIL_PERIODS = [
+  { value: "this_month", label: "This month" },
+  { value: "last_month", label: "Last month" },
+  { value: "this_year", label: "This year" },
+  { value: "last_year", label: "Last year" },
+  { value: "fy", label: "This financial year" },
+  { value: "all", label: "All time" },
+];
+export const detailRange = (period?: string): [string, string] =>
+  period === "all" ? ["2000-01-01", "2999-12-31"] : (periodRange(period ?? "this_year") ?? periodRange("this_year")!);
+
+/** Perfex's detailed sales reports: invoices, payments received, credit notes and customer-group value in a period. */
+export async function detailReports(supabase: DB, period?: string): Promise<ReportTable[]> {
+  const [from, to] = detailRange(period);
+  const label = DETAIL_PERIODS.find((p) => p.value === (period ?? "this_year"))?.label ?? "This year";
+  const [{ data: invoices }, { data: payments }, { data: credits }, { data: groups }] = await Promise.all([
+    allRows((a, b) => supabase.from("sales_docs").select("id, number, date, due_date, status, subtotal, tax_total, total, exchange_rate, customer:customers(company, group_id)").eq("kind", "invoice").neq("status", "draft").gte("date", from).lte("date", to).order("date").order("id").range(a, b)),
+    allRows((a, b) => supabase.from("payments").select("id, date, amount, transaction_id, mode:payment_modes(name), invoice:sales_docs(number, exchange_rate, customer:customers(company, group_id))").gte("date", from).lte("date", to).order("date").order("id").range(a, b)),
+    allRows((a, b) => supabase.from("sales_docs").select("id, number, date, status, total, exchange_rate, customer:customers(company)").eq("kind", "credit_note").neq("status", "draft").gte("date", from).lte("date", to).order("date").order("id").range(a, b)),
+    supabase.from("customer_groups").select("id, name").order("name"),
+  ]);
+  const bals = await balancesFor(supabase, [...(invoices ?? []).map((d) => d.id), ...(credits ?? []).map((d) => d.id)]);
+  const b = (amount: number, rate: number | null) => toBase(Number(amount), rate);
+
+  const invoiceRows = (invoices ?? []).map((d) => {
+    const bal = bals.get(d.id);
+    const st = docStatus({ kind: "invoice", status: d.status, due_date: d.due_date, total: Number(d.total) }, bal);
+    const rate = d.exchange_rate;
+    return [docNumber("invoice", d.number), d.customer?.company ?? "—", d.date, d.due_date ?? "—", st.label,
+      b(d.subtotal, rate), b(d.tax_total, rate), b(d.total, rate), b((bal?.paid ?? 0) + (bal?.credited ?? 0), rate), d.status === "cancelled" ? 0 : b(Math.max(0, bal?.balance ?? Number(d.total)), rate)];
+  });
+  const paymentRows = (payments ?? []).map((p) => [p.date, receiptNumber(p.id), p.invoice ? docNumber("invoice", p.invoice.number) : "—", p.invoice?.customer?.company ?? "—", p.mode?.name ?? "—", p.transaction_id ?? "—", b(p.amount, p.invoice?.exchange_rate ?? 1)]);
+  const creditRows = (credits ?? []).map((d) => {
+    const bal = bals.get(d.id);
+    const st = docStatus({ kind: "credit_note", status: d.status, due_date: null, total: Number(d.total) }, bal);
+    const rate = d.exchange_rate;
+    return [docNumber("credit_note", d.number), d.customer?.company ?? "—", d.date, st.label, b(d.total, rate), b(bal?.credit_used ?? 0, rate), b(bal?.refunded ?? 0, rate), d.status === "cancelled" ? 0 : b(Math.max(0, bal?.balance ?? Number(d.total)), rate)];
+  });
+  // Customer groups value: invoiced and received in the period, by the customer's group
+  const byGroup = new Map<number | null, { invoiced: number; paid: number; customers: Set<string> }>();
+  const slot = (g: number | null) => byGroup.get(g) ?? byGroup.set(g, { invoiced: 0, paid: 0, customers: new Set() }).get(g)!;
+  for (const d of invoices ?? []) if (d.status !== "cancelled") { const s = slot(d.customer?.group_id ?? null); s.invoiced += b(d.total, d.exchange_rate); if (d.customer) s.customers.add(d.customer.company); }
+  for (const p of payments ?? []) slot(p.invoice?.customer?.group_id ?? null).paid += b(p.amount, p.invoice?.exchange_rate ?? 1);
+  const groupRows = [...byGroup.entries()]
+    .map(([g, v]) => [g == null ? "No group" : ((groups ?? []).find((x) => x.id === g)?.name ?? "—"), r2(v.invoiced), r2(v.paid), v.customers.size] as (string | number)[])
+    .sort((x, y) => Number(y[1]) - Number(x[1]));
+
+  const money = (label: string) => ({ label, money: true });
+  return [
+    {
+      key: "detail-invoices", title: "Invoices report", description: `${label} · ${invoiceRows.length} invoices (drafts excluded), in base currency`,
+      columns: [{ label: "Invoice" }, { label: "Customer" }, { label: "Date" }, { label: "Due" }, { label: "Status" }, money("Sub total"), money("Tax"), money("Total"), money("Paid / credited"), money("Balance")],
+      rows: invoiceRows,
+    },
+    {
+      key: "detail-payments", title: "Payments received", description: `${label} · ${paymentRows.length} payments, in base currency`,
+      columns: [{ label: "Date" }, { label: "Receipt" }, { label: "Invoice" }, { label: "Customer" }, { label: "Mode" }, { label: "Transaction / UTR" }, money("Amount")],
+      rows: paymentRows,
+    },
+    {
+      key: "detail-credit-notes", title: "Credit notes report", description: `${label} · ${creditRows.length} credit notes, in base currency`,
+      columns: [{ label: "Credit note" }, { label: "Customer" }, { label: "Date" }, { label: "Status" }, money("Total"), money("Applied"), money("Refunded"), money("Remaining")],
+      rows: creditRows,
+    },
+    {
+      key: "detail-groups", title: "Customer groups value", description: `${label} · invoiced and received per customer group`,
+      columns: [{ label: "Group" }, money("Invoiced"), money("Received"), { label: "Customers", numeric: true }],
+      rows: groupRows,
+    },
+  ];
+}
+
+export async function reportsFor(tab: string, supabase: DB, period?: string) {
   switch (tab) {
     case "sales": return salesReports(supabase);
+    case "detail": return detailReports(supabase, period);
     case "leads": return leadReports(supabase);
     case "expenses": return expenseReports(supabase);
     case "income": return incomeReports(supabase);

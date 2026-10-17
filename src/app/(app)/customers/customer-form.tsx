@@ -15,12 +15,15 @@ export function CustomerForm({
   groups,
   cancelHref,
   currencies = ["INR"],
+  defaultCountry = "",
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
   customer?: Tables<"customers">;
   groups: Tables<"customer_groups">[];
   cancelHref: string;
   currencies?: string[];
+  /** Setup → Settings: the country new customers start with */
+  defaultCountry?: string;
 }) {
   const [state, formAction] = useActionState(action, undefined);
   const c = customer;
@@ -68,7 +71,7 @@ export function CustomerForm({
           <Field label="City" htmlFor="city"><input id="city" name="city" defaultValue={c?.city ?? ""} className="field" /></Field>
           <Field label="State" htmlFor="state"><input id="state" name="state" defaultValue={c?.state ?? ""} className="field" /></Field>
           <Field label="Postal code" htmlFor="zip"><input id="zip" name="zip" defaultValue={c?.zip ?? ""} className="field" /></Field>
-          <Field label="Country" htmlFor="country"><input id="country" name="country" defaultValue={c?.country ?? ""} className="field" /></Field>
+          <Field label="Country" htmlFor="country"><input id="country" name="country" defaultValue={c ? (c.country ?? "") : defaultCountry} className="field" /></Field>
         </CardBody>
       </Card>
 

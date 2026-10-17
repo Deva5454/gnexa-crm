@@ -17,15 +17,18 @@ export type Database = {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
           address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null; contract_expiry_days: number | null; kb_public: boolean;
+          invoice_due_days: number; quote_valid_days: number; invoice_note: string | null; estimate_terms: string | null; proposal_terms: string | null; default_country: string | null;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean;
+         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean;
+         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null; };
         Relationships: [];
       };
       contacts: {
@@ -507,6 +510,15 @@ export type Database = {
         Insert: { tag_id: number; rel_type: string; rel_id: number };
         Update: { tag_id?: number; rel_type?: string; rel_id?: number };
         Relationships: [{ foreignKeyName: "taggables_tag_id_fkey"; columns: ["tag_id"]; isOneToOne: false; referencedRelation: "tags"; referencedColumns: ["id"] }];
+      };
+      staff_notes: {
+        Row: { id: number; staff_id: string; body: string; created_by: string | null; created_at: string };
+        Insert: { id?: never; staff_id: string; body: string; created_by?: string | null; created_at?: string };
+        Update: { id?: never; staff_id?: string; body?: string; created_by?: string | null; created_at?: string };
+        Relationships: [
+          { foreignKeyName: "staff_notes_staff_id_fkey"; columns: ["staff_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+          { foreignKeyName: "staff_notes_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
+        ];
       };
       staff_departments: {
         Row: { staff_id: string; department_id: number };
