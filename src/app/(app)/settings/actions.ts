@@ -393,3 +393,34 @@ export async function saveContractExpiry(form: FormData) {
     revalidatePath("/settings/contracts");
   });
 }
+
+// ───────────── Knowledge base groups & public help center ─────────────
+export async function saveKbGroup(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const name = (str(form, "name") ?? "").slice(0, 120);
+    if (!name) throw new Error("Give the group a name.");
+    const color = /^#[0-9a-fA-F]{6}$/.test(str(form, "color") ?? "") ? str(form, "color")! : "#0d9488";
+    const fields = {
+      name,
+      description: (str(form, "description") ?? "").slice(0, 300) || null,
+      color,
+      position: Math.round(num(form, "position") ?? 0),
+      is_active: form.get("is_active") === "on",
+    };
+    const id = num(form, "id");
+    if (id) must(await supabase.from("kb_groups").update(fields).eq("id", id));
+    else must(await supabase.from("kb_groups").insert({ ...fields, is_active: true }));
+    revalidatePath("/settings/support");
+    revalidatePath("/knowledge-base");
+  });
+}
+
+export async function saveKbPublic(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    must(await supabase.from("company_settings").update({ kb_public: form.get("kb_public") === "on" }).eq("id", true));
+    revalidatePath("/settings/support");
+    revalidatePath("/knowledge-base");
+  });
+}

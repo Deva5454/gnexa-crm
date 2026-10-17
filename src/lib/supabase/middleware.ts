@@ -25,9 +25,9 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Visitors without a session: in the demo they're signed in automatically (as the admin persona);
-  // in a live CRM they go to the sign-in page. Public forms (/f/…), surveys (/s/…) and shared proposals (/p/…) stay anonymous.
+  // in a live CRM they go to the sign-in page. Public forms (/f/…), surveys (/s/…), shared proposals (/p/…) and the public help center (/help) stay anonymous.
   const path = request.nextUrl.pathname;
-  const isPublic = path.startsWith("/f/") || path.startsWith("/s/") || path.startsWith("/p/") || path === "/login";
+  const isPublic = path.startsWith("/f/") || path.startsWith("/s/") || path.startsWith("/p/") || path === "/help" || path.startsWith("/help/") || path === "/login";
   if (!user && path !== "/demo" && !isPublic) {
     const { data: demo } = await supabase.rpc("demo_mode");
     const url = request.nextUrl.clone();

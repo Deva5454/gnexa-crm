@@ -21,7 +21,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   const { data: a } = await supabase.from("kb_articles").select("*, group:kb_groups(id, name), author:profiles(full_name)").eq("slug", slug).maybeSingle();
   if (!a) notFound();
   const { data: related } = a.group_id
-    ? await supabase.from("kb_articles").select("id, title, slug").eq("group_id", a.group_id).eq("is_published", true).neq("id", a.id).limit(5)
+    ? await supabase.from("kb_articles").select("id, title, slug").eq("group_id", a.group_id).eq("is_published", true).neq("id", a.id).order("position").order("views", { ascending: false }).limit(5)
     : { data: [] as { id: number; title: string; slug: string }[] };
   const votes = a.helpful + a.not_helpful;
 
@@ -46,7 +46,12 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         </div>
         <Card>
           <CardBody className="p-6 sm:p-8">
-            {!a.is_published && <Badge className="mb-4 bg-amber-50 text-amber-700 ring-amber-200">Draft — not published</Badge>}
+            {(!a.is_published || a.is_internal) && (
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {!a.is_published && <Badge className="bg-amber-50 text-amber-700 ring-amber-200">Draft — not published</Badge>}
+                {a.is_internal && <Badge className="bg-violet-50 text-violet-700 ring-violet-200">Internal — staff only</Badge>}
+              </div>
+            )}
             <ArticleBody text={a.body} />
             <div className="mt-8 border-t border-slate-100 pt-5"><ArticleFeedback id={a.id} /></div>
           </CardBody>

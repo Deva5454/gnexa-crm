@@ -16,16 +16,16 @@ export type Database = {
       company_settings: {
         Row: {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
-          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null; contract_expiry_days: number | null;
+          address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null; contract_expiry_days: number | null; kb_public: boolean;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
-         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; };
+         theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean; };
         Relationships: [];
       };
       contacts: {
@@ -396,15 +396,15 @@ export type Database = {
         Relationships: [{ foreignKeyName: "ticket_replies_ticket_id_fkey"; columns: ["ticket_id"]; isOneToOne: false; referencedRelation: "tickets"; referencedColumns: ["id"] }, { foreignKeyName: "ticket_replies_author_id_fkey"; columns: ["author_id"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
       kb_groups: {
-        Row: { id: number; name: string; description: string | null; position: number };
-        Insert: { id?: never; name: string; description?: string | null; position?: number };
-        Update: { id?: never; name?: string; description?: string | null; position?: number };
+        Row: { id: number; name: string; description: string | null; position: number; color: string; is_active: boolean };
+        Insert: { id?: never; name: string; description?: string | null; position?: number; color?: string; is_active?: boolean };
+        Update: { id?: never; name?: string; description?: string | null; position?: number; color?: string; is_active?: boolean };
         Relationships: [];
       };
       kb_articles: {
-        Row: { id: number; group_id: number | null; title: string; slug: string; body: string; is_published: boolean; views: number; helpful: number; not_helpful: number; created_by: string | null; created_at: string; updated_at: string };
-        Insert: { id?: never; group_id?: number | null; title: string; slug: string; body?: string; is_published?: boolean; views?: number; helpful?: number; not_helpful?: number; created_by?: string | null; created_at?: string; updated_at?: string };
-        Update: { id?: never; group_id?: number | null; title?: string; slug?: string; body?: string; is_published?: boolean; views?: number; helpful?: number; not_helpful?: number; created_by?: string | null; created_at?: string; updated_at?: string };
+        Row: { id: number; group_id: number | null; title: string; slug: string; body: string; is_published: boolean; views: number; helpful: number; not_helpful: number; created_by: string | null; created_at: string; updated_at: string; is_internal: boolean; position: number };
+        Insert: { id?: never; group_id?: number | null; title: string; slug: string; body?: string; is_published?: boolean; views?: number; helpful?: number; not_helpful?: number; created_by?: string | null; created_at?: string; updated_at?: string; is_internal?: boolean; position?: number };
+        Update: { id?: never; group_id?: number | null; title?: string; slug?: string; body?: string; is_published?: boolean; views?: number; helpful?: number; not_helpful?: number; created_by?: string | null; created_at?: string; updated_at?: string; is_internal?: boolean; position?: number };
         Relationships: [{ foreignKeyName: "kb_articles_group_id_fkey"; columns: ["group_id"]; isOneToOne: false; referencedRelation: "kb_groups"; referencedColumns: ["id"] }, { foreignKeyName: "kb_articles_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
       portal_users: {
@@ -735,6 +735,9 @@ export type Database = {
       portal_close_ticket: { Args: { p_ticket: number }; Returns: undefined };
       renew_contract: { Args: { p_contract: number; p_start: string; p_end: string | null; p_value: number | null; p_keep_signature: boolean }; Returns: undefined };
       portal_contract_comment: { Args: { p_contract: number; p_body: string }; Returns: undefined };
+      public_kb: { Args: { p_q?: string | null }; Returns: Json };
+      public_kb_article: { Args: { p_slug: string }; Returns: Json };
+      public_kb_track: { Args: { p_slug: string; p_event: string }; Returns: undefined };
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
       invoice_project: { Args: { p_project: number }; Returns: Json };
       demo_mode: { Args: Record<PropertyKey, never>; Returns: boolean };

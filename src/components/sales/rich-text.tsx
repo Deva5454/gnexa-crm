@@ -2,7 +2,7 @@ import { Fragment } from "react";
 
 /**
  * Proposal content with light formatting — the subset of Markdown people type naturally:
- *   # / ## / ### headings · **bold** · *italic* · "- " bullet lists · "1. " numbered lists · blank line = new paragraph
+ *   # / ## / ### headings · **bold** · *italic* · [link](https://…) · "- " bullet lists · "1. " numbered lists · blank line = new paragraph
  * Merge fields like {customer_name} are filled from `vars`. Everything is rendered as React text, never as
  * HTML, so content (or a client-supplied name) can't inject markup.
  */
@@ -60,15 +60,24 @@ export function RichText({ text, vars = {}, className }: { text: string; vars?: 
   return <div className={className}>{blocks}</div>;
 }
 
-/** **bold** and *italic* inside a line. */
+/** **bold**, *italic*, [links](https://…) and bare https:// addresses inside a line. Only http(s) links are made clickable. */
 function inline(text: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
-  const re = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+  const re = /\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    out.push(m[1] != null ? <strong key={m.index} className="font-semibold text-slate-800">{m[1]}</strong> : <em key={m.index}>{m[2]}</em>);
+    if (m[1] != null) out.push(<strong key={m.index} className="font-semibold text-slate-800">{m[1]}</strong>);
+    else if (m[2] != null) out.push(<em key={m.index}>{m[2]}</em>);
+    else {
+      const href = m[4] ?? m[5]!;
+      out.push(
+        <a key={m.index} href={href} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-600">
+          {m[3] ?? href}
+        </a>,
+      );
+    }
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push(text.slice(last));

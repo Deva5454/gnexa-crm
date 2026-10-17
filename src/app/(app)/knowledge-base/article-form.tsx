@@ -35,12 +35,21 @@ export function ArticleForm({
             </select>
           </Field>
           <Field label="URL slug" htmlFor="slug" hint="Leave blank to generate from the title"><input id="slug" name="slug" defaultValue={a?.slug ?? ""} className="field font-mono text-xs" /></Field>
-          <Field label="Article *" htmlFor="body" className="sm:col-span-2" hint="Plain text. Blank lines start new paragraphs; lines starting with • or 1. render as lists.">
+          <Field label="Article *" htmlFor="body" className="sm:col-span-2" hint="Blank lines start new paragraphs · # Heading · **bold** · *italic* · [link text](https://…) · lines starting with • - or 1. become lists.">
             <textarea id="body" name="body" required rows={16} defaultValue={a?.body ?? ""} className="field leading-relaxed" />
           </Field>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" name="is_published" defaultChecked={a?.is_published ?? true} className="h-4 w-4 rounded border-slate-300 text-brand-600" /> Published
-          </label>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 sm:col-span-2">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="is_published" defaultChecked={a?.is_published ?? true} className="h-4 w-4 rounded border-slate-300 text-brand-600" /> Published
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" name="is_internal" defaultChecked={a?.is_internal ?? false} className="h-4 w-4 rounded border-slate-300 text-brand-600" /> Internal — staff only, never shown to customers
+            </label>
+            <label className="flex items-center gap-2">
+              Order in group
+              <input name="position" type="number" min={-999} max={999} defaultValue={a?.position ?? 0} className="field h-8 w-20 py-0" aria-label="Order in group" />
+            </label>
+          </div>
         </CardBody>
       </Card>
       <div className="flex justify-end gap-2">
