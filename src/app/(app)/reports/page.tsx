@@ -31,6 +31,7 @@ const CHART: Record<string, { kind: "columns" | "bars" | "table"; series?: numbe
   "expenses-monthly": { kind: "columns", series: [1], wide: true },
   "expenses-categories": { kind: "bars", value: 1 },
   "expenses-billable": { kind: "bars", value: 1 },
+  "expenses-matrix": { kind: "table", wide: true },
   "time-staff": { kind: "bars", value: 1 },
   "time-projects": { kind: "table", wide: true },
   "support-monthly": { kind: "columns", series: [1, 2], wide: true },
@@ -71,7 +72,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <>
       <PageHeader title="Reports" description="How the business is doing — every chart has its numbers underneath and a CSV export." />
       <Tabs tabs={tabs.map((t) => ({ key: t.key, label: t.label, href: `/reports?tab=${t.key}` }))} active={tab} />
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {tables.map((t) => {
           const cfg = CHART[t.key] ?? { kind: "table" as const };
           const fmtOf = (ci: number): Fmt => (t.columns[ci]?.money ? "money" : "number");

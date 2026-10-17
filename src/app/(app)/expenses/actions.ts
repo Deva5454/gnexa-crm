@@ -145,3 +145,71 @@ export async function invoiceExpense(form: FormData) {
     redirect(docHref("invoice", inv.id));
   });
 }
+
+/** Perfex "Copy expense": same details dated today, without the receipt, billing or repeat schedule. */
+export async function copyExpense(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await assertAccess("expenses", "edit");
+    const id = Number(str(form, "id"));
+    const { data: e } = await supabase.from("expenses").select("*").eq("id", id).single();
+    if (!e) throw new Error("Expense not found.");
+    const { data, error } = await supabase
+      .from("expenses")
+      .insert({
+        name: e.name,
+        category_id: e.category_id,
+        amount: e.amount,
+        tax_rate: e.tax_rate,
+        date: todayIST(),
+        customer_id: e.customer_id,
+        project_id: e.project_id,
+        payment_mode_id: e.payment_mode_id,
+        note: e.note,
+        is_billable: e.is_billable,
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    revalidatePath("/expenses");
+    redirect(`/expenses/${data.id}`);
+  });
+}
+
+/** Bulk actions from the expense list. Billed expenses keep their billing; only their category and payment mode change. */
+export async function bulkExpenses(form: FormData) {
+  return withFlash(async () => {
+    const op = str(form, "op") ?? "";
+    const ids = [...new Set(form.getAll("ids").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 500);
+    if (!ids.length) throw new Error("Tick at least one expense first.");
+    const { supabase } = await assertAccess("expenses", op === "delete" ? "full" : "edit");
+    const target = num(form, "target");
+    const n = `${ids.length} expense${ids.length === 1 ? "" : "s"}`;
+    switch (op) {
+      case "category":
+        if (!target) throw new Error("Pick a category.");
+        must(await supabase.from("expenses").update({ category_id: target }).in("id", ids));
+        break;
+      case "mode":
+        if (!target) throw new Error("Pick a payment mode.");
+        must(await supabase.from("expenses").update({ payment_mode_id: target }).in("id", ids));
+        break;
+      case "billable":
+        // Only expenses linked to a customer can be billed
+        must(await supabase.from("expenses").update({ is_billable: true }).in("id", ids).not("customer_id", "is", null));
+        break;
+      case "not_billable":
+        must(await supabase.from("expenses").update({ is_billable: false }).in("id", ids).is("invoice_id", null));
+        break;
+      case "delete": {
+        const { data: rows } = await supabase.from("expenses").select("receipt_path").in("id", ids).not("receipt_path", "is", null);
+        if (rows?.length) await supabase.storage.from(RECEIPTS).remove(rows.map((r) => r.receipt_path!));
+        must(await supabase.from("expenses").delete().in("id", ids));
+        break;
+      }
+      default:
+        throw new Error("Pick an action.");
+    }
+    await logActivity(supabase, `bulk-updated ${n} (${op})`);
+    revalidatePath("/expenses");
+  });
+}

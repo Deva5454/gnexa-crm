@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Download, FilePlus2, FileText, Paperclip, Repeat, Trash2 } from "lucide-react";
+import { Copy, Download, FilePlus2, FileText, Paperclip, Repeat, Trash2 } from "lucide-react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button, LinkButton } from "@/components/ui/button";
 import { ConfirmForm } from "@/components/ui/confirm-form";
@@ -11,7 +11,7 @@ import { requireAccess } from "@/lib/auth";
 import { docHref, docNumber, INTERVAL_LABEL } from "@/lib/sales";
 import { formatDate, formatMoney } from "@/lib/utils";
 import { ReceiptUploader } from "./receipt";
-import { deleteExpense, invoiceExpense, removeReceipt, saveExpense } from "../actions";
+import { copyExpense, deleteExpense, invoiceExpense, removeReceipt, saveExpense } from "../actions";
 import { ExpenseForm } from "../expense-form";
 import { expenseOptions } from "../form-data";
 
@@ -47,6 +47,12 @@ export default async function ExpensePage({ params }: { params: Promise<{ id: st
                   <SubmitButton variant="secondary" size="sm" pendingText="Creating…"><FileText className="h-3.5 w-3.5" /> Bill on its own</SubmitButton>
                 </form>
               </>
+            )}
+            {can("expenses", "edit") && (
+              <form action={copyExpense}>
+                <input type="hidden" name="id" value={id} />
+                <SubmitButton variant="secondary" size="sm" pendingText="Copying…"><Copy className="h-3.5 w-3.5" /> Copy</SubmitButton>
+              </form>
             )}
             {can("expenses", "full") && (
               <ConfirmForm action={deleteExpense} message={`Delete expense “${e.name}”?`}>

@@ -66,8 +66,8 @@ export const DATASETS: Dataset[] = [
   {
     key: "expenses", label: "Expenses", module: "expenses", dateLabel: "Date",
     load: async (db, from, to) => {
-      const { data } = await allRows((a, b) => db.from("expenses").select("id, date, name, amount, tax_rate, reference, is_billable, category:expense_categories(name), customer:customers(company), invoice:sales_docs(number)").gte("date", from).lte("date", to).order("date").order("id").range(a, b));
-      return { columns: ["ID", "Date", "Name", "Category", "Amount", "GST %", "Total", "Customer", "Billable", "Invoice", "Reference"], rows: data.map((e) => [e.id, e.date, e.name, e.category?.name, e.amount, e.tax_rate, Math.round(Number(e.amount) * (1 + Number(e.tax_rate) / 100) * 100) / 100, e.customer?.company, e.is_billable ? "Yes" : "No", e.invoice ? docNumber("invoice", e.invoice.number) : "", e.reference]) };
+      const { data } = await allRows((a, b) => db.from("expenses").select("id, date, name, amount, tax_rate, reference, is_billable, category:expense_categories(name), customer:customers(company), project:projects(name), mode:payment_modes(name), invoice:sales_docs(number)").gte("date", from).lte("date", to).order("date").order("id").range(a, b));
+      return { columns: ["ID", "Date", "Name", "Category", "Amount", "GST %", "Total", "Customer", "Project", "Paid via", "Billable", "Invoice", "Reference"], rows: data.map((e) => [e.id, e.date, e.name, e.category?.name, e.amount, e.tax_rate, Math.round(Number(e.amount) * (1 + Number(e.tax_rate) / 100) * 100) / 100, e.customer?.company, e.project?.name, e.mode?.name, e.is_billable ? "Yes" : "No", e.invoice ? docNumber("invoice", e.invoice.number) : "", e.reference]) };
     },
   },
   {

@@ -262,6 +262,24 @@ export async function expenseReports(supabase: DB): Promise<ReportTable[]> {
         ["Internal", r2(all.filter((e) => !e.is_billable).reduce((s, e) => s + gross(e), 0))],
       ],
     },
+    // Perfex's yearly expenses report: each category month by month, with totals
+    (() => {
+      const year = lastMonths(12);
+      const ids = [...new Set(all.map((e) => e.category_id))];
+      const name = (id: number | null) => (cats ?? []).find((c) => c.id === id)?.name ?? "Uncategorised";
+      const line = (pick: (e: (typeof all)[number]) => boolean) => {
+        const cells = year.map((m) => r2(all.filter((e) => pick(e) && monthOf(e.date) === m.key).reduce((s, e) => s + gross(e), 0)));
+        return [...cells, r2(cells.reduce((s, v) => s + v, 0))];
+      };
+      const rows = ids.map((id) => [name(id), ...line((e) => e.category_id === id)]).sort((a, b) => (b.at(-1) as number) - (a.at(-1) as number));
+      return {
+        key: "expenses-matrix",
+        title: "Category by month",
+        description: "Last 12 months, including GST",
+        columns: [{ label: "Category" }, ...year.map((m) => ({ label: m.label, money: true })), { label: "Total", money: true }],
+        rows: rows.length ? [...rows, ["Total", ...line(() => true)]] : [],
+      };
+    })(),
   ];
 }
 
