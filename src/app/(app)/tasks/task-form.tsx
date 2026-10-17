@@ -11,17 +11,24 @@ import { TASK_PRIORITIES, TASK_STATUSES } from "@/lib/constants";
 import type { Tables } from "@/lib/database.types";
 import type { FormState } from "./actions";
 import { todayIST } from "@/lib/dates";
+import { formatDate } from "@/lib/utils";
 
 export type RelOption = { value: string; label: string };
+export type RelGroup = { label: string; options: RelOption[] };
+
+const UNITS = [
+  { value: "day", label: "Day(s)" },
+  { value: "week", label: "Week(s)" },
+  { value: "month", label: "Month(s)" },
+  { value: "year", label: "Year(s)" },
+];
 
 export function TaskForm({
   action,
   task,
   assigneeIds,
   staff,
-  customers,
-  leads,
-  projects,
+  relGroups,
   milestones,
   defaultRel,
   defaultMilestone,
@@ -32,9 +39,7 @@ export function TaskForm({
   task?: Tables<"tasks">;
   assigneeIds?: string[];
   staff: Pick<Tables<"profiles">, "id" | "full_name">[];
-  customers: RelOption[];
-  leads: RelOption[];
-  projects: RelOption[];
+  relGroups: RelGroup[];
   milestones: { id: number; name: string; project: string }[];
   defaultRel?: string;
   defaultMilestone?: number;
@@ -46,6 +51,7 @@ export function TaskForm({
   const initialRel = t?.rel_type && t.rel_id ? `${t.rel_type}:${t.rel_id}` : (defaultRel ?? "");
   const [rel, setRel] = useState(initialRel);
   const projectMilestones = milestones.filter((m) => m.project === rel);
+  const [repeat, setRepeat] = useState(t?.recurring_every ? "custom" : "");
   const assigned = new Set(assigneeIds ?? (defaultAssignee ? [defaultAssignee] : []));
   const today = todayIST();
 
@@ -81,21 +87,11 @@ export function TaskForm({
           <Field label="Related to" htmlFor="rel" className="sm:col-span-2">
             <select id="rel" name="rel" value={rel} onChange={(e) => setRel(e.target.value)} className="field">
               <option value="">— Nothing —</option>
-              {customers.length > 0 && (
-                <optgroup label="Customers">
-                  {customers.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {relGroups.filter((g) => g.options.length > 0).map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </optgroup>
-              )}
-              {leads.length > 0 && (
-                <optgroup label="Leads">
-                  {leads.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </optgroup>
-              )}
-              {projects.length > 0 && (
-                <optgroup label="Projects">
-                  {projects.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
-                </optgroup>
-              )}
+              ))}
             </select>
           </Field>
           {projectMilestones.length > 0 && (
@@ -106,6 +102,43 @@ export function TaskForm({
               </select>
             </Field>
           )}
+          {rel.startsWith("project:") && (
+            <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
+              <input type="checkbox" name="visible_to_client" defaultChecked={t?.visible_to_client ?? true} className="h-4 w-4 rounded border-slate-300 text-brand-600" />
+              Visible to the customer in the client portal (when the project shows its tasks)
+            </label>
+          )}
+          <fieldset className="grid gap-4 rounded-xl border border-slate-200 p-4 sm:col-span-2 sm:grid-cols-3">
+            <legend className="label px-1">Repeat</legend>
+            <Field label="Repeat every" htmlFor="recurring_every">
+              <div className="flex gap-2">
+                <input
+                  id="recurring_every"
+                  name="recurring_every"
+                  type="number"
+                  min={1}
+                  max={36}
+                  placeholder="—"
+                  defaultValue={t?.recurring_every ?? ""}
+                  onChange={(e) => setRepeat(e.target.value ? "custom" : "")}
+                  className="field w-20"
+                />
+                <select name="recurring_unit" aria-label="Repeat unit" defaultValue={t?.recurring_unit ?? "week"} className="field min-w-0 flex-1">
+                  {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                </select>
+              </div>
+            </Field>
+            <Field label="Until (optional)" htmlFor="recurring_until">
+              <input id="recurring_until" name="recurring_until" type="date" defaultValue={t?.recurring_until ?? ""} disabled={!repeat} className="field" />
+            </Field>
+            <p className="self-end text-xs text-slate-500">
+              {repeat
+                ? t?.next_recurring_date
+                  ? `Next copy on ${formatDate(t.next_recurring_date)}. Each copy keeps the assignees, followers and a fresh checklist.`
+                  : "A fresh copy is created on each repeat, with the same assignees, followers and checklist."
+                : "Leave empty for a one-off task."}
+            </p>
+          </fieldset>
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
             <textarea id="description" name="description" rows={5} defaultValue={t?.description ?? ""} className="field" />
           </Field>

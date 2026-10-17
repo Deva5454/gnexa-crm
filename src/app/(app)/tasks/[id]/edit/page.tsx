@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireStaff } from "@/lib/auth";
 import { formatDateTime } from "@/lib/utils";
 import { deleteTask, updateTask } from "../../actions";
-import { taskFormOptions } from "../../form-data";
+import { ensureRelOption, taskFormOptions } from "../../form-data";
 import { TaskForm } from "../../task-form";
 
 export const metadata: Metadata = { title: "Edit task" };
@@ -24,17 +24,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   ]);
   if (!task) notFound();
 
-  // Keep the current link selectable even if it's a converted lead or inactive customer
-  const rel = task.rel_type && task.rel_id ? `${task.rel_type}:${task.rel_id}` : null;
-  if (rel && ![...opts.customers, ...opts.leads, ...opts.projects].some((o) => o.value === rel)) {
-    const label =
-      task.rel_type === "customer"
-        ? (await supabase.from("customers").select("company").eq("id", task.rel_id!).maybeSingle()).data?.company
-        : task.rel_type === "project"
-          ? (await supabase.from("projects").select("name").eq("id", task.rel_id!).maybeSingle()).data?.name
-          : (await supabase.from("leads").select("name").eq("id", task.rel_id!).maybeSingle()).data?.name;
-    (task.rel_type === "customer" ? opts.customers : task.rel_type === "project" ? opts.projects : opts.leads).unshift({ value: rel, label: label ?? `#${task.rel_id}` });
-  }
+  // Keep the current link selectable even if it's a converted lead, closed ticket or paid invoice
+  await ensureRelOption(supabase, opts.relGroups, task.rel_type, task.rel_id);
 
   return (
     <div className="mx-auto max-w-3xl">

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Columns3, List, ListChecks, Plus } from "lucide-react";
+import { Columns3, Download, List, ListChecks, Plus, Repeat } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { LinkButton } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Pagination } from "@/components/ui/pagination";
 import { SearchInput } from "@/components/ui/search-input";
 import { requireStaff } from "@/lib/auth";
-import { TASK_STATUSES, taskPriority } from "@/lib/constants";
+import { TASK_PRIORITIES, TASK_STATUSES, taskPriority } from "@/lib/constants";
 import type { Enums } from "@/lib/database.types";
 import { cn, formatDate, PAGE_SIZE, searchTerm } from "@/lib/utils";
 import { allTags, idsWithTag, tagsFor } from "@/components/crm/tags";
@@ -18,11 +18,15 @@ import { CompleteToggle, StatusSelect } from "./status-select";
 import { TasksBoard, type BoardTask } from "./kanban";
 import { TagFilter } from "@/components/crm/tag-filter";
 import { allRows } from "@/lib/fetch-all";
-import { todayIST } from "@/lib/dates";
+import { daysFromToday, todayIST } from "@/lib/dates";
+import { BulkBar, SelectAll } from "@/components/crm/bulk-bar";
+import { ParamSelect } from "@/components/ui/param-select";
+import { isTaskRelType, resolveTaskRels, TASK_REL_LABELS, TASK_REL_TYPES } from "@/lib/task-links";
+import { bulkTasks } from "./actions";
 
 export const metadata: Metadata = { title: "Tasks" };
 
-type SP = { q?: string; status?: string; scope?: string; due?: string; page?: string; view?: string; tag?: string };
+type SP = { q?: string; status?: string; scope?: string; due?: string; page?: string; view?: string; tag?: string; staff?: string; priority?: string; rel?: string };
 
 export default async function TasksPage({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
@@ -30,23 +34,30 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const { supabase, profile, can } = await requireStaff();
   const canEdit = can("tasks", "edit");
   const today = todayIST();
-  const mine = sp.scope !== "all";
+  // Picking a staff member (or "not assigned") looks across the team
+  const staffFilter = sp.staff === "none" ? "none" : sp.staff && /^[0-9a-f-]{36}$/i.test(sp.staff) ? sp.staff : null;
+  const mine = sp.scope !== "all" && !staffFilter;
+  const assigneeId = staffFilter && staffFilter !== "none" ? staffFilter : mine ? profile.id : null;
   const board = sp.view === "board";
   const tagId = Number(sp.tag) || null;
   const tagged = tagId ? await idsWithTag(supabase, "task", tagId) : null;
 
   // "Mine" = assigned to me. Use an inner join on assignees so the filter applies to the parent row.
-  const assigneeSel = mine
+  const assigneeSel = assigneeId
     ? "task_assignees!inner(staff_id, staff:profiles(full_name))"
     : "task_assignees(staff_id, staff:profiles(full_name))";
   let query = supabase
     .from("tasks")
-    .select(`id, name, status, priority, start_date, due_date, rel_type, rel_id, ${assigneeSel}`, { count: "exact" })
+    .select(`id, name, status, priority, start_date, due_date, rel_type, rel_id, recurring_every, ${assigneeSel}`, { count: "exact" })
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("id", { ascending: false })
     .range(board ? 0 : (page - 1) * PAGE_SIZE, board ? 299 : page * PAGE_SIZE - 1);
   if (tagged) query = query.in("id", tagged.length ? tagged : [0]);
-  if (mine) query = query.eq("task_assignees.staff_id", profile.id);
+  if (assigneeId) query = query.eq("task_assignees.staff_id", assigneeId);
+  if (staffFilter === "none") query = query.is("task_assignees", null);
+  if (sp.priority && TASK_PRIORITIES.some((p) => p.value === sp.priority)) query = query.eq("priority", sp.priority as Enums<"task_priority">);
+  if (sp.rel === "none") query = query.is("rel_type", null);
+  else if (isTaskRelType(sp.rel)) query = query.eq("rel_type", sp.rel);
   const term = sp.q ? searchTerm(sp.q) : "";
   if (term) query = query.ilike("name", `%${term}%`);
   if (board) {
@@ -56,12 +67,16 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   else if (!sp.status) query = query.neq("status", "complete");
   if (sp.due === "overdue") query = query.lt("due_date", today).neq("status", "complete");
   if (sp.due === "today") query = query.eq("due_date", today);
+  if (sp.due === "week") query = query.gte("due_date", today).lte("due_date", daysFromToday(7));
+  if (sp.due === "recurring") query = query.not("recurring_every", "is", null);
 
   const { data: tasks, count } = await query;
   const ids = (tasks ?? []).map((t) => t.id);
-  const [tagMap, tagList, boardExtras] = await Promise.all([
+  const [tagMap, tagList, relOf, { data: staffList }, boardExtras] = await Promise.all([
     tagsFor(supabase, "task", ids),
     allTags(supabase),
+    resolveTaskRels(supabase, tasks ?? []),
+    supabase.from("profiles").select("id, full_name").eq("is_active", true).order("full_name"),
     board && ids.length
       ? Promise.all([
           supabase.from("task_checklist_items").select("task_id, is_done").in("task_id", ids),
@@ -77,23 +92,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const counts = new Map<string, number>();
   for (const r of summaryRows ?? []) counts.set(r.status, (counts.get(r.status) ?? 0) + 1);
 
-  // Resolve related record names in two batched queries
-  const custIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "customer").map((t) => t.rel_id!))];
-  const leadIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "lead").map((t) => t.rel_id!))];
-  const projIds = [...new Set((tasks ?? []).filter((t) => t.rel_type === "project").map((t) => t.rel_id!))];
-  const [{ data: custs }, { data: lds }, { data: projs }] = await Promise.all([
-    custIds.length ? supabase.from("customers").select("id, company").in("id", custIds) : Promise.resolve({ data: [] as { id: number; company: string }[] }),
-    leadIds.length ? supabase.from("leads").select("id, name").in("id", leadIds) : Promise.resolve({ data: [] as { id: number; name: string }[] }),
-    projIds.length ? supabase.from("projects").select("id, name").in("id", projIds) : Promise.resolve({ data: [] as { id: number; name: string }[] }),
-  ]);
-  const relName = (t: { rel_type: string | null; rel_id: number | null }) =>
-    t.rel_type === "customer"
-      ? custs?.find((c) => c.id === t.rel_id)?.company
-      : t.rel_type === "lead"
-        ? lds?.find((l) => l.id === t.rel_id)?.name
-        : t.rel_type === "project"
-          ? projs?.find((p) => p.id === t.rel_id)?.name
-          : undefined;
+  const relName = (t: { rel_type: string | null; rel_id: number | null }) => relOf(t)?.label;
 
   const href = (patch: Partial<SP>) => {
     const next = new URLSearchParams();
@@ -137,6 +136,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 <Columns3 className="h-3.5 w-3.5" /> Board
               </Link>
             </div>
+            {can("tasks", "view") && <LinkButton href="/csv-export/tasks" variant="secondary"><Download className="h-4 w-4" /> Export</LinkButton>}
             {canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>}
           </>
         }
@@ -158,12 +158,18 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <Card className={cn(board && "mb-5")}>
         <div className="flex flex-col gap-3 border-b border-slate-100 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Link href={href({ scope: undefined })} className={pill(mine)}>My tasks</Link>
-            <Link href={href({ scope: "all" })} className={pill(!mine)}>All tasks</Link>
+            <Link href={href({ scope: undefined, staff: undefined })} className={pill(mine)}>My tasks</Link>
+            <Link href={href({ scope: "all", staff: undefined })} className={pill(!mine && !staffFilter)}>All tasks</Link>
             <span className="mx-1 h-5 w-px bg-slate-200" />
             <Link href={href({ due: sp.due === "today" ? undefined : "today" })} className={pill(sp.due === "today")}>Due today</Link>
             <Link href={href({ due: sp.due === "overdue" ? undefined : "overdue" })} className={pill(sp.due === "overdue")}>Overdue</Link>
-            {tagList.length > 0 && <><span className="mx-1 h-5 w-px bg-slate-200" /><TagFilter tags={tagList} /></>}
+            <Link href={href({ due: sp.due === "week" ? undefined : "week" })} className={pill(sp.due === "week")}>Due this week</Link>
+            <Link href={href({ due: sp.due === "recurring" ? undefined : "recurring" })} className={pill(sp.due === "recurring")}>Recurring</Link>
+            <span className="mx-1 h-5 w-px bg-slate-200" />
+            <ParamSelect name="staff" label="Assigned to" allLabel="Any assignee" options={[{ value: "none", label: "Not assigned" }, ...(staffList ?? []).map((x) => ({ value: x.id, label: x.full_name }))]} />
+            <ParamSelect name="priority" label="Priority" allLabel="Any priority" options={TASK_PRIORITIES.map((p) => ({ value: p.value, label: p.label }))} />
+            <ParamSelect name="rel" label="Related to" allLabel="Any link" options={[{ value: "none", label: "Not linked" }, ...TASK_REL_TYPES.map((r) => ({ value: r, label: TASK_REL_LABELS[r] }))]} />
+            {tagList.length > 0 && <TagFilter tags={tagList} />}
           </div>
           <SearchInput placeholder="Search tasks…" />
         </div>
@@ -172,10 +178,25 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           <EmptyState icon={ListChecks} title="Nothing here" description={sp.status ? "No tasks with this status." : "You're all caught up."} action={canEdit && <LinkButton href="/tasks/new"><Plus className="h-4 w-4" /> New task</LinkButton>} />
         ) : (
           <>
+            {canEdit && (
+              <BulkBar
+                id="task-bulk"
+                action={bulkTasks}
+                noun="task"
+                ops={[
+                  { value: "status", label: "Change status", target: { label: "Status", options: TASK_STATUSES.map((x) => ({ value: x.value, label: x.label })) } },
+                  { value: "priority", label: "Change priority", target: { label: "Priority", options: TASK_PRIORITIES.map((x) => ({ value: x.value, label: x.label })) } },
+                  { value: "assign", label: "Add assignee", target: { label: "Staff", options: (staffList ?? []).map((x) => ({ value: x.id, label: x.full_name })) } },
+                  ...(tagList.length ? [{ value: "tag", label: "Add tag", target: { label: "Tag", options: tagList.map((g) => ({ value: String(g.id), label: g.name })) } }] : []),
+                  ...(can("tasks", "full") ? [{ value: "delete", label: "Delete", danger: true }] : []),
+                ]}
+              />
+            )}
             <div className="overflow-x-auto">
               <table className="table-base">
                 <thead>
                   <tr>
+                    {canEdit && <th className="w-8"><SelectAll form="task-bulk" label="Select all tasks on this page" /></th>}
                     <th className="w-10" />
                     <th>Task</th>
                     <th className="hidden md:table-cell">Related to</th>
@@ -189,23 +210,25 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                   {tasks.map((t) => {
                     const p = taskPriority(t.priority);
                     const overdue = t.status !== "complete" && t.due_date && t.due_date < today;
-                    const rn = relName(t);
+                    const rn = relOf(t);
                     return (
                       <tr key={t.id}>
+                        {canEdit && <td><input type="checkbox" name="ids" value={t.id} form="task-bulk" aria-label={`Select ${t.name}`} className="h-4 w-4 rounded border-slate-300 text-brand-600" /></td>}
                         <td><CompleteToggle id={t.id} done={t.status === "complete"} /></td>
                         <td>
                           <Link href={`/tasks/${t.id}`} className={cn("font-medium text-slate-900 hover:text-brand-700", t.status === "complete" && "text-slate-400 line-through")}>
                             {t.name}
                           </Link>
+                          {t.recurring_every && <Repeat className="ml-1.5 inline h-3.5 w-3.5 text-slate-400" aria-label="Recurring" />}
                           {(tagMap.get(t.id) ?? []).length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">{tagMap.get(t.id)!.map((g) => <TagChip key={g.id} tag={g} className="px-1.5 text-[10px]" />)}</div>
                           )}
                         </td>
                         <td className="hidden md:table-cell">
                           {rn ? (
-                            <Link href={`/${t.rel_type}s/${t.rel_id}`} className="text-slate-600 hover:text-brand-700">
-                              <span className="mr-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">{t.rel_type}</span>
-                              {rn}
+                            <Link href={rn.href} className="text-slate-600 hover:text-brand-700">
+                              <span className="mr-1.5 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500">{rn.kind}</span>
+                              {rn.label}
                             </Link>
                           ) : (
                             <span className="text-slate-400">—</span>
@@ -227,7 +250,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
                 </tbody>
               </table>
             </div>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/tasks" params={{ q: sp.q, status: sp.status, scope: sp.scope, due: sp.due, tag: sp.tag }} />
+            <Pagination page={page} pageSize={PAGE_SIZE} total={count ?? 0} basePath="/tasks" params={{ q: sp.q, status: sp.status, scope: sp.scope, due: sp.due, tag: sp.tag, staff: sp.staff, priority: sp.priority, rel: sp.rel }} />
           </>
         )}
       </Card>

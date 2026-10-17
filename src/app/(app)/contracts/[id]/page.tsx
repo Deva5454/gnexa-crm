@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
+import { RelatedTasks } from "@/components/crm/related-tasks";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -100,6 +101,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
           )}
           <CustomFieldsCard entity="contract" relId={id} path={`/contracts/${id}`} />
           <RemindersPanel relType="contract" relId={id} path={`/contracts/${id}`} />
+          <RelatedTasks relType="contract" relId={id} compact />
         </aside>
       </div>
     </>

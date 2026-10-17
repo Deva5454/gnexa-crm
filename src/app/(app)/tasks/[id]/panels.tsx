@@ -2,11 +2,11 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Pause, Play, Plus, Trash2, Upload } from "lucide-react";
+import { BookmarkPlus, ChevronDown, Loader2, Pause, Play, Plus, Trash2, Upload, X } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { addChecklistItem, addTaskComment, deleteChecklistItem, recordTaskFile, startTimer, stopTimer, toggleChecklistItem } from "../actions";
+import { addChecklistItem, addTaskComment, deleteChecklistItem, deleteChecklistTemplate, recordTaskFile, saveChecklistTemplate, startTimer, stopTimer, toggleChecklistItem } from "../actions";
 import { KeepValues } from "@/components/ui/keep-values";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -96,10 +96,16 @@ export function TimerControl({
 
 type Item = { id: number; description: string; is_done: boolean; done_by_name: string | null };
 
-export function Checklist({ taskId, items, canEdit }: { taskId: number; items: Item[]; canEdit: boolean }) {
+export function Checklist({ taskId, items, canEdit, templates }: { taskId: number; items: Item[]; canEdit: boolean; templates: string[] }) {
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const saved = new Set(templates);
+  const run = (fn: () => Promise<{ error?: string }>) =>
+    start(async () => {
+      const r = await fn();
+      setError(r.error ?? null);
+    });
   const done = items.filter((i) => i.is_done).length;
   const pct = items.length ? Math.round((done / items.length) * 100) : 0;
   return (
@@ -125,6 +131,17 @@ export function Checklist({ taskId, items, canEdit }: { taskId: number; items: I
             />
             <span className={cn("flex-1 text-sm text-slate-700", i.is_done && "text-slate-400 line-through")}>{i.description}</span>
             {i.is_done && i.done_by_name && <span className="hidden text-[11px] text-slate-400 sm:inline">{i.done_by_name.split(" ")[0]}</span>}
+            {canEdit && !saved.has(i.description) && (
+              <button
+                type="button"
+                onClick={() => run(() => saveChecklistTemplate(i.description))}
+                className="rounded p-0.5 text-slate-300 opacity-0 hover:text-brand-600 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100"
+                aria-label={`Save "${i.description}" as a template`}
+                title="Save as template"
+              >
+                <BookmarkPlus className="h-3.5 w-3.5" />
+              </button>
+            )}
             {canEdit && (
               <button
                 type="button"
@@ -156,6 +173,37 @@ export function Checklist({ taskId, items, canEdit }: { taskId: number; items: I
             <Plus className="h-4 w-4" /> Add
           </button>
         </form>
+      )}
+      {canEdit && templates.length > 0 && (
+        <details className="group/tpl rounded-lg border border-slate-200">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+            Add from checklist templates ({templates.length})
+            <ChevronDown className="h-3.5 w-3.5 transition group-open/tpl:rotate-180" />
+          </summary>
+          <ul className="max-h-56 overflow-y-auto border-t border-slate-100 py-1">
+            {templates.map((d) => (
+              <li key={d} className="flex items-center gap-1 px-1">
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => addChecklistItem(taskId, d))}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700"
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{d}</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => run(() => deleteChecklistTemplate(d))}
+                  className="rounded p-1 text-slate-300 hover:text-rose-600"
+                  aria-label={`Remove template "${d}"`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       {error && <p className="text-xs text-rose-600">{error}</p>}
     </div>

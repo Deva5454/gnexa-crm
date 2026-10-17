@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { RecordTags } from "@/components/crm/tags";
+import { RelatedTasks } from "@/components/crm/related-tasks";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -121,6 +122,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
           </Card>
           <CustomFieldsCard entity="ticket" relId={id} path={`/support/${id}`} />
           <RemindersPanel relType="ticket" relId={id} path={`/support/${id}`} />
+          <RelatedTasks relType="ticket" relId={id} compact />
           {can("knowledge_base", "view") && (articles?.length ?? 0) > 0 && (
             <Card>
               <CardHeader title="Suggested articles" description="Share a link in your reply" />

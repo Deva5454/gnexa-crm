@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { ChevronDown } from "lucide-react";
+import { CheckCircle2, ChevronDown, Circle } from "lucide-react";
 import { TASK_STATUSES, taskStatus } from "@/lib/constants";
 import type { Enums } from "@/lib/database.types";
 import { cn } from "@/lib/utils";
@@ -34,14 +34,18 @@ export function StatusSelect({ id, status }: { id: number; status: Enums<"task_s
 
 export function CompleteToggle({ id, done }: { id: number; done: boolean }) {
   const [pending, start] = useTransition();
+  // A round tick, so it reads differently from the square "select" boxes next to it
   return (
-    <input
-      type="checkbox"
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={done}
       aria-label={done ? "Mark as not started" : "Mark complete"}
-      checked={done}
       disabled={pending}
-      onChange={() => start(() => setTaskStatus(id, done ? "not_started" : "complete"))}
-      className="h-4 w-4 cursor-pointer rounded-full border-slate-300 text-accent-500 focus:ring-accent-400"
-    />
+      onClick={() => start(() => setTaskStatus(id, done ? "not_started" : "complete"))}
+      className={cn("rounded-full p-0.5 transition disabled:opacity-50", done ? "text-accent-500 hover:text-slate-400" : "text-slate-300 hover:text-accent-500")}
+    >
+      {done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+    </button>
   );
 }

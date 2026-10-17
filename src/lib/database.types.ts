@@ -646,21 +646,31 @@ export type Database = {
           completed_at: string | null; created_at: string; created_by: string | null; description: string | null; due_date: string | null; id: number;
           name: string; priority: Database["public"]["Enums"]["task_priority"]; rel_id: number | null; rel_type: string | null; start_date: string | null;
           status: Database["public"]["Enums"]["task_status"]; milestone_id: number | null;
+          visible_to_client: boolean; recurring_every: number | null; recurring_unit: string; recurring_until: string | null; next_recurring_date: string | null; recurring_from: number | null;
         };
         Insert: {
           completed_at?: string | null; created_at?: string; created_by?: string | null; description?: string | null; due_date?: string | null; id?: never;
           name: string; priority?: Database["public"]["Enums"]["task_priority"]; rel_id?: number | null; rel_type?: string | null; start_date?: string | null;
           status?: Database["public"]["Enums"]["task_status"]; milestone_id?: number | null;
+          visible_to_client?: boolean; recurring_every?: number | null; recurring_unit?: string; recurring_until?: string | null; next_recurring_date?: string | null; recurring_from?: number | null;
         };
         Update: {
           completed_at?: string | null; created_at?: string; created_by?: string | null; description?: string | null; due_date?: string | null; id?: never;
           name?: string; priority?: Database["public"]["Enums"]["task_priority"]; rel_id?: number | null; rel_type?: string | null; start_date?: string | null;
           status?: Database["public"]["Enums"]["task_status"]; milestone_id?: number | null;
+          visible_to_client?: boolean; recurring_every?: number | null; recurring_unit?: string; recurring_until?: string | null; next_recurring_date?: string | null; recurring_from?: number | null;
         };
         Relationships: [
           { foreignKeyName: "tasks_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
           { foreignKeyName: "tasks_milestone_id_fkey"; columns: ["milestone_id"]; isOneToOne: false; referencedRelation: "milestones"; referencedColumns: ["id"] },
+          { foreignKeyName: "tasks_recurring_from_fkey"; columns: ["recurring_from"]; isOneToOne: false; referencedRelation: "tasks"; referencedColumns: ["id"] },
         ];
+      };
+      checklist_templates: {
+        Row: { id: number; description: string; created_by: string | null; created_at: string };
+        Insert: { id?: never; description: string; created_by?: string | null; created_at?: string };
+        Update: { id?: never; description?: string; created_by?: string | null; created_at?: string };
+        Relationships: [{ foreignKeyName: "checklist_templates_created_by_fkey"; columns: ["created_by"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] }];
       };
     };
     Views: {
@@ -684,6 +694,7 @@ export type Database = {
       stop_task_timer: { Args: { p_timer: number; p_note: string | null }; Returns: number };
       flush_reminders: { Args: Record<PropertyKey, never>; Returns: number };
       run_recurring: { Args: Record<PropertyKey, never>; Returns: Json };
+      run_recurring_tasks: { Args: Record<PropertyKey, never>; Returns: number };
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
       invoice_project: { Args: { p_project: number }; Returns: Json };
       demo_mode: { Args: Record<PropertyKey, never>; Returns: boolean };

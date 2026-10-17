@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bell, BellOff, CalendarDays, Clock, Download, Flag, Link2, Milestone, Paperclip, Pencil, Trash2, User } from "lucide-react";
+import { Bell, BellOff, CalendarDays, Clock, Copy, Download, EyeOff, Flag, Link2, Milestone, Paperclip, Pencil, Repeat, Trash2, User } from "lucide-react";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import { RecordTags } from "@/components/crm/tags";
 import { Avatar } from "@/components/ui/avatar";
@@ -12,7 +12,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { requireStaff } from "@/lib/auth";
 import { taskPriority } from "@/lib/constants";
 import { cn, formatDate, formatDateTime, timeAgo } from "@/lib/utils";
-import { deleteTask, deleteTaskComment, deleteTaskFile, deleteTimer, toggleFollow } from "../actions";
+import { copyTask, deleteTask, deleteTaskComment, deleteTaskFile, deleteTimer, toggleFollow } from "../actions";
+import { resolveTaskRels } from "@/lib/task-links";
 import { StatusSelect } from "../status-select";
 import { Checklist, CommentBox, TaskFileUploader, TimerControl } from "./panels";
 import { todayIST } from "@/lib/dates";
@@ -38,18 +39,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
     supabase.from("timesheets").select("hours, staff_id").eq("task_id", id),
   ]);
   if (!t) notFound();
-
-  // What the task belongs to
-  let rel: { label: string; href: string; kind: string } | null = null;
-  if (t.rel_type && t.rel_id) {
-    const name =
-      t.rel_type === "customer"
-        ? (await supabase.from("customers").select("company").eq("id", t.rel_id).maybeSingle()).data?.company
-        : t.rel_type === "project"
-          ? (await supabase.from("projects").select("name").eq("id", t.rel_id).maybeSingle()).data?.name
-          : (await supabase.from("leads").select("name").eq("id", t.rel_id).maybeSingle()).data?.name;
-    rel = { label: name ?? `#${t.rel_id}`, href: `/${t.rel_type}s/${t.rel_id}`, kind: t.rel_type };
-  }
+  // What the task belongs to, and the saved checklist items
+  const [relOf, { data: templates }] = await Promise.all([
+    resolveTaskRels(supabase, [t]),
+    supabase.from("checklist_templates").select("description").order("description"),
+  ]);
+  const rel = relOf(t);
 
   const now = Date.now();
   // Project timesheet hours for this task + timer time that didn't go to a timesheet (non-project tasks, or still running)
@@ -77,6 +72,14 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             <span className={cn("inline-flex items-center gap-1 font-semibold", pr.color)}><Flag className="h-3.5 w-3.5" />{pr.label}</span>
             {t.due_date && <span className={cn("inline-flex items-center gap-1", late && "font-semibold text-rose-600")}><CalendarDays className="h-3.5 w-3.5" />Due {formatDate(t.due_date)}</span>}
             {rel && <Link href={rel.href} className="inline-flex items-center gap-1 hover:text-brand-700"><Link2 className="h-3.5 w-3.5" /><span className="capitalize">{rel.kind}</span> · {rel.label}</Link>}
+            {t.recurring_every && (
+              <span className="inline-flex items-center gap-1">
+                <Repeat className="h-3.5 w-3.5" />
+                Every {t.recurring_every > 1 ? `${t.recurring_every} ` : ""}{t.recurring_unit}{t.recurring_every > 1 ? "s" : ""}
+                {t.next_recurring_date ? ` · next ${formatDate(t.next_recurring_date)}` : " · finished"}
+              </span>
+            )}
+            {t.rel_type === "project" && !t.visible_to_client && <span className="inline-flex items-center gap-1"><EyeOff className="h-3.5 w-3.5" />Hidden from customer</span>}
           </span>
         }
         actions={
@@ -89,6 +92,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               </form>
             )}
             {canEdit && <LinkButton href={`${path}/edit`} variant="secondary" size="sm"><Pencil className="h-3.5 w-3.5" /> Edit</LinkButton>}
+            {canEdit && (
+              <form action={copyTask}>
+                <input type="hidden" name="id" value={id} />
+                <Button variant="secondary" size="sm"><Copy className="h-3.5 w-3.5" /> Copy</Button>
+              </form>
+            )}
             {can("tasks", "full") && (
               <ConfirmForm action={deleteTask} message="Delete this task, its checklist, comments and files?">
                 <input type="hidden" name="id" value={id} />
@@ -123,6 +132,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
               <Checklist
                 taskId={id}
                 canEdit={canEdit}
+                templates={(templates ?? []).map((x) => x.description)}
                 items={(items ?? []).map((i) => ({ id: i.id, description: i.description, is_done: i.is_done, done_by_name: i.done_by_profile?.full_name ?? null }))}
               />
             </CardBody>

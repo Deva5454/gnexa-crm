@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { renderTemplate } from "@/lib/email-templates";
 import { CustomFieldsCard } from "@/components/crm/custom-fields-card";
 import { pdfFields } from "@/lib/custom-fields";
+import { RelatedTasks } from "@/components/crm/related-tasks";
 import { RemindersPanel } from "@/components/crm/reminders-panel";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -514,6 +515,7 @@ export default async function DocPage({ params }: { params: Promise<{ kind: stri
           <CustomFieldsCard entity="sales_doc" relId={id} path={docHref(kind, id)} />
           <EmailHistory relType="sales_doc" relId={id} />
           <RemindersPanel relType="sales_doc" relId={id} path={docHref(kind, id)} />
+          <RelatedTasks relType="sales_doc" relId={id} compact />
         </aside>
       </div>
     </>
