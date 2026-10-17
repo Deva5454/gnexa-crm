@@ -11,12 +11,14 @@ type Opt = { id: number; name: string };
 export function TicketProperties({
   ticket,
   departments,
+  services,
   staff,
   projects,
   disabled,
 }: {
-  ticket: { id: number; status: string; priority: string; department_id: number | null; assigned_to: string | null; project_id: number | null };
+  ticket: { id: number; status: string; priority: string; department_id: number | null; service_id: number | null; assigned_to: string | null; project_id: number | null };
   departments: Opt[];
+  services: Opt[];
   staff: { id: string; full_name: string }[];
   projects: Opt[];
   disabled: boolean;
@@ -46,6 +48,12 @@ export function TicketProperties({
         <select name="department_id" defaultValue={ticket.department_id ?? ""} onChange={save} disabled={disabled} className="field">
           <option value="">—</option>
           {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+      </Field>
+      <Field label="Service">
+        <select name="service_id" defaultValue={ticket.service_id ?? ""} onChange={save} disabled={disabled} className="field">
+          <option value="">—</option>
+          {services.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
       </Field>
       <Field label="Project">

@@ -94,8 +94,8 @@ export const DATASETS: Dataset[] = [
   {
     key: "tickets", label: "Support tickets", module: "support", dateLabel: "Opened",
     load: async (db, from, to) => {
-      const { data } = await allRows((a, b) => db.from("tickets").select("id, subject, status, priority, created_at, closed_at, customer:customers(company), department:ticket_departments(name)").gte("created_at", from).lte("created_at", toTs(to)).order("id").range(a, b));
-      return { columns: ["ID", "Subject", "Customer", "Department", "Priority", "Status", "Opened", "Closed"], rows: data.map((t) => [t.id, t.subject, t.customer?.company, t.department?.name, t.priority, t.status, day(t.created_at), day(t.closed_at)]) };
+      const { data } = await allRows((a, b) => db.from("tickets").select("id, subject, status, priority, created_at, closed_at, customer:customers(company), department:ticket_departments(name), service:ticket_services(name), assignee:profiles!tickets_assigned_to_fkey(full_name)").gte("created_at", from).lte("created_at", toTs(to)).order("id").range(a, b));
+      return { columns: ["ID", "Subject", "Customer", "Department", "Service", "Assigned to", "Priority", "Status", "Opened", "Closed"], rows: data.map((t) => [t.id, t.subject, t.customer?.company, t.department?.name, t.service?.name, t.assignee?.full_name, t.priority, t.status, day(t.created_at), day(t.closed_at)]) };
     },
   },
 ];

@@ -101,7 +101,7 @@ export async function updateStatus(form: FormData) {
   });
 }
 
-const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses", "payment_modes", "expense_categories", "taxes", "contract_types", "ticket_departments", "kb_groups"] as const;
+const SIMPLE = ["lead_sources", "customer_groups", "roles", "lead_statuses", "payment_modes", "expense_categories", "taxes", "contract_types", "ticket_departments", "ticket_services", "kb_groups"] as const;
 type SimpleTable = (typeof SIMPLE)[number];
 
 export async function addNamed(form: FormData) {
@@ -174,6 +174,15 @@ export async function saveExpirySettings(form: FormData) {
     const days = Math.min(30, Math.max(1, Math.round(num(form, "days") ?? 3)));
     must(await supabase.from("company_settings").update({ auto_expiry_reminders: form.get("auto") === "on", expiry_reminder_days: days }).eq("id", true));
     revalidatePath("/settings/finance");
+  });
+}
+
+export async function saveTicketAutoclose(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const hours = form.get("auto") === "on" ? Math.min(8760, Math.max(1, Math.round(num(form, "hours") ?? 72))) : null;
+    must(await supabase.from("company_settings").update({ ticket_autoclose_hours: hours }).eq("id", true));
+    revalidatePath("/settings/support");
   });
 }
 

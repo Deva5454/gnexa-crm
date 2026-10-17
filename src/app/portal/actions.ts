@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePortal } from "@/lib/auth";
+import { fileRow } from "@/lib/uploads";
 import { num, str } from "@/lib/utils";
 
 export type PortalState = { error?: string; ok?: string } | undefined;
@@ -90,4 +91,28 @@ export async function requestPrivacy(_: PortalState, form: FormData): Promise<Po
   if (error) return { error: error.message };
   revalidatePath("/portal/privacy");
   return { ok: kind === "erasure" ? "Request received. We'll confirm by e-mail once your details are removed." : "Request received." };
+}
+
+export async function closeTicketPortal(form: FormData) {
+  const { supabase } = await requirePortal();
+  const id = Number(str(form, "id"));
+  const { error } = await supabase.rpc("portal_close_ticket", { p_ticket: id });
+  if (error) throw new Error(error.message);
+  revalidatePath(`/portal/tickets/${id}`);
+  revalidatePath("/portal/tickets");
+}
+
+/** A file the client uploaded (browser → private bucket) on one of their open tickets. The database re-checks ownership. */
+export async function recordPortalTicketFile(input: { rel_id: number; name: string; path: string; size: number; mime: string | null }): Promise<{ error?: string }> {
+  const { supabase, user } = await requirePortal();
+  const row = fileRow(input);
+  const ticketId = Number(input.rel_id);
+  if (!row || !row.path.startsWith(`${ticketId}/`)) return { error: "Invalid file." };
+  const { error } = await supabase.from("ticket_files").insert({ ticket_id: ticketId, ...row, from_customer: true, uploaded_by: user.id });
+  if (error) {
+    await supabase.storage.from("ticket-files").remove([row.path]);
+    return { error: "Couldn't attach the file to this ticket." };
+  }
+  revalidatePath(`/portal/tickets/${ticketId}`);
+  return {};
 }

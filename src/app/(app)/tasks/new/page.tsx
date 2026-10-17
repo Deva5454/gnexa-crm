@@ -8,7 +8,7 @@ import { TaskForm } from "../task-form";
 
 export const metadata: Metadata = { title: "New task" };
 
-export default async function NewTaskPage({ searchParams }: { searchParams: Promise<{ rel_type?: string; rel_id?: string; milestone?: string }> }) {
+export default async function NewTaskPage({ searchParams }: { searchParams: Promise<{ rel_type?: string; rel_id?: string; milestone?: string; name?: string; description?: string }> }) {
   const sp = await searchParams;
   const { supabase, profile } = await requireAccess("tasks", "edit", "/tasks");
   const opts = await taskFormOptions(supabase);
@@ -22,7 +22,7 @@ export default async function NewTaskPage({ searchParams }: { searchParams: Prom
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader title="New task" />
-      <TaskForm action={createTask} {...opts} defaultRel={defaultRel} defaultMilestone={Number(sp.milestone) || undefined} defaultAssignee={profile.id} cancelHref={cancelHref} />
+      <TaskForm action={createTask} {...opts} defaultRel={defaultRel} defaultMilestone={Number(sp.milestone) || undefined} defaultAssignee={profile.id} defaultName={sp.name?.slice(0, 250)} defaultDescription={sp.description?.slice(0, 5000)} cancelHref={cancelHref} />
     </div>
   );
 }

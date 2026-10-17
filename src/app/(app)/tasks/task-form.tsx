@@ -33,6 +33,8 @@ export function TaskForm({
   defaultRel,
   defaultMilestone,
   defaultAssignee,
+  defaultName,
+  defaultDescription,
   cancelHref,
 }: {
   action: (s: FormState, f: FormData) => Promise<FormState>;
@@ -44,6 +46,8 @@ export function TaskForm({
   defaultRel?: string;
   defaultMilestone?: number;
   defaultAssignee?: string;
+  defaultName?: string;
+  defaultDescription?: string;
   cancelHref: string;
 }) {
   const [state, formAction] = useActionState(action, undefined);
@@ -66,7 +70,7 @@ export function TaskForm({
       <Card>
         <CardBody className="grid gap-4 sm:grid-cols-2">
           <Field label="Subject *" htmlFor="name" className="sm:col-span-2">
-            <input id="name" name="name" required defaultValue={t?.name} className="field text-base font-medium" />
+            <input id="name" name="name" required defaultValue={t?.name ?? defaultName} className="field text-base font-medium" />
           </Field>
           <Field label="Status" htmlFor="status">
             <select id="status" name="status" defaultValue={t?.status ?? "not_started"} className="field">
@@ -140,7 +144,7 @@ export function TaskForm({
             </p>
           </fieldset>
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
-            <textarea id="description" name="description" rows={5} defaultValue={t?.description ?? ""} className="field" />
+            <textarea id="description" name="description" rows={5} defaultValue={t?.description ?? defaultDescription ?? ""} className="field" />
           </Field>
           <fieldset className="sm:col-span-2">
             <legend className="label">Assignees</legend>

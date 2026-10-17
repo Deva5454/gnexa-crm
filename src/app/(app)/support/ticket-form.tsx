@@ -15,6 +15,7 @@ export function TicketForm({
   customers,
   contacts,
   departments,
+  services,
   projects,
   staff,
   defaultCustomer,
@@ -24,6 +25,7 @@ export function TicketForm({
   customers: Opt[];
   contacts: (Opt & { customer_id: number })[];
   departments: Opt[];
+  services: Opt[];
   projects: (Opt & { customer_id: number })[];
   staff: { id: string; full_name: string }[];
   defaultCustomer?: number;
@@ -56,6 +58,12 @@ export function TicketForm({
             <select id="department_id" name="department_id" defaultValue={departments[0]?.id ?? ""} className="field">
               <option value="">—</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Service" htmlFor="service_id">
+            <select id="service_id" name="service_id" defaultValue="" className="field">
+              <option value="">—</option>
+              {services.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </Field>
           <Field label="Priority" htmlFor="priority">
