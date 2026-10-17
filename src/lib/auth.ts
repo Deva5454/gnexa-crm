@@ -2,6 +2,7 @@ import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { readMenuConfig } from "@/components/layout/nav";
+import { loadFormat } from "@/lib/format-server";
 import { allows, MODULES, resolveAccess, type Level, type Module } from "@/lib/permissions";
 
 /** Is this install the public demo? Only the owner can switch it off (private.go_live). Cached per request. */
@@ -28,6 +29,7 @@ export const requireStaff = cache(async () => {
   const [{ data }, { data: cs }] = await Promise.all([
     supabase.from("profiles").select("*, role:roles(name, permissions)").eq("id", user.id).maybeSingle(),
     supabase.from("company_settings").select("theme, disabled_modules, menu_config").maybeSingle(),
+    loadFormat(), // document numbers and dates as set in Setup
   ]);
   if (!data) {
     // Client-portal accounts have no staff profile
@@ -94,11 +96,14 @@ export const requirePortal = cache(async () => {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect(await signInUrl("/portal", "client-tata"));
-  const { data: pu } = await supabase
-    .from("portal_users")
-    .select("customer_id, contact_id, customer:customers(id, company), contact:contacts(first_name, last_name, email)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: pu }] = await Promise.all([
+    supabase
+      .from("portal_users")
+      .select("customer_id, contact_id, customer:customers(id, company), contact:contacts(first_name, last_name, email)")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    loadFormat(),
+  ]);
   if (!pu?.customer) redirect("/dashboard");
   const contactName = pu.contact ? [pu.contact.first_name, pu.contact.last_name].filter(Boolean).join(" ") : (user.email ?? "Client");
   return { supabase, user, customerId: pu.customer_id, company: pu.customer.company, contactName, email: pu.contact?.email ?? user.email ?? "" };

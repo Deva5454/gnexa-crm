@@ -3,7 +3,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireAdmin } from "@/lib/auth";
-import { saveRecordDefaults } from "./actions";
+import { DATE_FORMATS } from "@/lib/format-config";
+import { saveNumbering, saveRecordDefaults } from "./actions";
 import { CompanyForm } from "./company-form";
 import { ResetDemo } from "./reset-demo";
 
@@ -18,6 +19,34 @@ export default async function SettingsPage() {
         <CardHeader title="Company" description="Printed on proposals, estimates and invoices." />
         <CardBody>
           <CompanyForm settings={data} />
+        </CardBody>
+      </Card>
+      <Card>
+        <CardHeader title="Numbering & dates" description="How document numbers and dates appear on every screen, PDF, e-mail and notification. Existing documents keep their numbers — only the prefix shown changes." />
+        <CardBody>
+          <form action={saveNumbering} className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {([
+              ["invoice_prefix", "Invoice prefix", data?.invoice_prefix ?? "INV"],
+              ["estimate_prefix", "Estimate prefix", data?.estimate_prefix ?? "EST"],
+              ["proposal_prefix", "Proposal prefix", data?.proposal_prefix ?? "PRO"],
+              ["credit_note_prefix", "Credit note prefix", data?.credit_note_prefix ?? "CN"],
+            ] as const).map(([name, label, value]) => (
+              <Field key={name} label={label} htmlFor={name}>
+                <input id={name} name={name} defaultValue={value} required maxLength={10} pattern="[A-Za-z0-9/]{1,10}" className="field uppercase" />
+              </Field>
+            ))}
+            <Field label="Number digits" htmlFor="number_padding" hint={`e.g. ${data?.invoice_prefix ?? "INV"}-${"12".padStart(data?.number_padding ?? 5, "0")}`}>
+              <input id="number_padding" name="number_padding" type="number" min={1} max={10} defaultValue={data?.number_padding ?? 5} className="field" />
+            </Field>
+            <Field label="Date format" htmlFor="date_format" className="col-span-2">
+              <select id="date_format" name="date_format" defaultValue={data?.date_format ?? "dd MMM yyyy"} className="field">
+                {DATE_FORMATS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
+            </Field>
+            <div className="flex items-end justify-end">
+              <SubmitButton pendingText="Saving…">Save</SubmitButton>
+            </div>
+          </form>
         </CardBody>
       </Card>
       <Card>

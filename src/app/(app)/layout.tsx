@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { AppShell } from "@/components/layout/app-shell";
 import { BackButton } from "@/components/layout/back-button";
+import { FormatSync } from "@/components/layout/format-sync";
+import { loadFormat } from "@/lib/format-server";
 import { Flash } from "@/components/layout/flash";
 import { isDemoMode, requireStaff } from "@/lib/auth";
 import { personaByEmail } from "@/lib/demo";
@@ -35,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       {/* Setup → Theme style */}
       <style>{themeCss(settings.theme)}</style>
+      <FormatSync config={await loadFormat()} />
       <Suspense>
         <BackButton home="/dashboard" />
       </Suspense>

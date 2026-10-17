@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { ArticleBody } from "@/app/(app)/knowledge-base/article-body";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/server";
+import { loadFormat } from "@/lib/format-server";
 import { formatDate } from "@/lib/utils";
 import { PublicFeedback } from "../feedback";
 
@@ -21,6 +22,7 @@ type PublicArticle = {
 
 const load = cache(async (slug: string) => {
   const supabase = await createClient();
+  await loadFormat(); // numbers and dates as set in Setup
   const { data } = await supabase.rpc("public_kb_article", { p_slug: slug });
   return (data as PublicArticle | null) ?? null;
 });

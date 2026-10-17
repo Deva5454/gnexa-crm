@@ -7,6 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import type { Tables } from "@/lib/database.types";
 import { docNumber, docStatus, KINDS, type DocKind } from "@/lib/sales";
 import { createClient } from "@/lib/supabase/server";
+import { loadFormat } from "@/lib/format-server";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import { CommentForm, PrintButton, RespondForm } from "../public-forms";
 
@@ -22,6 +23,7 @@ type PublicDoc = {
 const load = cache(async (token: string) => {
   if (!/^[0-9a-f-]{36}$/i.test(token)) return null;
   const supabase = await createClient();
+  await loadFormat(); // numbers and dates as set in Setup
   const { data } = await supabase.rpc("public_doc", { p_token: token });
   return (data as PublicDoc | null) ?? null;
 });

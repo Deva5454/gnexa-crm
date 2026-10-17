@@ -7,6 +7,7 @@ import { friendlyError, must, withFlash } from "@/lib/flash";
 import { THEMES } from "@/lib/theme";
 import type { Json } from "@/lib/database.types";
 import { MODULES } from "@/lib/permissions";
+import { DATE_FORMATS } from "@/lib/format-config";
 import { FEATURES, readMenuConfig } from "@/components/layout/nav";
 
 export type SettingsState = { error?: string; ok?: string } | undefined;
@@ -210,6 +211,36 @@ export async function savePaymentMode(form: FormData) {
         .eq("id", id),
     );
     revalidatePath("/settings", "layout");
+  });
+}
+
+/** Setup → Settings → Numbering & dates: document number prefixes, number width and date format. */
+export async function saveNumbering(form: FormData) {
+  return withFlash(async () => {
+    const { supabase } = await requireAdmin();
+    const prefix = (k: string, label: string) => {
+      const v = (str(form, k) ?? "").trim().toUpperCase();
+      if (!/^[A-Z0-9/]{1,10}$/.test(v)) throw new Error(`The ${label} prefix can only use letters, digits and “/” (up to 10).`);
+      return v;
+    };
+    const padding = Math.round(Number(str(form, "number_padding")));
+    const dateFormat = str(form, "date_format") ?? "dd MMM yyyy";
+    if (!DATE_FORMATS.some((f) => f.value === dateFormat)) throw new Error("Pick a date format from the list.");
+    must(
+      await supabase
+        .from("company_settings")
+        .update({
+          invoice_prefix: prefix("invoice_prefix", "invoice"),
+          estimate_prefix: prefix("estimate_prefix", "estimate"),
+          proposal_prefix: prefix("proposal_prefix", "proposal"),
+          credit_note_prefix: prefix("credit_note_prefix", "credit note"),
+          number_padding: Number.isInteger(padding) && padding >= 1 && padding <= 10 ? padding : 5,
+          date_format: dateFormat,
+        })
+        .eq("id", true),
+    );
+    // Every screen prints numbers and dates
+    revalidatePath("/", "layout");
   });
 }
 

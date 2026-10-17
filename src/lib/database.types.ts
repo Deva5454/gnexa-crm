@@ -18,17 +18,20 @@ export type Database = {
           company_name: string; currency: string; date_format: string; id: boolean; updated_at: string;
           address: string | null; gstin: string | null; email: string | null; phone: string | null; bank_details: string | null; default_terms: string | null; auto_overdue_reminders: boolean; overdue_reminder_days: number; auto_expiry_reminders: boolean; expiry_reminder_days: number; demo_mode: boolean; theme: string; disabled_modules: string[]; menu_config: Json; ticket_autoclose_hours: number | null; contract_expiry_days: number | null; kb_public: boolean;
           invoice_due_days: number; quote_valid_days: number; invoice_note: string | null; estimate_terms: string | null; proposal_terms: string | null; default_country: string | null;
+          invoice_prefix: string; estimate_prefix: string; proposal_prefix: string; credit_note_prefix: string; number_padding: number;
         };
         Insert: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
          theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean;
-         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null; };
+         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null;
+         invoice_prefix?: string; estimate_prefix?: string; proposal_prefix?: string; credit_note_prefix?: string; number_padding?: number; };
         Update: {
           company_name?: string; currency?: string; date_format?: string; id?: boolean; updated_at?: string;
           address?: string | null; gstin?: string | null; email?: string | null; phone?: string | null; bank_details?: string | null; default_terms?: string | null; auto_overdue_reminders?: boolean; overdue_reminder_days?: number; auto_expiry_reminders?: boolean; expiry_reminder_days?: number;
          theme?: string; disabled_modules?: string[]; menu_config?: Json; ticket_autoclose_hours?: number | null; contract_expiry_days?: number | null; kb_public?: boolean;
-         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null; };
+         invoice_due_days?: number; quote_valid_days?: number; invoice_note?: string | null; estimate_terms?: string | null; proposal_terms?: string | null; default_country?: string | null;
+         invoice_prefix?: string; estimate_prefix?: string; proposal_prefix?: string; credit_note_prefix?: string; number_padding?: number; };
         Relationships: [];
       };
       contacts: {
@@ -776,6 +779,7 @@ export type Database = {
       save_sales_doc: { Args: { p_kind: Database["public"]["Enums"]["doc_kind"]; p_id: number | null; p_doc: Json; p_lines: Json }; Returns: Json };
       invoice_project: { Args: { p_project: number }; Returns: Json };
       demo_mode: { Args: Record<PropertyKey, never>; Returns: boolean };
+      format_settings: { Args: Record<PropertyKey, never>; Returns: Json };
       portal_pay: { Args: { p_invoice: number; p_amount: number; p_method: string }; Returns: string };
       web_form_info: { Args: { p_key: string }; Returns: Json };
       submit_web_form: { Args: { p_key: string; p_data: Json }; Returns: string };

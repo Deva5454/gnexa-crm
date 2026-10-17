@@ -28,7 +28,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Pro
 
   // Search: receipt number, invoice number, transaction / UTR no., note or customer name
   const term = sp.q ? searchTerm(sp.q) : "";
-  const n = /^(?:rcpt|inv)?[-\s#]*0*(\d{1,9})$/i.exec(term)?.[1];
+  const n = /^(?:[a-z/]+)?[-\s#]*0*(\d{1,9})$/i.exec(term)?.[1]; // "RCPT-00012", "INV-12", "GN/INV-012" or just "12"
   let searchInvoices: number[] = [];
   if (term) {
     const [{ data: byNumber }, { data: byCustomer }] = await Promise.all([

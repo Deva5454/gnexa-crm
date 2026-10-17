@@ -1,3 +1,4 @@
+import { formatConfig } from "@/lib/format-config";
 import { todayIST } from "./dates";
 
 // Shared by server and client: document kinds, numbering, totals and status rules.
@@ -24,8 +25,10 @@ export function kindFromSlug(slug: string): DocKind | null {
 /** Payment receipt number, e.g. RCPT-00012 */
 export const receiptNumber = (id: number) => `RCPT-${String(id).padStart(5, "0")}`;
 
+/** "INV-00012" — prefix and padding from Setup → Settings → Numbering & dates. */
 export function docNumber(kind: DocKind, number: number) {
-  return `${KINDS[kind].prefix}-${String(number).padStart(5, "0")}`;
+  const f = formatConfig();
+  return `${f.prefixes[kind] ?? KINDS[kind].prefix}-${String(number).padStart(f.padding, "0")}`;
 }
 
 export const docHref = (kind: DocKind, id: number) => `/sales/${KINDS[kind].slug}/${id}`;

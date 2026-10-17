@@ -1,3 +1,4 @@
+import { formatConfig } from "@/lib/format-config";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -5,14 +6,29 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** A date in the format chosen in Setup → Settings → Numbering & dates (default "17 Oct 2026"). */
 export function formatDate(value: string | null | undefined) {
   if (!value) return "—";
   const d = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const f = formatConfig().dateFormat;
+  if (f === "dd MMM yyyy") return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const y = d.getFullYear();
+  switch (f) {
+    case "dd/MM/yyyy": return `${dd}/${mm}/${y}`;
+    case "MM/dd/yyyy": return `${mm}/${dd}/${y}`;
+    case "yyyy-MM-dd": return `${y}-${mm}-${dd}`;
+    case "dd-MM-yyyy": return `${dd}-${mm}-${y}`;
+    default: return `${dd}.${mm}.${y}`;
+  }
 }
 
 export function formatDateTime(value: string | null | undefined) {
   if (!value) return "—";
+  if (formatConfig().dateFormat !== "dd MMM yyyy") {
+    return `${formatDate(value)}, ${new Date(value).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
+  }
   return new Date(value).toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",

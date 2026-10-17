@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BackButton } from "@/components/layout/back-button";
+import { FormatSync } from "@/components/layout/format-sync";
+import { loadFormat } from "@/lib/format-server";
 import { LogoMark } from "@/components/layout/logo";
 import { RoleSwitcher } from "@/components/layout/role-switcher";
 import { isDemoMode, requirePortal } from "@/lib/auth";
@@ -17,6 +19,7 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-canvas">
       <style>{themeCss(settings?.theme)}</style>
+      <FormatSync config={await loadFormat()} />
       <header className="bg-ink-900 print:hidden">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="flex h-16 items-center justify-between gap-4">
