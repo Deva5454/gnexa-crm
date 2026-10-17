@@ -610,10 +610,11 @@ export type Database = {
         ];
       };
       estimate_requests: {
-        Row: { id: number; form_id: number | null; name: string; email: string | null; phone: string | null; company: string | null; message: string | null; budget: string | null; status: string; assigned_to: string | null; lead_id: number | null; estimate_id: number | null; created_at: string };
-        Insert: { id?: never; form_id?: number | null; name: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; created_at?: string };
-        Update: { id?: never; form_id?: number | null; name?: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; created_at?: string };
+        Row: { id: number; form_id: number | null; name: string; email: string | null; phone: string | null; company: string | null; message: string | null; budget: string | null; status: string; assigned_to: string | null; lead_id: number | null; estimate_id: number | null; customer_id: number | null; created_at: string };
+        Insert: { id?: never; form_id?: number | null; name: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; customer_id?: number | null; created_at?: string };
+        Update: { id?: never; form_id?: number | null; name?: string; email?: string | null; phone?: string | null; company?: string | null; message?: string | null; budget?: string | null; status?: string; assigned_to?: string | null; lead_id?: number | null; estimate_id?: number | null; customer_id?: number | null; created_at?: string };
         Relationships: [
+          { foreignKeyName: "estimate_requests_customer_id_fkey"; columns: ["customer_id"]; isOneToOne: false; referencedRelation: "customers"; referencedColumns: ["id"] },
           { foreignKeyName: "estimate_requests_form_id_fkey"; columns: ["form_id"]; isOneToOne: false; referencedRelation: "web_forms"; referencedColumns: ["id"] },
           { foreignKeyName: "estimate_requests_assigned_to_fkey"; columns: ["assigned_to"]; isOneToOne: false; referencedRelation: "profiles"; referencedColumns: ["id"] },
           { foreignKeyName: "estimate_requests_lead_id_fkey"; columns: ["lead_id"]; isOneToOne: false; referencedRelation: "leads"; referencedColumns: ["id"] },

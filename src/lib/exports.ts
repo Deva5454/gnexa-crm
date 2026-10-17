@@ -65,6 +65,20 @@ export const DATASETS: Dataset[] = [
     },
   },
   {
+    key: "estimate_requests", label: "Estimate requests", module: "sales", dateLabel: "Received",
+    load: async (db, from, to) => {
+      const [{ data }, { data: statuses }] = await Promise.all([
+        allRows((a, b) => db.from("estimate_requests").select("id, name, company, email, phone, budget, message, status, created_at, assignee:profiles!estimate_requests_assigned_to_fkey(full_name), form:web_forms(name), lead:leads(name), customer:customers(company)").gte("created_at", from).lte("created_at", toTs(to)).order("id").range(a, b)),
+        db.from("estimate_request_statuses").select("key, name"),
+      ]);
+      const label = (k: string) => statuses?.find((s) => s.key === k)?.name ?? k;
+      return {
+        columns: ["ID", "Name", "Company", "E-mail", "Phone", "Budget", "Message", "Status", "Assigned to", "Form", "Lead", "Customer", "Received"],
+        rows: data.map((r) => [r.id, r.name, r.company, r.email, r.phone, r.budget, r.message, label(r.status), r.assignee?.full_name, r.form?.name, r.lead?.name, r.customer?.company, day(r.created_at)]),
+      };
+    },
+  },
+  {
     key: "payments", label: "Payments", module: "sales", dateLabel: "Date",
     load: async (db, from, to) => {
       const { data } = await allRows((a, b) => db.from("payments").select("id, date, amount, transaction_id, note, mode:payment_modes(name), invoice:sales_docs(number, currency, customer:customers(company))").gte("date", from).lte("date", to).order("date").order("id").range(a, b));
