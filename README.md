@@ -125,3 +125,34 @@ configuration or other people's access. A database trigger stops anyone from mak
 5. Run `supabase/migrations/0004_demo_mode.sql` in the Supabase SQL Editor (creates the demo personas and data).
 6. Optional: Supabase → **Authentication → Sign In / Providers** → turn off **Allow new users to sign up** — the demo
    doesn't use sign-ups.
+
+## Before going to production — developer to-do
+
+Left out on purpose while the CRM runs as a public demo. Build these when it goes live (`select private.go_live(...)`).
+
+### Add staff from inside Gnexa (Setup → Staff → "New staff member")
+
+**Today:** an administrator creates the login in Supabase → **Authentication → Users → Add user**. The person then
+appears in Setup → Staff as *Pending*; the admin clicks **Approve** and sets their role and departments there.
+
+**To build** (Perfex has this): a "New staff member" form on Setup → Staff with name, e-mail, role, departments and
+administrator, plus "Set password" on the staff member page.
+
+- Do it on the **server with the Supabase service-role key**, never in the browser:
+  - add `SUPABASE_SERVICE_ROLE_KEY` as a server-only environment variable in Vercel (no `NEXT_PUBLIC_` prefix);
+  - in a server action guarded by `requireAdmin()`, create an admin client with that key and call
+    `auth.admin.inviteUserByEmail(email, { data: { full_name } })` (the person sets their own password from the
+    e-mail) or `auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name } })`;
+  - `private.handle_new_user` then creates the profile (inactive); the same action sets `is_active`, `role_id`,
+    `is_admin` and `staff_departments`;
+  - "Set password" → `auth.admin.updateUserById(id, { password })`.
+- Refuse both while `private.demo_mode()` is true, so visitors to a demo can't create real logins.
+- Configure Supabase SMTP (Authentication → Emails) before relying on invite e-mails — the built-in sender is
+  heavily rate-limited.
+- Don't write to `auth.users` from SQL functions for this; use the Admin API above.
+
+### Client portal invitations
+
+The same service-role key unlocks e-mail invitations to the client portal (Customer → Contacts → portal access); the
+card on the customer page already says so. Create the user with `inviteUserByEmail(email, { data: { portal: "true" } })`
+(`handle_new_user` skips the staff profile for `portal: "true"`) and insert the matching `portal_users` row.
